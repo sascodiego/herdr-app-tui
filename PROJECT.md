@@ -90,7 +90,7 @@ the app's neutral tokens for chrome, inherited from the sibling repositories.
 | T2 | S1, S2 | code | pending | Framed mode (`hello` with `framed: true`, length-prefixed wire format read from herdr-core's `rpc.rs`, not guessed) and the protocol-generation check. Also verify the socket candidates in `config.rs` against herdr-core's `paths.rs` and `platform/unix.rs`, and decide between trying paths directly and spawning `hc connect` like herdr-app does |
 | T3 | S8 | code | pending | Events subscription: subscribe, parse JSON event stream, maintain sequence |
 | T4 | S3 | code | pending | Terminal list UI: ratatui widget, coloured status, refresh from events |
-| T5 | S4, S5 | code | pending | Terminal attach: attach viewer, render output, input via DATA frames, resize. Ghostty-vt is vendored in `herdr/crates/ghostty-vt`, not on crates.io: this task decides between a path dependency and vendoring here |
+| T5 | S4, S5 | code | **done** | Two-way terminal: `hc::attach`, first paint, stream drain with `credit`, libghostty rendering via copied `vt.rs`, keys encoded to DATA, resize, detach. Round trip verified against a live core |
 | T6 | S5 | code | pending | Input handling: crossterm event loop, prefix key, key dispatch, send/keys/interrupt |
 | T7 | S5 | code | pending | Scrollback and copy mode: `terminal.read`, selection, yank |
 | T8 | S7 | code | **dropped** | Machine support: prefix machine/t7 addresses in list, machine label display. Out of MVP by the human's decision; see S7 |
@@ -100,7 +100,7 @@ the app's neutral tokens for chrome, inherited from the sibling repositories.
 | T12 | S11, S12, S14, S15 | **code** | **done** | Artboard 01 (command sheet) in ratatui: header row, counted sections, agent rows hosted by their terminal, glyph plus word, selection as a surface band, rail on the left when wide, sheet over the screen on a phone, no status bar. Verified against a live core |
 | T13 | S13 | code | **done** | Desktop rail: the same panel, 26 columns on the **left**, one rule, terminal to its right. Covered by `a_wide_screen_keeps_the_rail_on_the_left` |
 | T14 | S1 | code | pending | Extract `herdr-client` inside herdr-app's workspace (hc, core_bin, model, layout, mirror, persist, spawn) so herdr-app and this TUI share one source of truth instead of a pinned copy. Blocked first step: herdr-app does not build here (`vendor/ghostty` submodule uninitialised, Zig needed for `ghostty-sys`) |
-| T15 | S6 | code | pending | Read the shared workspace document: `doc.get({"name":"herdr-app"})` is how spaces and tabs are persisted (see `mirror_sync.rs`); today the panel lists the core's terminals, and the SPACES section is omitted rather than repeating the session name |
+| T15 | S6 | code | **done** | Read the shared workspace document with `doc.get({"name":"herdr-app"})` and convert it with the copied `Document::replace`. TABS now lists the active space's tabs from that document, so terminals outside every tab are not shown; a failed `doc.get` falls back to the core's terminal list. No new upstream modules were needed |
 
 ## Log
 
@@ -216,3 +216,29 @@ de unidad pasando, `cargo clippy --all-targets -- -D warnings` limpio.
 máquina, así que el `justfile` no se pudo verificar acá; los comandos de
 `Cargo.toml` sí. `AGENTS.md` menciona `just build`, que queda como objetivo
 del repo, no como algo comprobado localmente.
+**L13 — 2026-11-18** — El usuario preguntó cómo era la ida y vuelta si el pane
+era un tail. Respuesta: no lo era; `terminal.read` es un snapshot sin canal.
+Se selló T5 y se eligió **ghostty** sobre `vt100` según la recomendación
+aceptada: paridad con herdr-app (Kitty graphics, queries, key encoding),
+aceptando FFI `unsafe` documentada como D5.
+
+Preparación: Zig 0.16.0 verificado en `~/.local/bin/zig` (SHA-256
+`ea4b09bf…`), `vendor/ghostty` inicializado en herdr-app al commit `291fd05`,
+y `clang` 21 —bindgen lo necesita para `stdint.h`. Sin sudo: `sudo -v` pidió
+contraseña y el usuario ejecutó la instalación por su cuenta.
+
+**L14 — 2026-11-18** — T5 implementado: `src/tui/attach.rs` (attach, drenaje,
+`credit` en bloques de 64 KiB, `automatic_input` para respuestas del emulador,
+resize, detach, codificación de teclas) y `ScreenState` en la vista para pintar
+las celdas de libghostty con los colores de `design/system.md`.
+
+Dos hallazgos verificados en vivo: (a) `hc::attach` **no** hace el credit
+inicial, a diferencia de `subscribe` — sin él no llega el first paint; se
+arregló en `Session::attach`; (b) `terminal.read` sigue para la preview y el
+modo pipe, pero el pane real usa el stream.
+
+Verificado: 176 tests, 1 ignorado, `cargo clippy --all-targets -- -D warnings`
+limpio y **cero `#[allow]`** (D9/D10 eliminaron los dos que venían de upstream).
+Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
+`LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
+`roundtrip-ok`.

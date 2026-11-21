@@ -52,8 +52,20 @@ installed. The session comes from `HC_SESSION`, `default` when unset.
 | `r` | Refresh now |
 | `q` | Leave the panel, then quit |
 
-Until the attach stream lands (T5), this screen is a viewer: it shows each
-terminal's tail and does not forward keys to an agent.
+The panel lists the tabs of the active space in the shared `herdr-app`
+document — the same data the desktop app reads — and uses `terminal.list` only
+for their live state. Terminals outside every tab are not shown. If `doc.get`
+fails, it falls back to the core's terminal list.
+
+With a tab selected in the panel, the pane is attached live: bytes from
+herdr-core are rendered by libghostty, and your keys go back to the program.
+`tab` opens the panel and takes the keyboard; `esc` gives it back.
+
+Scripted round trip:
+
+```bash
+herdr-app-tui --attach t7 --send 'hello'
+```
 
 ## Status
 

@@ -29,6 +29,12 @@ struct Cli {
     /// Print the agent instructions and exit.
     #[arg(long, hide = true)]
     skill: bool,
+    /// Attach once to a terminal, send text, print the screen and exit.
+    #[arg(long, value_name = "TERMINAL")]
+    attach: Option<String>,
+    /// Text to send with --attach.
+    #[arg(long, requires = "attach")]
+    send: Option<String>,
 }
 
 fn main() {
@@ -49,6 +55,10 @@ fn run() -> i32 {
                 .unwrap_or_else(|_| "warn,herdr_app_tui=info".into()),
         )
         .init();
+
+    if let Some(terminal) = cli.attach {
+        std::process::exit(herdr_app_tui::tui::attach_once(&terminal, cli.send.as_deref()));
+    }
 
     match herdr_app_tui::tui::run() {
         Ok(code) => code,

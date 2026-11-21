@@ -1,6 +1,10 @@
 //! The screen's state, with no terminal and no I/O: everything here is testable.
 
+use crate::mirror::Document;
+use crate::model::Model;
 use serde_json::Value;
+
+use super::view::ScreenState;
 
 use super::glyph::State;
 
@@ -40,6 +44,18 @@ impl Terminal {
     }
 }
 
+/// One tab of the active space, as the panel lists it. A tab owns its
+/// terminals through its layout, so its address is the first one for preview
+/// and attach; a tab with no terminal yet has none.
+#[derive(Clone, Debug)]
+pub struct Row {
+    pub id: String,
+    pub name: String,
+    pub address: Option<String>,
+    pub state: State,
+    pub preview: Vec<String>,
+}
+
 /// Where the keyboard is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Focus {
@@ -50,7 +66,6 @@ pub enum Focus {
 }
 
 /// Everything the view draws.
-#[derive(Debug)]
 pub struct App {
     /// The herdr-core session this screen is attached to.
     pub session: String,
@@ -63,6 +78,19 @@ pub struct App {
     pub cursor: usize,
     pub terminals: Vec<Terminal>,
     pub hidden_finished: u64,
+    /// The shared workspace document, the same data herdr-app reads.
+    pub model: Model,
+    /// Whether the core answered `doc.get`, as opposed to falling back to the
+    /// terminal list because the call failed.
+    pub doc_available: bool,
+    /// The document's compare-and-swap version, kept for a future write.
+    pub doc_version: Option<u64>,
+    /// Why the document could not be read, when it could not.
+    pub doc_error: Option<String>,
+    /// The tabs the panel lists, derived from the document's active space.
+    pub rows: Vec<Row>,
+    /// The attached screen, when a terminal is being viewed live.
+    pub screen: Option<ScreenState>,
 }
 
 impl App {
@@ -75,6 +103,12 @@ impl App {
             cursor: 0,
             terminals: Vec::new(),
             hidden_finished: 0,
+            model: Model::default(),
+            doc_available: false,
+            doc_version: None,
+            doc_error: None,
+            rows: Vec::new(),
+            screen: None,
         }
     }
 
@@ -83,7 +117,107 @@ impl App {
         let entries = list.get("terminals").and_then(Value::as_array).cloned().unwrap_or_default();
         self.terminals = entries.iter().map(Terminal::from_value).collect();
         self.hidden_finished = list.get("hidden_finished").and_then(Value::as_u64).unwrap_or(0);
+        self.rebuild_rows();
+    }
+
+    /// Replace the workspace from a `doc.get` result. The document is the
+    /// source of the panel's rows; the terminal list only supplies their live
+    /// state, exactly as it does in herdr-app.
+    pub fn set_workspace(&mut self, result: &Value) {
+        self.doc_available = result.get("value").is_some_and(|value| !value.is_null());
+        let value = result.get("value").cloned().unwrap_or(Value::Null);
+        let document: Document = if value.is_null() {
+            Document::default()
+        } else {
+            match serde_json::from_value(value) {
+                Ok(document) => document,
+                Err(error) => {
+                    self.doc_error = Some(format!("cannot read the workspace document: {error}"));
+                    return;
+                }
+            }
+        };
+        document.replace(&mut self.model, None);
+        if self.model.active.is_none() {
+            self.model.active = self.model.spaces.first().map(|space| space.id.clone());
+        }
+        self.doc_version = result.get("version").and_then(Value::as_u64);
+        self.doc_error = None;
+        self.rebuild_rows();
+    }
+
+    /// Rebuild the panel's rows from the active space's tabs. With no
+    /// workspace yet, fall back to the core's top-level terminals so a fresh
+    /// core is still usable.
+    fn rebuild_rows(&mut self) {
+        let from_document = self.doc_available;
+        let tabs: Vec<(String, String, Option<String>)> = match self.model.active_space() {
+            Some(space) if from_document => space
+                .tabs
+                .iter()
+                .map(|tab| {
+                    let address = tab
+                        .root
+                        .terminals()
+                        .first()
+                        .and_then(|node| node.terminal())
+                        .map(str::to_owned);
+                    (tab.id.clone(), Model::tab_name(space, tab), address)
+                })
+                .collect(),
+            _ if !from_document => self
+                .terminals
+                .iter()
+                .filter(|terminal| match &terminal.parent {
+                    Some(parent) => !self.terminals.iter().any(|other| &other.address == parent),
+                    None => true,
+                })
+                .map(|terminal| {
+                    (
+                        terminal.address.clone(),
+                        terminal.name.clone(),
+                        Some(terminal.address.clone()),
+                    )
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+
+        self.rows = tabs
+            .into_iter()
+            .map(|(id, name, address)| {
+                let state = address
+                    .as_deref()
+                    .and_then(|address| {
+                        self.terminals
+                            .iter()
+                            .find(|terminal| terminal.address == address)
+                            .map(|terminal| terminal.state)
+                    })
+                    .unwrap_or(State::Unknown);
+                Row { id, name, address, state, preview: Vec::new() }
+            })
+            .collect();
+        if !from_document {
+            // Without a workspace, rank the core's terminals by attention.
+            // Tabs keep their document order, as they do in herdr-app.
+            self.rows.sort_by_key(|row| (row.state.priority(), row.name.clone()));
+        }
+        self.copy_previews();
         self.clamp_cursor();
+    }
+
+    /// A rebuild drops previews; carry over what the core already told us.
+    fn copy_previews(&mut self) {
+        for row in &mut self.rows {
+            let Some(address) = row.address.as_deref() else { continue };
+            if let Some(terminal) = self.terminals.iter().find(|terminal| terminal.address == address) {
+                row.preview = terminal.preview.clone();
+                if row.state == State::Unknown {
+                    row.state = terminal.state;
+                }
+            }
+        }
     }
 
     /// Keep the preview of one terminal, trimmed to [`PREVIEW_LINES`].
@@ -92,23 +226,16 @@ impl App {
         let start = lines.len().saturating_sub(PREVIEW_LINES);
         let tail = lines[start..].to_vec();
         if let Some(terminal) = self.terminals.iter_mut().find(|terminal| terminal.address == address) {
-            terminal.preview = tail;
+            terminal.preview = tail.clone();
+        }
+        if let Some(row) = self.rows.iter_mut().find(|row| row.address.as_deref() == Some(address)) {
+            row.preview = tail;
         }
     }
 
-    /// The rows the panel lists: terminals with no parent here, most in need of
-    /// the person first.
-    pub fn rows(&self) -> Vec<&Terminal> {
-        let mut roots: Vec<&Terminal> = self
-            .terminals
-            .iter()
-            .filter(|terminal| match &terminal.parent {
-                Some(parent) => !self.terminals.iter().any(|other| &other.address == parent),
-                None => true,
-            })
-            .collect();
-        roots.sort_by_key(|terminal| (terminal.state.priority(), terminal.address.clone()));
-        roots
+    /// The tabs of the active workspace, as the panel lists them.
+    pub fn rows(&self) -> Vec<&Row> {
+        self.rows.iter().collect()
     }
 
     /// The terminals started by `address`, in the order they were created.
@@ -117,8 +244,8 @@ impl App {
     }
 
     /// The highlighted row.
-    pub fn selected(&self) -> Option<&Terminal> {
-        self.rows().get(self.cursor).copied()
+    pub fn selected(&self) -> Option<&Row> {
+        self.rows.get(self.cursor)
     }
 
     /// Move the highlight by `delta` rows, staying inside the list.
@@ -148,7 +275,7 @@ impl App {
     }
 
     fn clamp_cursor(&mut self) {
-        let last = self.rows().len().saturating_sub(1);
+        let last = self.rows.len().saturating_sub(1);
         if self.cursor > last {
             self.cursor = last;
         }
@@ -194,14 +321,14 @@ mod tests {
     #[test]
     fn whoever_needs_the_person_is_listed_first() {
         let app = app();
-        let order: Vec<&str> = app.rows().iter().map(|row| row.address.as_str()).collect();
+        let order: Vec<&str> = app.rows().iter().map(|row| row.address.as_deref().unwrap_or("?")).collect();
         assert_eq!(order, ["t2", "t3", "t1"], "blocked, then working, then idle");
     }
 
     #[test]
     fn a_helper_nests_under_the_terminal_that_started_it() {
         let app = app();
-        let rows: Vec<&str> = app.rows().iter().map(|row| row.address.as_str()).collect();
+        let rows: Vec<&str> = app.rows().iter().map(|row| row.address.as_deref().unwrap_or("?")).collect();
         assert!(!rows.contains(&"t4"), "a helper is not a top-level row: {rows:?}");
         let children: Vec<&str> = app.children_of("t3").iter().map(|row| row.address.as_str()).collect();
         assert_eq!(children, ["t4"]);
@@ -211,7 +338,7 @@ mod tests {
     fn a_child_whose_parent_is_gone_becomes_a_top_level_row() {
         let mut app = App::new("default", "local");
         app.set_terminals(&list(json!([{ "address": "t9", "parent": "gone" }])));
-        let rows: Vec<&str> = app.rows().iter().map(|row| row.address.as_str()).collect();
+        let rows: Vec<&str> = app.rows().iter().map(|row| row.address.as_deref().unwrap_or("?")).collect();
         assert_eq!(rows, ["t9"]);
     }
 
@@ -230,7 +357,7 @@ mod tests {
         app.move_cursor(9);
         app.set_terminals(&list(json!([{ "address": "t1" }])));
         assert_eq!(app.cursor, 0);
-        assert_eq!(app.selected().map(|row| row.address.as_str()), Some("t1"));
+        assert_eq!(app.selected().and_then(|row| row.address.as_deref()), Some("t1"));
     }
 
     #[test]
@@ -262,5 +389,76 @@ mod tests {
     #[test]
     fn the_hidden_finished_count_comes_from_the_core() {
         assert_eq!(app().hidden_finished, 2);
+    }
+
+    fn workspace(tabs: Value) -> Value {
+        json!({
+            "version": 5,
+            "value": { "spaces": [{
+                "id": "s1", "name": "work", "folder": "", "tabs": tabs
+            }] }
+        })
+    }
+
+    #[test]
+    fn a_tab_in_the_workspace_document_becomes_a_row() {
+        let mut app = app();
+        app.set_workspace(&workspace(json!([
+            { "id": "tb1", "name": "review", "root": { "id": "tb1", "type": "row", "children": [
+                { "id": "pdf2", "type": "block", "content": { "terminal": "t10" } }
+            ] } }
+        ])));
+        let rows: Vec<(&str, Option<&str>)> = app
+            .rows()
+            .iter()
+            .map(|row| (row.name.as_str(), row.address.as_deref()))
+            .collect();
+        assert_eq!(rows, [("review", Some("t10"))]);
+    }
+
+    #[test]
+    fn a_terminal_outside_the_workspace_is_not_a_row() {
+        let mut app = app();
+        app.set_workspace(&workspace(json!([
+            { "id": "tb1", "root": { "id": "tb1", "type": "row", "children": [
+                { "id": "b1", "type": "block", "content": { "terminal": "t1" } }
+            ] } }
+        ])));
+        let rows: Vec<Option<&str>> = app.rows().iter().map(|row| row.address.as_deref()).collect();
+        assert_eq!(rows, [Some("t1")], "t2 and t3 are not in any tab");
+    }
+
+    #[test]
+    fn a_document_row_takes_its_state_from_its_terminal() {
+        let mut app = app();
+        app.set_workspace(&workspace(json!([
+            { "id": "tb1", "root": { "id": "tb1", "type": "row", "children": [
+                { "id": "b1", "type": "block", "content": { "terminal": "t2" } }
+            ] } }
+        ])));
+        assert_eq!(app.rows()[0].state, State::NeedsYou, "t2 is blocked in the core");
+    }
+
+    #[test]
+    fn an_empty_workspace_has_no_rows() {
+        let mut app = app();
+        app.set_workspace(&json!({ "version": 6, "value": { "spaces": [] } }));
+        assert!(app.rows().is_empty());
+        assert_eq!(app.doc_version, Some(6));
+    }
+
+    #[test]
+    fn only_the_active_space_tabs_become_rows() {
+        let mut app = app();
+        app.set_workspace(&json!({
+            "version": 5,
+            "value": { "spaces": [
+                { "id": "s1", "tabs": [{ "id": "tb1", "name": "first" }] },
+                { "id": "s2", "tabs": [{ "id": "tb2", "name": "second" }] }
+            ] }
+        }));
+        let names: Vec<&str> = app.rows().iter().map(|row| row.name.as_str()).collect();
+        assert_eq!(names, ["first"], "the other space is not shown");
+        assert_eq!(app.doc_version, Some(5));
     }
 }

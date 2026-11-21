@@ -9,6 +9,64 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use super::app::App;
 use super::glyph::{self, State};
 use super::theme;
+use crate::vt::CursorShape;
+
+/// One row of text in an attached screen, with its styles resolved to tokens
+/// the view can paint. Kept separate from `vt::Cell`, which is not `Debug` and
+/// carries emulator state the view must not know about.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ScreenCell {
+    pub text: String,
+    pub fg: ratatui::style::Color,
+    pub bg: Option<ratatui::style::Color>,
+    pub bold: bool,
+    pub italic: bool,
+    pub faint: bool,
+    pub strike: bool,
+    pub underline: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct ScreenState {
+    pub rows: Vec<Vec<ScreenCell>>,
+    /// `(x, y, shape)` of the cursor.
+    pub cursor: Option<(u16, u16, u8)>,
+}
+
+impl ScreenState {
+    /// Take a snapshot of a libghostty frame.
+    pub fn from_frame(frame: crate::vt::Frame) -> ScreenState {
+        let color = |rgb: crate::vt::Rgb| ratatui::style::Color::Rgb(rgb.0, rgb.1, rgb.2);
+        let rows = frame
+            .rows
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|cell| ScreenCell {
+                        text: cell.text.clone(),
+                        fg: color(cell.fg),
+                        bg: cell.bg.map(color),
+                        bold: cell.bold,
+                        italic: cell.italic,
+                        faint: cell.faint,
+                        strike: cell.strike,
+                        underline: cell.underline.is_some(),
+                    })
+                    .collect()
+            })
+            .collect();
+        let cursor = frame.cursor.map(|cursor| {
+            let shape = match cursor.shape {
+                CursorShape::Block => 0,
+                CursorShape::Bar => 1,
+                CursorShape::Underline => 2,
+                CursorShape::Hollow => 3,
+            };
+            (cursor.x, cursor.y, shape)
+        });
+        ScreenState { rows, cursor }
+    }
+}
 
 /// Below this many columns the panel opens over the whole screen; at or above
 /// it, the panel is a rail that is always visible on the left.
@@ -24,7 +82,7 @@ pub fn render(app: &App, frame: &mut Frame) {
         let [rule, terminal] = Layout::horizontal([Constraint::Length(1), Constraint::Min(1)]).areas(rest);
         draw_panel(app, rail, frame, true);
         draw_rule(rule, frame);
-        draw_terminal(app, terminal, frame);
+        draw_terminal(app, frame, terminal);
     } else if app.panel {
         let [header, body] = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(area);
         draw_header(app, header, frame);
@@ -32,7 +90,7 @@ pub fn render(app: &App, frame: &mut Frame) {
     } else {
         let [header, terminal] = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(area);
         draw_header(app, header, frame);
-        draw_terminal(app, terminal, frame);
+        draw_terminal(app, frame, terminal);
     }
 }
 
@@ -73,8 +131,13 @@ fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
     frame.render_widget(Paragraph::new(lines).style(style), area);
 }
 
-/// The terminal area, which until T5 shows the selected terminal's tail.
-fn draw_terminal(app: &App, area: Rect, frame: &mut Frame) {
+/// The terminal area: the attached screen when there is one, the preview otherwise.
+fn draw_terminal(app: &App, frame: &mut Frame, area: Rect) {
+    if let Some(screen) = &app.screen {
+        draw_screen(screen, area, frame);
+        return;
+    }
+
     let mut lines: Vec<Line> = Vec::new();
     match app.selected() {
         Some(terminal) if !terminal.preview.is_empty() => {
@@ -98,6 +161,33 @@ fn draw_terminal(app: &App, area: Rect, frame: &mut Frame) {
     frame.render_widget(Paragraph::new(lines).style(Style::default().bg(theme::BG)), area);
 }
 
+/// Paint the attached screen into ratatui's buffer.
+fn draw_screen(screen: &ScreenState, area: Rect, frame: &mut Frame) {
+    let buf = frame.buffer_mut();
+    for (y, row) in screen.rows.iter().enumerate().take(area.height as usize) {
+        for (x, cell) in row.iter().enumerate().take(area.width as usize) {
+            let mut style = Style::default().fg(cell.fg).bg(cell.bg.unwrap_or(theme::BG));
+            if cell.bold { style = style.add_modifier(Modifier::BOLD); }
+            if cell.italic { style = style.add_modifier(Modifier::ITALIC); }
+            if cell.faint { style = style.add_modifier(Modifier::DIM); }
+            if cell.strike { style = style.add_modifier(Modifier::CROSSED_OUT); }
+            if cell.underline { style = style.add_modifier(Modifier::UNDERLINED); }
+            let symbol = if cell.text.is_empty() { " " } else { &cell.text };
+            buf[(area.x + x as u16, area.y + y as u16)].set_symbol(symbol).set_style(style);
+        }
+    }
+    if let Some((x, y, shape)) = screen.cursor
+        && y < area.height
+        && x < area.width
+    {
+        let cell = &mut buf[(area.x + x, area.y + y)];
+        match shape {
+            0 => { cell.set_bg(theme::ACCENT); cell.set_fg(theme::BG); }
+            _ => { cell.set_fg(theme::ACCENT); }
+        }
+    }
+}
+
 /// The panel's rows.
 fn panel_lines(app: &App, width: u16, wide: bool) -> Vec<Line<'static>> {
     let mut lines: Vec<Line<'static>> = Vec::new();
@@ -108,10 +198,12 @@ fn panel_lines(app: &App, width: u16, wide: bool) -> Vec<Line<'static>> {
 
     let rows = app.rows();
     lines.push(section(&format!("{} TABS", glyph::EXPANDED), rows.len(), width));
-    for (index, terminal) in rows.iter().enumerate() {
-        lines.push(row_line(terminal, index == app.cursor, width));
-        for child in app.children_of(&terminal.address) {
-            lines.push(child_line(child));
+    for (index, row) in rows.iter().enumerate() {
+        lines.push(row_line(row, index == app.cursor, width));
+        if let Some(address) = &row.address {
+            for child in app.children_of(address) {
+                lines.push(child_line(child));
+            }
         }
     }
 
@@ -165,14 +257,14 @@ fn section(label: &str, count: usize, width: u16) -> Line<'static> {
     Line::from(Span::styled(text, Style::default().fg(theme::MUTED).add_modifier(Modifier::BOLD)))
 }
 
-fn row_line(terminal: &super::app::Terminal, selected: bool, width: u16) -> Line<'static> {
-    let left = format!("  {}", terminal.name);
-    let state = format!("{} {}", terminal.state.glyph(), terminal.state.word());
+fn row_line(row: &super::app::Row, selected: bool, width: u16) -> Line<'static> {
+    let left = format!("  {}", row.name);
+    let state = format!("{} {}", row.state.glyph(), row.state.word());
     let gap = (width as usize).saturating_sub(left.chars().count() + state.chars().count());
     let band = selected.then(|| Style::default().bg(theme::SURFACE));
     let label = band.unwrap_or_default().fg(theme::TEXT).add_modifier(Modifier::BOLD);
     let padding = band.unwrap_or_default();
-    let value = band.unwrap_or_else(|| Style::default().fg(terminal.state.color()));
+    let value = band.unwrap_or_else(|| Style::default().fg(row.state.color()));
     Line::from(vec![
         Span::styled(left, label),
         Span::styled(" ".repeat(gap), padding),
