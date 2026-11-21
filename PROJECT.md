@@ -91,7 +91,7 @@ the app's neutral tokens for chrome, inherited from the sibling repositories.
 | T3 | S8 | code | pending | Events subscription: subscribe, parse JSON event stream, maintain sequence |
 | T4 | S3 | code | pending | Terminal list UI: ratatui widget, coloured status, refresh from events |
 | T5 | S4, S5 | code | **done** | Two-way terminal: `hc::attach`, first paint, stream drain with `credit`, libghostty rendering via copied `vt.rs`, keys encoded to DATA, resize, detach. Round trip verified against a live core |
-| T6 | S5 | code | pending | Input handling: crossterm event loop, prefix key, key dispatch, send/keys/interrupt |
+| T6 | S5 | code | **done** | Input handling: the highlighted tab attaches on the first frame, `tab` toggles the panel, `enter` attaches, and every other key goes to the agent (`q`, `r`, `esc` and `ctrl+c` included). `ctrl+q`/`ctrl+\` quit. Mouse deliberately out of scope |
 | T7 | S5 | code | pending | Scrollback and copy mode: `terminal.read`, selection, yank |
 | T8 | S7 | code | **dropped** | Machine support: prefix machine/t7 addresses in list, machine label display. Out of MVP by the human's decision; see S7 |
 | T9 | S9 | code | pending | Config file: toml parser, env overrides, socket/display settings |
@@ -242,3 +242,14 @@ limpio y **cero `#[allow]`** (D9/D10 eliminaron los dos que venían de upstream)
 Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
 `LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
 `roundtrip-ok`.
+
+**L15 — 2026-11-21** — El usuario corrió la TUI por Mosh en la notebook y
+reportó que veía el panel pero no podía interactuar: sin prompt y sin mouse.
+Se descartó Mosh y el core: el documento compartido estaba en `spaces: []`,
+no había filas y por lo tanto nunca se adjuntaba nada; además el attach solo
+se intentaba al apretar una tecla con el panel abierto. T15 había resuelto la
+definición de filas; T6 resuelve la interacción. Sin mouse por decisión del
+usuario. Verificado con un core aislado `HC_SESSION=tui-itest`: un terminal
+`cat` creado por `hc run --bg` y puesto en el documento se adjuntó solo en el
+primer frame; escribir `SECOND-ROUNDTRIP` devolvió el texto en el pane y
+`ctrl+q` cerró con exit 0. 181 tests, clippy limpio.

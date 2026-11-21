@@ -69,6 +69,11 @@ fn event_loop(
     let mut attached_address: Option<String> = None;
 
     loop {
+        // A tab selected in the panel owns the pane. Attach as soon as it is
+        // selected, including on the first frame, so there is a live prompt
+        // without waiting for another key press.
+        sync_attachment(core, app, terminal, &mut attached, &mut attached_address)?;
+
         // Keep the viewer's grid the same size as the terminal pane.
         if let Some(session) = attached.as_mut() {
             let area = terminal.get_frame().area();
@@ -86,57 +91,38 @@ fn event_loop(
                 continue;
             }
 
-            // With a live terminal and the panel closed, every key goes to the
-            // agent. The prefix is Tab: it opens the panel, and the panel takes
-            // the keyboard until Esc closes it.
+            let action = input::action(key);
+
+            // The panel owns the keyboard only while it is open. Ctrl+\ is the
+            // one way out; Enter attaches to the highlighted tab and closes.
             if app.panel {
-                match input::action(key) {
-                    Action::Quit | Action::ClosePanel => {
-                        app.panel = false;
-                        continue;
+                match action {
+                    Action::Quit => {
+                        detach(attached.take(), core);
+                        return Ok(0);
                     }
-                    Action::TogglePanel => {
-                        app.panel = false;
-                        continue;
-                    }
+                    Action::ClosePanel | Action::TogglePanel | Action::Attach => app.panel = false,
                     Action::Up => app.move_cursor(-1),
                     Action::Down => app.move_cursor(1),
                     Action::Refresh => {}
                     Action::Ignore => continue,
                 }
-                // Selecting a row in the panel attaches to that terminal.
-                if let Some(address) = app.selected().and_then(|row| row.address.clone())
-                    && attached_address.as_deref() != Some(address.as_str())
-                {
-                    if let Some(old) = attached.take() {
-                        old.detach(core);
-                    }
-                    let area = terminal.get_frame().area();
-                    let (cols, rows) = pane_size(app, area.width, area.height);
-                    attached = Some(Session::attach(core, &address, cols, rows)?);
-                    attached_address = Some(address);
-                }
                 continue;
             }
 
-            match input::action(key) {
-                Action::TogglePanel => app.panel = true,
+            match action {
                 Action::Quit => {
-                    if let Some(session) = attached.take() {
-                        session.detach(core);
-                    }
+                    detach(attached.take(), core);
                     return Ok(0);
                 }
-                Action::Refresh => {}
+                Action::TogglePanel => app.panel = true,
+                // With nothing attached, Esc leaves; with a live pane it is a
+                // key for the program, like q, r and Ctrl+C.
+                Action::ClosePanel if attached.is_none() => {
+                    detach(attached.take(), core);
+                    return Ok(0);
+                }
                 _ => {
-                    // Ordinary keys, including q and the arrows, belong to the
-                    // program in the pane. Only Tab and Ctrl+C escape to us.
-                    if input::action(key) == Action::Quit {
-                        if let Some(session) = attached.take() {
-                            session.detach(core);
-                        }
-                        return Ok(0);
-                    }
                     if let Some(session) = attached.as_mut() {
                         session.key(core, key);
                     }
@@ -146,6 +132,50 @@ fn event_loop(
 
         refresh(core, app)?;
     }
+}
+
+/// Leave the terminal attached on the core side; it keeps running and another
+/// client can pick it up.
+fn detach(session: Option<Session>, core: &std::sync::Arc<hc::Core>) {
+    if let Some(session) = session {
+        session.detach(core);
+    }
+}
+
+/// Attach to the tab the panel highlights. Detach from the previous one when
+/// the selection changes; a failed attach is remembered so a broken terminal
+/// does not retry every tick.
+fn sync_attachment(
+    core: &std::sync::Arc<hc::Core>,
+    app: &mut App,
+    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    attached: &mut Option<Session>,
+    attached_address: &mut Option<String>,
+) -> anyhow::Result<()> {
+    let desired = app.selected().and_then(|row| row.address.clone());
+    if desired == *attached_address {
+        return Ok(());
+    }
+    detach(attached.take(), core);
+    let Some(address) = desired else {
+        app.screen = None;
+        *attached_address = None;
+        return Ok(());
+    };
+    let area = terminal.get_frame().area();
+    let (cols, rows) = pane_size(app, area.width, area.height);
+    match Session::attach(core, &address, cols, rows) {
+        Ok(session) => {
+            *attached = Some(session);
+            *attached_address = Some(address);
+        }
+        Err(error) => {
+            app.doc_error = Some(format!("cannot attach {address}: {error:#}"));
+            app.screen = None;
+            *attached_address = Some(address);
+        }
+    }
+    Ok(())
 }
 
 /// The terminal pane's size in cells, accounting for the rail and header.

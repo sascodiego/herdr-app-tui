@@ -48,18 +48,21 @@ installed. The session comes from `HC_SESSION`, `default` when unset.
 | Key | What it does |
 |---|---|
 | `tab` | Open or close the panel |
-| `j` `k` / arrows | Move the highlight |
-| `r` | Refresh now |
-| `q` | Leave the panel, then quit |
+| `j` `k` / arrows | Move the highlight; the highlighted tab attaches automatically |
+| `enter` | Attach to the highlighted tab and give it the keyboard |
+| `esc` | Close the panel; quit when nothing is attached |
+| `ctrl+q` / `ctrl+\` | Quit (also sends no key to the agent) |
 
 The panel lists the tabs of the active space in the shared `herdr-app`
 document — the same data the desktop app reads — and uses `terminal.list` only
 for their live state. Terminals outside every tab are not shown. If `doc.get`
 fails, it falls back to the core's terminal list.
 
-With a tab selected in the panel, the pane is attached live: bytes from
-herdr-core are rendered by libghostty, and your keys go back to the program.
-`tab` opens the panel and takes the keyboard; `esc` gives it back.
+The highlighted tab is attached automatically, including on the first frame:
+bytes from herdr-core are rendered by libghostty, and your keys go back to the
+program. `tab` opens the panel and takes the keyboard; `esc` gives it back.
+While attached, `q`, `r`, `esc` and `ctrl+c` belong to the agent, not to the
+screen.
 
 Scripted round trip:
 
