@@ -243,6 +243,15 @@ Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
 `LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
 `roundtrip-ok`.
 
+**L23 — 2026-11-21** — El usuario pidió que `AGENTS.md` establezca que no se
+hacen release builds salvo que se esté cortando un release: el loop usa
+`cargo check` y, si hace falta binario, `cargo build` debug. Se ajustó el
+`justfile`: `build` es debug, nueva recipe `release`, `install` depende de
+`release` porque copia `target/release/herdr-app-tui` (dependencia de ruta, no
+de flag). Se documentó que ninguna dependencia requiere hoy verificación en
+release y que se evaluaría caso por caso. `cargo fmt --check` no se incluye
+como gate porque falla en la copia upstream `crates/ghostty-sys/build.rs`.
+
 **L22 — 2026-11-21** — El usuario pidió seguir con el repo. Se commiteó
 `.engram/config.json` y se pushearon los commits pendientes. Se agregó
 `build.rs`, que expone el hash corto del commit al compilar, y `--version` ahora
