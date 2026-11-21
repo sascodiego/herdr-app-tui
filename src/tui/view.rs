@@ -74,38 +74,79 @@ pub const WIDE_AT: u16 = 60;
 /// The rail's width when the screen is wide.
 pub const RAIL_WIDTH: u16 = 26;
 
-/// Draw one frame.
-pub fn render(app: &App, frame: &mut Frame) {
-    let area = frame.area();
+/// Where a pointer can land. The same zones drive the render and the input
+/// routing, so a tap always hits what the screen shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Zones {
+    pub wide: bool,
+    /// The single row at the top of a phone-sized screen.
+    pub header: Option<Rect>,
+    /// The sheet on a phone, the rail on a desktop.
+    pub panel: Option<Rect>,
+    /// The one-column rule between the rail and the terminal.
+    pub rule: Option<Rect>,
+    /// The live terminal or its preview.
+    pub terminal: Rect,
+}
+
+impl Zones {
+    pub fn contains(rect: Option<Rect>, x: u16, y: u16) -> bool {
+        rect.is_some_and(|r| x >= r.x && x < r.x.saturating_add(r.width) && y >= r.y && y < r.y.saturating_add(r.height))
+    }
+}
+
+/// Resolve the screen's zones once, for both drawing and hit testing.
+pub fn zones(area: Rect, panel_open: bool) -> Zones {
     if area.width >= WIDE_AT {
         let [rail, rest] = Layout::horizontal([Constraint::Length(RAIL_WIDTH), Constraint::Min(1)]).areas(area);
         let [rule, terminal] = Layout::horizontal([Constraint::Length(1), Constraint::Min(1)]).areas(rest);
-        draw_panel(app, rail, frame, true);
-        draw_rule(rule, frame);
-        draw_terminal(app, frame, terminal);
-    } else if app.panel {
+        Zones { wide: true, header: None, panel: Some(rail), rule: Some(rule), terminal }
+    } else if panel_open {
         let [header, body] = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(area);
-        draw_header(app, header, frame);
-        draw_panel(app, body, frame, false);
+        Zones { wide: false, header: Some(header), panel: Some(body), rule: None, terminal: Rect::new(0, 0, 0, 0) }
     } else {
         let [header, terminal] = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(area);
-        draw_header(app, header, frame);
-        draw_terminal(app, frame, terminal);
+        Zones { wide: false, header: Some(header), panel: None, rule: None, terminal }
     }
+}
+
+/// Draw one frame.
+pub fn render(app: &App, frame: &mut Frame) {
+    let z = zones(frame.area(), app.panel);
+    if let Some(header) = z.header {
+        draw_header(app, header, frame);
+    }
+    if let Some(panel) = z.panel {
+        draw_panel(app, panel, frame, z.wide);
+    }
+    if let Some(rule) = z.rule {
+        draw_rule(rule, frame);
+    }
+    if z.terminal.width > 0 && z.terminal.height > 0 {
+        draw_terminal(app, frame, z.terminal);
+    }
+}
+
+/// Which tab row, if any, is drawn at this screen coordinate.
+pub fn panel_row_at(app: &App, area: Rect, y: u16, wide: bool) -> Option<usize> {
+    let local = y.checked_sub(area.y)?;
+    let (_, rows) = panel_content(app, area.width, wide);
+    rows.get(local as usize).copied().flatten()
 }
 
 /// One row: where you are on the left, the core and the toggle on the right.
 fn draw_header(app: &App, area: Rect, frame: &mut Frame) {
     let (mark, color) = connection(app);
     let toggle = if app.panel { format!("close {}", glyph::CLOSE) } else { "switch".to_string() };
-    let right = format!("{} {mark}  {toggle}", app.core);
+    let copy = if app.copy.is_some() { " copy" } else { "" };
+    let right = format!("{} {mark}  {toggle}{copy}", app.core);
     let gap = (area.width as usize).saturating_sub(app.session.chars().count() + right.chars().count());
     let line = Line::from(vec![
         Span::styled(app.session.clone(), Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD)),
         Span::raw(" ".repeat(gap)),
         Span::styled(format!("{} ", app.core), Style::default().fg(theme::MUTED)),
         Span::styled(mark.to_string(), Style::default().fg(color)),
-        Span::styled(format!("  {toggle}"), Style::default().fg(theme::DIM)),
+        Span::styled(format!("  {toggle}{copy}"), Style::default().fg(theme::DIM)),
     ]);
     frame.render_widget(Paragraph::new(line), area);
 }
@@ -126,13 +167,41 @@ fn draw_rule(area: Rect, frame: &mut Frame) {
 
 /// The panel: counted sections, the selected row banded, actions at the foot.
 fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
-    let lines = panel_lines(app, area.width, wide);
+    let (lines, _) = panel_content(app, area.width, wide);
     let style = Style::default().bg(theme::PANEL).fg(theme::TEXT);
     frame.render_widget(Paragraph::new(lines).style(style), area);
 }
 
+/// Panel lines plus, for each line, the tab row it shows.
+#[derive(Default)]
+struct PanelLines {
+    lines: Vec<Line<'static>>,
+    rows: Vec<Option<usize>>,
+}
+
+impl PanelLines {
+    fn push(&mut self, line: Line<'static>) {
+        self.lines.push(line);
+        self.rows.push(None);
+    }
+
+    fn push_row(&mut self, line: Line<'static>, index: usize) {
+        self.lines.push(line);
+        self.rows.push(Some(index));
+    }
+}
+
 /// The terminal area: the attached screen when there is one, the preview otherwise.
 fn draw_terminal(app: &App, frame: &mut Frame, area: Rect) {
+    if let Some((lines, _)) = app.copy_view() {
+        let rows: Vec<Line> = lines
+            .iter()
+            .take(area.height as usize)
+            .map(|line| Line::from(Span::styled(line.clone(), Style::default().fg(theme::TEXT))))
+            .collect();
+        frame.render_widget(Paragraph::new(rows).style(Style::default().bg(theme::BG)), area);
+        return;
+    }
     if let Some(screen) = &app.screen {
         draw_screen(screen, area, frame);
         return;
@@ -188,9 +257,9 @@ fn draw_screen(screen: &ScreenState, area: Rect, frame: &mut Frame) {
     }
 }
 
-/// The panel's rows.
-fn panel_lines(app: &App, width: u16, wide: bool) -> Vec<Line<'static>> {
-    let mut lines: Vec<Line<'static>> = Vec::new();
+/// The panel's rows, paired with the tab index each line belongs to.
+fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<Option<usize>>) {
+    let mut lines = PanelLines::default();
 
     if wide {
         lines.push(header_line(app, width));
@@ -199,7 +268,7 @@ fn panel_lines(app: &App, width: u16, wide: bool) -> Vec<Line<'static>> {
     let rows = app.rows();
     lines.push(section(&format!("{} TABS", glyph::EXPANDED), rows.len(), width));
     for (index, row) in rows.iter().enumerate() {
-        lines.push(row_line(row, index == app.cursor, width));
+        lines.push_row(row_line(row, index == app.cursor, width), index);
         if let Some(address) = &row.address {
             for child in app.children_of(address) {
                 lines.push(child_line(child));
@@ -237,18 +306,20 @@ fn panel_lines(app: &App, width: u16, wide: bool) -> Vec<Line<'static>> {
         "settings  keys  reload  detach".to_string(),
         Style::default().fg(theme::DIM),
     )));
-    lines
+    (lines.lines, lines.rows)
 }
 
 fn header_line(app: &App, width: u16) -> Line<'static> {
     let (mark, color) = connection(app);
-    let right = format!("{} {mark}", app.core);
+    let copy = if app.copy.is_some() { " copy" } else { "" };
+    let right = format!("{} {mark}{copy}", app.core);
     let gap = (width as usize).saturating_sub(app.session.chars().count() + right.chars().count());
     Line::from(vec![
         Span::styled(app.session.clone(), Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD)),
         Span::raw(" ".repeat(gap)),
         Span::styled(format!("{} ", app.core), Style::default().fg(theme::MUTED)),
         Span::styled(mark.to_string(), Style::default().fg(color)),
+        Span::styled(copy.to_string(), Style::default().fg(theme::DIM)),
     ])
 }
 
@@ -345,6 +416,53 @@ mod tests {
                 (0..width).map(|x| buffer[(x, y)].symbol().to_string()).collect::<String>()
             })
             .collect()
+    }
+
+    #[test]
+    fn the_header_zone_only_exists_on_a_phone() {
+        let phone = zones(Rect::new(0, 0, 40, 22), false);
+        assert!(Zones::contains(phone.header, 10, 0));
+        assert!(!Zones::contains(phone.header, 10, 1));
+        assert!(Zones::contains(Some(phone.terminal), 10, 1));
+        assert!(!Zones::contains(phone.panel, 10, 5));
+
+        let wide = zones(Rect::new(0, 0, 100, 24), false);
+        assert!(wide.wide);
+        assert!(wide.header.is_none());
+        assert!(Zones::contains(wide.panel, 2, 4));
+        assert_eq!(wide.terminal.x, RAIL_WIDTH + 1);
+    }
+
+    #[test]
+    fn a_tap_on_a_tab_row_resolves_to_its_index() {
+        let app = app(true);
+        let panel = Rect::new(0, 1, 40, 21);
+        let (_, rows) = panel_content(&app, panel.width, false);
+        let line = rows.iter().position(|row| *row == Some(0)).expect("first tab row");
+        assert_eq!(panel_row_at(&app, panel, 1 + line as u16, false), Some(0));
+        assert_eq!(panel_row_at(&app, panel, 0, false), None, "the header is not a row");
+    }
+
+    #[test]
+    fn copy_mode_shows_frozen_history_and_a_header_mark() {
+        let mut app = app(false);
+        app.enter_copy("older\nnewer", 22);
+        let rows = screen(&app, 40, 22);
+        assert!(rows.iter().any(|row| row.contains("newer")), "{rows:?}");
+        assert!(rows[0].contains("copy"), "the header states the mode");
+    }
+
+    #[test]
+    fn scrolling_paints_older_history_lines() {
+        let mut app = app(false);
+        let history: Vec<String> = (0..25).map(|n| format!("L{n:02}")).collect();
+        app.enter_copy(&history.join("\n"), 3);
+        let bottom = screen(&app, 40, 22);
+        assert!(bottom[1].contains("L22"), "{:?}", &bottom[..4]);
+        app.scroll_copy(1);
+        let older = screen(&app, 40, 22);
+        assert!(older[1].contains("L21"), "{:?}", &older[..4]);
+        assert!(older[2].contains("L22"));
     }
 
     #[test]

@@ -62,6 +62,22 @@ terminal list or a document read.
 | `enter` | Attach to the highlighted tab and give it the keyboard |
 | `esc` | Close the panel; quit when nothing is attached |
 | `ctrl+q` / `ctrl+\` | Quit (also sends no key to the agent) |
+| `pageup` / `pagedown`, `alt+↑` / `alt+↓` | Scroll the frozen history; `q` or `esc` resumes the live pane |
+
+Touch and pointer gestures work by zone:
+
+| Gesture | What it does |
+|---|---|
+| Tap the header's `switch` / `close` | Open or close the panel |
+| Tap a tab row | Select it, attach, and close the sheet on a phone |
+| Wheel or vertical drag in the terminal | Enter copy mode and scroll the history |
+| Wheel or vertical drag in the panel | Move the highlight |
+| Tap the terminal | Resume the live pane |
+
+A tap is a press and release without movement; a drag needs at least two cells
+of vertical travel. The terminal emulator must forward pointer events for these
+to work; gestures consumed by the emulator never reach the TUI. Clicks are not
+sent to the program inside the terminal.
 
 The panel lists the tabs of the active space in the shared `herdr-app`
 document — the same data the desktop app reads — and uses `terminal.list` only

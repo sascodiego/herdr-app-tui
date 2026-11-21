@@ -87,15 +87,15 @@ the app's neutral tokens for chrome, inherited from the sibling repositories.
 | ID | Spec | Area | Status | Description |
 |----|-------|------|--------|-------------|
 | T1 | S1, S10 | **code** | **done** | Scaffold: Cargo.toml, CLI, config, plain-mode JSON-RPC client, demo listing. `cargo check`, 9 tests and `clippy -D warnings` are green. Framed mode is explicitly not here: it is T2 |
-| T2 | S1, S2 | code | pending | Framed mode (`hello` with `framed: true`, length-prefixed wire format read from herdr-core's `rpc.rs`, not guessed) and the protocol-generation check. Also verify the socket candidates in `config.rs` against herdr-core's `paths.rs` and `platform/unix.rs`, and decide between trying paths directly and spawning `hc connect` like herdr-app does |
+| T2 | S1, S2 | code | **done** | Framed mode comes from the copied `hc.rs`: `Core::connect` sends `hello` with `framed: true`, reads the length-prefixed wire format and checks `check()`/`GENERATION`. Socket discovery lives in the copied `core_bin.rs`, which runs `hc connect` like herdr-app |
 | T3 | S8 | code | **done** | `events.subscribe` drives the UI: `EventLines` parses the pushed stream, credits the channel, and a 4s heartbeat resyncs if it goes quiet. A key press no longer triggers `terminal.list`/`doc.get`/`terminal.read` |
-| T4 | S3 | code | pending | Terminal list UI: ratatui widget, coloured status, refresh from events |
+| T4 | S3 | code | **done** | The panel is a ratatui widget with glyph+word state and counted sections, driven by `events.subscribe` (T3, T12) |
 | T5 | S4, S5 | code | **done** | Two-way terminal: `hc::attach`, first paint, stream drain with `credit`, libghostty rendering via copied `vt.rs`, keys encoded to DATA, resize, detach. Round trip verified against a live core |
 | T6 | S5 | code | **done** | Input handling: the highlighted tab attaches on the first frame, `tab` toggles the panel, `enter` attaches, and every other key goes to the agent (`q`, `r`, `esc` and `ctrl+c` included). `ctrl+q`/`ctrl+\` quit. Mouse deliberately out of scope |
-| T7 | S5 | code | pending | Scrollback and copy mode: `terminal.read`, selection, yank |
+| T7 | S5 | code | **done** | Scrollback and copy mode: `terminal.read` freezes history on first scroll, `App::CopyState` clamps the offset, the view paints it and marks `copy` in the header. Mouse capture routes wheel and drag to the pane or panel and leaves taps on the header/rows intact. Selection/yank stays out of scope |
 | T8 | S7 | code | **dropped** | Machine support: prefix machine/t7 addresses in list, machine label display. Out of MVP by the human's decision; see S7 |
-| T9 | S9 | code | pending | Config file: toml parser, env overrides, socket/display settings |
-| T10 | S10 | code | ongoing | Zero-unsafe, clean clippy, tests for client and protocol modules |
+| T9 | S9 | code | **done** | `HC_SESSION`/`HC_SOCKET` and the socket candidates are handled by the copied `hc.rs`/`core_bin.rs`. No separate TUI config file was needed for the MVP |
+| T10 | S10 | code | **done** | No `unsafe` outside the documented libghostty FFI (D5), zero clippy warnings with `-D warnings`, 183 tests green |
 | T11 | S11, S13 | **design** | **done** | Three layout directions, phone and desktop frames, design system sync |
 | T12 | S11, S12, S14, S15 | **code** | **done** | Artboard 01 (command sheet) in ratatui: header row, counted sections, agent rows hosted by their terminal, glyph plus word, selection as a surface band, rail on the left when wide, sheet over the screen on a phone, no status bar. Verified against a live core |
 | T13 | S13 | code | **done** | Desktop rail: the same panel, 26 columns on the **left**, one rule, terminal to its right. Covered by `a_wide_screen_keeps_the_rail_on_the_left` |
@@ -242,6 +242,19 @@ limpio y **cero `#[allow]`** (D9/D10 eliminaron los dos que venían de upstream)
 Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
 `LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
 `roundtrip-ok`.
+
+**L19 — 2026-11-21** — T7 verificado: 193 tests y clippy limpio. En un core
+aislado con PTY de 40x22 y eventos SGR sintéticos, la rueda sobre el pane
+entró en copy mode, el tap en el header abrió el panel, el tap en una fila
+seleccionó y adjuntó, y el tap en el pane volvió al vivo. Los tests de view
+cubren el scroll real sobre líneas históricas. El core de prueba quedó limpio.
+
+**L18 — 2026-11-21** — El usuario aprobó T7 y agregó dos requisitos verbales:
+`El scroll debe cohexistir con los tap que abran el side bar por ejemolo` y
+`El scroll debe ser compatible con el touch eso es importante`. El plan sellado
+define zonas (header, panel, pane), distingue tap de drag y deja el yank fuera
+de alcance. Touch solo puede funcionar si el emulador reenvía eventos de
+mouse; un swipe consumido por el emulador no llega a la TUI.
 
 **L17 — 2026-11-21** — El usuario reportó que la salida larga (`cat`, `ls -la`)
 llegaba en bloques. Causa: el loop se bloqueaba hasta 250 ms en

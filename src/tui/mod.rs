@@ -12,7 +12,10 @@ pub mod theme;
 pub mod view;
 
 use anyhow::{Context, anyhow};
-use crossterm::event::{self, Event, KeyEventKind};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+    KeyModifiers, MouseEvent, MouseEventKind,
+};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use serde_json::{Value, json};
@@ -59,7 +62,9 @@ pub fn run() -> anyhow::Result<i32> {
 
     let (channel, events, snapshot) = core.subscribe().context("events.subscribe")?;
     let mut terminal = ratatui::init();
+    crossterm::execute!(std::io::stdout(), EnableMouseCapture).context("cannot capture the pointer")?;
     let outcome = event_loop(&core, &mut app, &mut terminal, (channel, events), snapshot);
+    let _ = crossterm::execute!(std::io::stdout(), DisableMouseCapture);
     ratatui::restore();
     outcome
 }
@@ -78,6 +83,8 @@ fn event_loop(
     let mut subscription = Some(subscription);
     let mut lines = hc::EventLines::new(&snapshot);
     let mut ticks = 0u32;
+    let mut pointer_down: Option<(u16, u16)> = None;
+    let mut drag_anchor: Option<u16> = None;
 
     loop {
         if subscription.is_none()
@@ -120,53 +127,27 @@ fn event_loop(
             let (cols, rows) = pane_size(app, area.width, area.height);
             session.resize(core, cols, rows);
             session.drain(core)?;
-            app.screen = Some(view::ScreenState::from_frame(session.frame()));
+            if app.copy.is_none() {
+                app.screen = Some(view::ScreenState::from_frame(session.frame()));
+            }
         }
 
         terminal.draw(|frame| view::render(app, frame)).context("cannot draw")?;
 
-        if event::poll(FRAME).context("cannot wait for a key")? {
-            let Event::Key(key) = event::read().context("cannot read a key")? else { continue };
-            if key.kind != KeyEventKind::Press {
-                continue;
-            }
-
-            let action = input::action(key);
-
-            // The panel owns the keyboard only while it is open. Ctrl+\ is the
-            // one way out; Enter attaches to the highlighted tab and closes.
-            if app.panel {
-                match action {
-                    Action::Quit => {
+        if event::poll(FRAME).context("cannot wait for an event")? {
+            match event::read().context("cannot read an event")? {
+                Event::Key(key) => {
+                    if handle_key(core, app, terminal, key, &mut attached)? {
                         detach(attached.take(), core);
                         return Ok(0);
                     }
-                    Action::ClosePanel | Action::TogglePanel | Action::Attach => app.panel = false,
-                    Action::Up => app.move_cursor(-1),
-                    Action::Down => app.move_cursor(1),
-                    Action::Refresh => {}
-                    Action::Ignore => continue,
                 }
-                continue;
-            }
-
-            match action {
-                Action::Quit => {
-                    detach(attached.take(), core);
-                    return Ok(0);
+                Event::Mouse(mouse) => {
+                    handle_pointer(
+                        core, app, terminal, mouse, &mut pointer_down, &mut drag_anchor,
+                    )?;
                 }
-                Action::TogglePanel => app.panel = true,
-                // With nothing attached, Esc leaves; with a live pane it is a
-                // key for the program, like q, r and Ctrl+C.
-                Action::ClosePanel if attached.is_none() => {
-                    detach(attached.take(), core);
-                    return Ok(0);
-                }
-                _ => {
-                    if let Some(session) = attached.as_mut() {
-                        session.key(core, key);
-                    }
-                }
+                _ => {}
             }
         }
 
@@ -176,6 +157,186 @@ fn event_loop(
             refresh(core, app, attached.is_none())?;
         }
     }
+}
+
+/// Handle one key. Returns true when the screen must quit. Copy mode owns the
+/// keyboard while it is open, just as a live program does otherwise.
+fn handle_key(
+    core: &std::sync::Arc<hc::Core>,
+    app: &mut App,
+    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    key: KeyEvent,
+    attached: &mut Option<Session>,
+) -> anyhow::Result<bool> {
+    if key.kind != KeyEventKind::Press {
+        return Ok(false);
+    }
+    let action = input::action(key);
+    if action == Action::Quit {
+        return Ok(true);
+    }
+
+    if app.copy.is_some() {
+        match action {
+            Action::ScrollUp => app.scroll_copy(1),
+            Action::ScrollDown => app.scroll_copy(-1),
+            Action::ClosePanel => app.exit_copy(),
+            _ if key.code == KeyCode::Char('q') && key.modifiers == KeyModifiers::NONE => app.exit_copy(),
+            _ => {}
+        }
+        return Ok(false);
+    }
+
+    if app.panel {
+        match action {
+            Action::ClosePanel | Action::TogglePanel | Action::Attach => app.panel = false,
+            Action::Up | Action::ScrollUp => app.move_cursor(-1),
+            Action::Down | Action::ScrollDown => app.move_cursor(1),
+            Action::Refresh | Action::Ignore => {}
+            Action::Quit => return Ok(true),
+        }
+        return Ok(false);
+    }
+
+    match action {
+        Action::TogglePanel => {
+            app.panel = true;
+            app.exit_copy();
+        }
+        // With nothing attached, Esc leaves; with a live pane it is a key for
+        // the program, like q, r and Ctrl+C.
+        Action::ClosePanel if attached.is_none() => return Ok(true),
+        Action::ScrollUp => scroll_history(core, app, terminal, 1)?,
+        Action::ScrollDown => scroll_history(core, app, terminal, -1)?,
+        _ => {
+            if let Some(session) = attached.as_mut() {
+                session.key(core, key);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// Freeze the terminal's history on first scroll, then move within it.
+fn scroll_history(
+    core: &std::sync::Arc<hc::Core>,
+    app: &mut App,
+    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    amount: isize,
+) -> anyhow::Result<()> {
+    if app.copy.is_none() {
+        let Some(address) = app.selected().and_then(|row| row.address.clone()) else {
+            return Ok(());
+        };
+        let read = core
+            .call("terminal.read", json!({ "terminal": address, "lines": app::COPY_LINES }))
+            .context("terminal.read")?;
+        let text = read.get("text").and_then(Value::as_str).unwrap_or("");
+        let area = terminal.get_frame().area();
+        let height = view::zones(area, app.panel).terminal.height;
+        app.enter_copy(text, height);
+    }
+    app.scroll_copy(amount);
+    Ok(())
+}
+
+/// A pointer's zone, resolved from the same rectangles the renderer uses.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Zone {
+    Header,
+    Panel,
+    Terminal,
+}
+
+fn zone_at(z: view::Zones, x: u16, y: u16) -> Option<Zone> {
+    if view::Zones::contains(z.header, x, y) {
+        Some(Zone::Header)
+    } else if view::Zones::contains(z.panel, x, y) {
+        Some(Zone::Panel)
+    } else if view::Zones::contains(Some(z.terminal), x, y) {
+        Some(Zone::Terminal)
+    } else {
+        None
+    }
+}
+
+/// Route a touch or pointer event by zone. A tap keeps its old meaning: open
+/// the sheet, select a row, or resume the live pane. Movement becomes scroll.
+fn handle_pointer(
+    core: &std::sync::Arc<hc::Core>,
+    app: &mut App,
+    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    mouse: MouseEvent,
+    pointer_down: &mut Option<(u16, u16)>,
+    drag_anchor: &mut Option<u16>,
+) -> anyhow::Result<()> {
+    let Some(gesture) = input::pointer(mouse.kind) else {
+        return Ok(());
+    };
+    let (x, y) = (mouse.column, mouse.row);
+    let z = view::zones(terminal.get_frame().area(), app.panel);
+    let zone = zone_at(z, x, y);
+
+    match gesture {
+        input::Pointer::Tap => match mouse.kind {
+            MouseEventKind::Down(_) => {
+                *pointer_down = Some((x, y));
+                *drag_anchor = Some(y);
+            }
+            MouseEventKind::Up(_) => {
+                let is_tap = pointer_down
+                    .take()
+                    .is_some_and(|(sx, sy)| sx.abs_diff(x) <= 1 && sy.abs_diff(y) <= 1);
+                *drag_anchor = None;
+                if !is_tap {
+                    return Ok(());
+                }
+                match zone {
+                    Some(Zone::Header) => {
+                        app.panel = !app.panel;
+                        app.exit_copy();
+                    }
+                    Some(Zone::Panel) => {
+                        if let Some(index) = z.panel.and_then(|p| view::panel_row_at(app, p, y, z.wide)) {
+                            app.cursor = index;
+                            if !z.wide {
+                                app.panel = false;
+                            }
+                        }
+                    }
+                    Some(Zone::Terminal) => app.exit_copy(),
+                    None => {}
+                }
+            }
+            _ => {}
+        },
+        input::Pointer::ScrollUp | input::Pointer::ScrollDown => {
+            let up = gesture == input::Pointer::ScrollUp;
+            match zone {
+                Some(Zone::Panel) => app.move_cursor(if up { -1 } else { 1 }),
+                Some(Zone::Terminal) => scroll_history(core, app, terminal, if up { 1 } else { -1 })?,
+                None | Some(Zone::Header) => {}
+            }
+        }
+        input::Pointer::Drag => {
+            let Some(anchor) = drag_anchor.as_mut() else {
+                *drag_anchor = Some(y);
+                return Ok(());
+            };
+            let delta = i32::from(y) - i32::from(*anchor);
+            if delta.abs() < 2 {
+                return Ok(());
+            }
+            let up = delta < 0;
+            match zone {
+                Some(Zone::Panel) => app.move_cursor(if up { -1 } else { 1 }),
+                Some(Zone::Terminal) => scroll_history(core, app, terminal, if up { 1 } else { -1 })?,
+                None | Some(Zone::Header) => {}
+            }
+            *anchor = y;
+        }
+    }
+    Ok(())
 }
 
 /// Leave the terminal attached on the core side; it keeps running and another
@@ -200,6 +361,8 @@ fn sync_attachment(
     if desired == *attached_address {
         return Ok(());
     }
+    // Frozen history belongs to the previous terminal.
+    app.exit_copy();
     detach(attached.take(), core);
     let Some(address) = desired else {
         app.screen = None;
