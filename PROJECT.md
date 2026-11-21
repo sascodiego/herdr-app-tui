@@ -243,6 +243,15 @@ Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
 `LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
 `roundtrip-ok`.
 
+**L17 — 2026-11-21** — El usuario reportó que la salida larga (`cat`, `ls -la`)
+llegaba en bloques. Causa: el loop se bloqueaba hasta 250 ms en
+`event::poll(TICK)`, y solo una tecla lo despertaba; la salida del stream se
+acumulaba y se drenaba toda junta. `FRAME = 16 ms` y heartbeat de 250 frames.
+Medido con un core aislado y `terminal.send` sobre una conexión persistente:
+10 líneas enviadas con 200 ms de separación aparecieron con esa misma
+separación y latencia por debajo de la resolución de la medición. El primer
+paint trae el historial completo —ese bloque inicial es esperado—, no es lag.
+
 **L16 — 2026-11-21** — El usuario notó que la TUI era más lenta que herdr-app
 desktop, aunque el desktop conecte por red. La causa no era la red sino el
 loop local: `refresh()` corría después de **cada tecla** (3 RPC sincrónicos:

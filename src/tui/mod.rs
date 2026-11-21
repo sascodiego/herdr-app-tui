@@ -24,10 +24,12 @@ use app::App;
 use attach::Session;
 use input::Action;
 
-/// How long to wait for a key or a pushed event.
-const TICK: Duration = Duration::from_millis(250);
+/// One screen frame. Terminal output does not produce a crossterm event, so a
+/// long poll would leave the attach stream waiting: bytes would arrive in
+/// 250 ms bursts instead of as they are written. ~60 fps keeps it fluid.
+const FRAME: Duration = Duration::from_millis(16);
 /// Full resync even if no event arrived, in case the stream went quiet.
-const HEARTBEAT_TICKS: u32 = 16;
+const HEARTBEAT_FRAMES: u32 = 250;
 
 /// Run the screen. Returns the process exit code.
 pub fn run() -> anyhow::Result<i32> {
@@ -123,7 +125,7 @@ fn event_loop(
 
         terminal.draw(|frame| view::render(app, frame)).context("cannot draw")?;
 
-        if event::poll(TICK).context("cannot wait for a key")? {
+        if event::poll(FRAME).context("cannot wait for a key")? {
             let Event::Key(key) = event::read().context("cannot read a key")? else { continue };
             if key.kind != KeyEventKind::Press {
                 continue;
@@ -168,7 +170,7 @@ fn event_loop(
             }
         }
 
-        let heartbeat = ticks.is_multiple_of(HEARTBEAT_TICKS);
+        let heartbeat = ticks.is_multiple_of(HEARTBEAT_FRAMES);
         ticks = ticks.saturating_add(1);
         if docs_changed || terminals_changed || heartbeat {
             refresh(core, app, attached.is_none())?;
