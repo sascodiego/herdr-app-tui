@@ -31,9 +31,7 @@
   .actions { background:var(--surface); }
   .act { color:var(--text); }
   .hdr .l { font-weight:700; }
-  .center { position:relative; justify-content:center; }
-  .center .c { margin-left:auto; margin-right:auto; }
-  .center .r { position:absolute; right:0; margin-left:0; }
+  .hdr .r { text-align:right; }
   .sec { color:var(--muted); font-weight:700; }
   .cnt, .pm { color:var(--muted); }
   .pd, .ft { color:var(--dim); }
@@ -68,7 +66,7 @@
     <div class="device"><div class="screen">
       <div class="ln tap" role="button" tabindex="0" aria-label="Open the sidebar">
         <div class="ln"></div>
-        <div class="ln hdr center"><span class="c">research · ~/herdr <span class="ac">●</span></span><span class="r">switch</span></div>
+        <div class="ln hdr"><span class="l">research · ~/herdr</span><span class="r"><span class="ac">●</span>  switch</span></div>
         <div class="ln"></div>
       </div>
       <div class="ln"><span class="l">❯ pi 4 · research</span></div>
@@ -91,7 +89,7 @@
     <div class="device"><div class="screen">
       <div class="ln tap" role="button" tabindex="0" aria-label="Close the sidebar">
         <div class="ln"></div>
-        <div class="ln hdr center"><span class="c">research · ~/herdr · 4 tabs <span class="ac">●</span></span><span class="r">x</span></div>
+        <div class="ln hdr"><span class="l">research · ~/herdr · 4 tabs</span><span class="r"><span class="ac">●</span>  x</span></div>
         <div class="ln"></div>
       </div>
       <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
@@ -110,9 +108,9 @@
       <div class="ln sec"><span class="l">▾ SPACES</span><span class="r cnt">1</span></div>
       <div class="ln pm"><span class="l">  default</span><span class="r cnt">4 tabs</span></div>
       <div class="ln sec"><span class="l">▾ AGENTS</span><span class="r cnt">3</span></div>
-      <div class="ln wr"><span class="l">  ◐ working</span><span class="r cnt">1</span></div>
-      <div class="ln er"><span class="l">  ▲ needs you</span><span class="r cnt">1</span></div>
-      <div class="ln pm"><span class="l">  ○ idle</span><span class="r cnt">1</span></div>
+      <div class="ln er" role="button" tabindex="0" aria-label="Go to pi 2, needs you"><span class="l">  <span class="er">▲</span> pi 2 · api-work</span><span class="r er">needs you</span></div>
+      <div class="ln wr" role="button" tabindex="0" aria-label="Go to pi 4, working"><span class="l">  <span class="wr">◐</span> pi 4 · research</span><span class="r wr">working</span></div>
+      <div class="ln pm" role="button" tabindex="0" aria-label="Go to helper a, idle"><span class="l">  <span class="pm">○</span> helper a</span><span class="r pm">idle</span></div>
       <div class="ln actions"><span class="l"><span class="act">settings</span>  <span class="act">keys</span>  <span class="act">reload</span>  <span class="act">detach</span></span></div>
       <div class="ln"></div>
     </div></div>
@@ -132,9 +130,9 @@
     <div class="ln"><span class="l">  docs  pi 3 <span class="ok">✓</span></span></div>
     <div class="ln"><span class="l"> </span></div>
     <div class="ln sec"><span class="l">▾ AGENTS</span><span class="r cnt">3</span></div>
-    <div class="ln wr"><span class="l">  ◐ working</span><span class="r cnt">1</span></div>
-    <div class="ln er"><span class="l">  ▲ needs you</span><span class="r cnt">1</span></div>
-    <div class="ln pm"><span class="l">  ○ idle</span><span class="r cnt">1</span></div>
+    <div class="ln er"><span class="l">  ▲ pi 2 · api-work</span></div>
+    <div class="ln wr"><span class="l">  ◐ pi 4 · research</span></div>
+    <div class="ln pm"><span class="l">  ○ helper a</span></div>
     <div class="ln"><span class="l"> </span></div>
     <div class="ln pd"><span class="l">─ pi 4 · attached ──────────</span></div>
     <div class="ln pm"><span class="l">  test api::attach ... ok</span></div>
@@ -171,12 +169,14 @@
   <span class="fix">P3</span> the selected band covers both rows;
   <span class="fix">P4</span> the action row is plain aligned text on a distinct
   surface band, not buttons, and stays last as the keyboard changes the height;
-  <span class="fix">P5</span> the header drops the core `default` space, centers
-  tab, path and count, and closes with a single `x`; the space moves to a SPACES
-  section in the sidebar;
+  <span class="fix">P5</span> the header drops the core `default` space, aligns
+  info left and the toggle hard-right, and closes with a single `x`; the space
+  moves to a SPACES section in the sidebar;
   <span class="fix">P6</span> overflow text moves to a deeper-indented second line;
   <span class="fix">P7</span> secondary text uses the Gotham foreground token
-  because Gotham's midtones measure under 4.5:1 on this background.
+  because Gotham's midtones measure under 4.5:1 on this background;
+  <span class="fix">P8</span> AGENTS is a navigable list of detected agents, ordered
+  by attention, with glyph and word state instead of a statistic.
   <br><br>
   <b>Data source:</b> the separator row reads the selected tab's terminal name and
   attach state from the shared document plus `terminal.list`. There is no command

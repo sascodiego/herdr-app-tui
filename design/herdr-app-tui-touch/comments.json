@@ -132,6 +132,30 @@
       "sentAt": "2026-11-21T15:32:41.261Z",
       "resolvedAt": "2026-11-21T15:33:55.600Z",
       "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "rkkatgng",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(3) > div > div:nth-of-type(1) > div:nth-of-type(10)",
+      "excerpt": "▾ AGENTS 3",
+      "comment": "Esta seccion debe mostrar los agentes activos. Yo lo que hago es moverme entre agentes a medida que requieren mi atencion, una estadistica no me aporta nada en principio. Hoy tnemos workspaces, cada uno tiene agentes. Herdr detecta los agentes y su estado y los presenta en una lista de facil navegacion",
+      "createdAt": "2026-11-21T15:35:28.757Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:37:00.539Z",
+      "resolvedAt": "2026-11-21T15:39:09.018Z",
+      "resolution": "Replaced the AGENTS statistics with an attention-ordered navigable agent list and returned the header to a plain two-column row with the toggle hard-right."
+    },
+    {
+      "id": "9l62ffqe",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1)",
+      "excerpt": "research · ~/herdr · 4 tabs ● x",
+      "comment": "Sigue descentrado, desalineado. No me gusta. Aca creo que hay un limite que debes explicarme en chat. No se puede poner diferentes sizes de letra, creo que ese es el tema. En ese caso dejamos la fila con una fila vacia arriba y una abajo. Lo que si necesito es que me lo alinies horizontalmente par que el boton de toggle de la sidebar este siempre a la derecha",
+      "createdAt": "2026-11-21T15:36:58.211Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:37:00.539Z",
+      "resolvedAt": "2026-11-21T15:39:09.018Z",
+      "resolution": "Replaced the AGENTS statistics with an attention-ordered navigable agent list and returned the header to a plain two-column row with the toggle hard-right."
     }
   ]
 }
