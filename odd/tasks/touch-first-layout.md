@@ -24,7 +24,7 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 
 | ID | S# | Route | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| T1 | S1-S5 | parent, gentle-design | done | 3 artboards + manifest + canvas open; see L6 |
+| T1 | S1-S5 | parent, gentle-design | done | 3 artboards + manifest + canvas open; comments applied to 01; see L6-L8 |
 | T2 | S4 | human choice | blocked | waiting for the user to pick a direction on the canvas; unblocks when the chosen artboard is named |
 | T3 | S2,S3,S5 | parent | pending | RED geometry test then GREEN shared geometry and touch targets |
 | T4 | S2,S5 | parent | pending | RED state test then GREEN attached/preview/scrolled and panel scroll |
@@ -42,5 +42,9 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 **L4 — 2026-11-21** — "sellado"
 
 **L5 — 2026-11-21** — Created after the mobile-first redesign proposal. The earlier footer-removal idea was rejected by the user; the sidebar action row is retained. Exploration agent `gentle-ai-explore` failed twice in this session ("no final report"); parent used direct reads and reports that fallback.
+
+**L8 — 2026-11-21** — Six canvas comments were applied to `01-safe-area-sheet.html` only and resolved: `iu1xt362`, `waf0lkqn`, `nw58xcad`, `5rlxnq41`, `qyeh3j3w`, `vzz1vhf1`. Verbatim feedback included "El close prefiero que sea solo una x", "El desborde lo ponemos en una fila inferior con una tabulacion mayor al del nombre del tab", "no logro darme cuenta d edonde vas a obtener esta informacion que queres mostrar", "cada boton debe tener un box definido", "debe estar alineada abajo incluso cuando se abre y se cierra el teclado debe reacomodarse al alto" and "La paleta de colores la vmos a cambiar, me gustaria que sea mas profundo, mas estilo https://terminalcolors.com/themes/gotham/default/". Applied: open header now shows workspace, path and tab count with a single `x`; overflow moved to a deeper-indented second line; the separator row now reads only data the core actually returns; actions sit on a surface band with boxed buttons; the artboard palette is Gotham Default. Canvas refreshed. **Open decision:** `design/system.md` still pins the Catppuccin palette; syncing it changes the other artboards and the production theme, so that is not included here.
+
+**L7 — 2026-11-21** — Work-unit slice `2f4e1d2 design: explore touch-first mobile layouts` holds T1 and 591 authored changed lines. Delivery strategy `ask-on-risk` is recorded in the header; publishing is not authorized by this commit.
 
 **L6 — 2026-11-21** — T1 done. Wrote `design/herdr-app-tui-touch/01-safe-area-sheet.html`, `02-stacked-deck.html`, `03-rising-peek.html` and `design.json`. All three show the shared collapsed face, the open mobile face and the left desktop rail; the sidebar action row stays in the sheet and rail. Self-check: only the tokens in `design/system.md` appear (page background also changed to `var(--bg)`), one monospace stack, no external URLs, glyph family from the system, focus styles on tappable roles. Canvas opened at http://127.0.0.1:36229/zTNSU3aRHrHrX-n9mTq8B6XEkjThE1cg/d/herdr-app-tui-touch/ . T2 is blocked on the user choosing one direction.

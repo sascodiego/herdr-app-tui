@@ -5,9 +5,9 @@
 <title>01 — Safe-area sheet</title>
 <style>
   :root {
-    --bg:#11111b; --panel:#181825; --surface:#313244; --text:#cdd6f4;
-    --muted:#7f849c; --dim:#585b70; --accent:#b4befe;
-    --green:#a6e3a1; --yellow:#f9e2af; --red:#f38ba8; --rule:#262626;
+    --bg:#0c1014; --panel:#111820; --surface:#0a3749; --text:#99d1ce;
+    --muted:#4e5166; --dim:#195466; --accent:#33859e;
+    --green:#2aa889; --yellow:#edb443; --red:#c23127; --rule:#195466;
   }
   * { box-sizing:border-box; }
   html, body { margin:0; padding:0; }
@@ -28,6 +28,8 @@
   .ln > .r { margin-left:auto; flex:0 0 auto; }
   .tap { min-height:4.26em; background:var(--panel); }
   .sel { background:var(--surface); }
+  .actions { background:var(--surface); }
+  .act { background:var(--panel); color:var(--text); }
   .hdr .l { font-weight:700; }
   .sec { color:var(--muted); font-weight:700; }
   .cnt, .pm { color:var(--muted); }
@@ -86,13 +88,13 @@
     <div class="device"><div class="screen">
       <div class="ln tap" role="button" tabindex="0" aria-label="Close the sidebar">
         <div class="ln"></div>
-        <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span>  close ×</span></div>
+        <div class="ln hdr"><span class="l">default › research</span><span class="r"><span class="pm">~/herdr</span> <span class="ac">●</span> <span class="pm">4 tabs</span> x</span></div>
         <div class="ln"></div>
       </div>
       <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
       <div class="ln sel" role="button" tabindex="0" aria-label="Attach pi 4">
         <div class="ln"><span class="l">  <span class="b">research</span>  pi 4 <span class="wr">◐ working</span></span></div>
-        <div class="ln pm"><span class="l">      attached · 2 helpers</span></div>
+        <div class="ln pm"><span class="l">        attached · 2 helpers</span></div>
       </div>
       <div class="ln" role="button" tabindex="0" aria-label="Attach pi 2">
         <div class="ln"><span class="l">  api-work  pi 2 <span class="er">▲ needs you</span></span></div>
@@ -106,7 +108,7 @@
       <div class="ln wr"><span class="l">  ◐ working</span><span class="r cnt">1</span></div>
       <div class="ln er"><span class="l">  ▲ needs you</span><span class="r cnt">1</span></div>
       <div class="ln pm"><span class="l">  ○ idle</span><span class="r cnt">1</span></div>
-      <div class="ln ft"><span class="l">settings  keys  reload  detach</span></div>
+      <div class="ln actions"><span class="l"><span class="act">[settings]</span> <span class="act">[keys]</span> <span class="act">[reload]</span> <span class="act">[detach]</span></span></div>
       <div class="ln"></div>
     </div></div>
   </section>
@@ -129,9 +131,9 @@
     <div class="ln er"><span class="l">  ▲ needs you</span><span class="r cnt">1</span></div>
     <div class="ln pm"><span class="l">  ○ idle</span><span class="r cnt">1</span></div>
     <div class="ln"><span class="l"> </span></div>
-    <div class="ln pd"><span class="l">─ pi 4 · cargo test --lib ──</span></div>
+    <div class="ln pd"><span class="l">─ pi 4 · attached ──────────</span></div>
     <div class="ln pm"><span class="l">  test api::attach ... ok</span></div>
-    <div class="ln ft"><span class="l">settings keys reload detach</span></div>
+    <div class="ln actions"><span class="l"><span class="act">[set]</span> <span class="act">[keys]</span> <span class="act">[rel]</span> <span class="act">[det]</span></span></div>
     <div class="ln"></div>
   </div>
   <div class="term">
@@ -162,8 +164,19 @@
   <b>Fixes:</b> <span class="fix">P1</span> the tap target is three rows with a blank
   row above it; <span class="fix">P2</span> every tab target is two rows;
   <span class="fix">P3</span> the selected band covers both rows;
-  <span class="fix">P4</span> the sidebar actions remain in their own foot row;
-  <span class="fix">P5</span> no global bottom bar was introduced.
+  <span class="fix">P4</span> the action row sits on a distinct surface band with
+  boxed buttons and stays last as the terminal height changes with the keyboard;
+  <span class="fix">P5</span> the header reports workspace, path and tab count, and
+  the close control is a single `x`;
+  <span class="fix">P6</span> overflow text moves to a deeper-indented second line.
+  <br><br>
+  <b>Data source:</b> the separator row reads the selected tab's terminal name and
+  attach state from the shared document plus `terminal.list`. There is no command
+  field in the current core response, so the artboard does not invent one.
+  <br><br>
+  <b>Palette:</b> Gotham Default from terminalcolors.com. Background, foreground,
+  selection, blue, magenta, cyan, green, yellow and red come from its Alacritty
+  export; the panel tint is a derived one-step lift from the background.
 </div>
 </main>
 </body>

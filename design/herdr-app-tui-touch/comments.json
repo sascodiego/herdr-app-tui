@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "comments": [
+    {
+      "id": "iu1xt362",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1)",
+      "excerpt": "default ubuntu-test ● close ×",
+      "comment": "Esta desproporcionado, descentrado. El close prefiero que sea solo una x asi podemos alinear y distribuir mejor el espacio. La informacion de la barra debe ser mas significativa como por ejelplo el workspace, el path, la cantidad de tabs. Hay que se inteligentes para lograr mostrar informacion sin que todo colapse",
+      "createdAt": "2026-11-21T15:19:33.107Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "waf0lkqn",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(3) > div:nth-of-type(2) > span",
+      "excerpt": "attached · 2 helpers",
+      "comment": "El desborde lo ponemos en una fila inferior con una tabulacion mayor al del nombre del tab",
+      "createdAt": "2026-11-21T15:20:23.981Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "nw58xcad",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(3) > div > div:nth-of-type(1) > div:nth-of-type(15) > span",
+      "excerpt": "─ pi 4 · cargo test --lib ──",
+      "comment": "Me oarece buena la idea de esta seccion pero no logro darme cuenta d edonde vas a obtener esta informacion que queres mostrar",
+      "createdAt": "2026-11-21T15:21:26.754Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "5rlxnq41",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(3) > div > div:nth-of-type(1) > div:nth-of-type(17) > span",
+      "excerpt": "settings keys reload detach",
+      "comment": "Esta barra debe tener mas destaque, estar alineada y tener un fondo mas destacado cada boton debe tener un box definido",
+      "createdAt": "2026-11-21T15:21:56.422Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "qyeh3j3w",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(10) > span",
+      "excerpt": "settings keys reload detach",
+      "comment": "La barra debe estar mas destacada con un fondo especifico, los botones deben tener un box definido y debe estar alineada abajo incluso cuando se abre y se cierra el teclado debe reacomodarse al alto",
+      "createdAt": "2026-11-21T15:22:32.417Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "vzz1vhf1",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body",
+      "excerpt": "01 — Safe-area sheet The current command sheet, re-cut for fingers. A three-row tap band replaces the one-row bar: an empty row above the text keeps it off the screen edge, and the whole band toggles the sheet. Tab rows are two cells tall so a swipe or tap has room. The sidebar keeps its actions at",
+      "comment": "La paleta de colores la vmos a cambiar, me gustaria que sea mas profundo, mas estilo https://terminalcolors.com/themes/gotham/default/",
+      "createdAt": "2026-11-21T15:27:52.554Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    }
+  ]
+}
