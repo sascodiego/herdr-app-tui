@@ -47,28 +47,6 @@ pub enum Command {
     MoveTabDown,
 }
 
-impl Command {
-    pub fn parse(line: &str) -> Option<Self> {
-        match line.trim().to_ascii_lowercase().as_str() {
-            "new space" | "space new" => Some(Self::NewSpace),
-            "new tab" | "tab new" => Some(Self::NewTab),
-            "rename space" | "space rename" => Some(Self::RenameSpace),
-            "rename tab" | "tab rename" => Some(Self::RenameTab),
-            "close tab" | "tab close" => Some(Self::CloseTab),
-            "close space" | "space close" => Some(Self::CloseSpace),
-            "space next" => Some(Self::SelectNextSpace),
-            "space prev" => Some(Self::SelectPrevSpace),
-            "tab next" => Some(Self::SelectNextTab),
-            "tab prev" => Some(Self::SelectPrevTab),
-            "move space up" => Some(Self::MoveSpaceUp),
-            "move space down" => Some(Self::MoveSpaceDown),
-            "move tab up" => Some(Self::MoveTabUp),
-            "move tab down" => Some(Self::MoveTabDown),
-            _ => None,
-        }
-    }
-}
-
 /// A user-visible change to the shared workspace model.
 ///
 /// Terminal addresses are returned by close operations so the caller can ask
@@ -353,14 +331,6 @@ mod tests {
         assert_eq!(calls[2].1["version"], 7);
         assert_eq!(version, 8);
         assert_eq!(applied.get(), 2, "the mutation is replayed on the fresh model");
-    }
-
-    #[test]
-    fn palette_commands_parse_from_typed_text() {
-        assert_eq!(Command::parse("  New Space "), Some(Command::NewSpace));
-        assert_eq!(Command::parse("tab close"), Some(Command::CloseTab));
-        assert_eq!(Command::parse("move tab down"), Some(Command::MoveTabDown));
-        assert_eq!(Command::parse("delete everything"), None);
     }
 
     #[test]

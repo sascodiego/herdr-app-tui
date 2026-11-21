@@ -194,10 +194,19 @@ fn handle_key(
     if action == Action::Quit {
         return Ok(true);
     }
-    if action == Action::Palette {
-        app.panel = true;
-        app.exit_copy();
-        app.open_command();
+    if action == Action::Prefix {
+        app.prefix = !app.prefix;
+        return Ok(false);
+    }
+    if app.prefix {
+        return handle_prefix_key(core, app, key);
+    }
+    if let Action::SelectTab(index) = action {
+        select_tab_index(app, index);
+        return Ok(false);
+    }
+    if action == Action::AgentUp || action == Action::AgentDown {
+        move_agent(app, action == Action::AgentUp);
         return Ok(false);
     }
 
@@ -226,8 +235,12 @@ fn handle_key(
             Action::ClosePanel | Action::TogglePanel | Action::Attach => app.panel = false,
             Action::Up | Action::ScrollUp => app.move_cursor(-1),
             Action::Down | Action::ScrollDown => app.move_cursor(1),
-            Action::Refresh | Action::Ignore | Action::Palette => {}
-            Action::Command => app.open_command(),
+            Action::Refresh
+            | Action::Ignore
+            | Action::Prefix
+            | Action::SelectTab(_)
+            | Action::AgentUp
+            | Action::AgentDown => {}
             Action::Quit => return Ok(true),
         }
         return Ok(false);
@@ -241,7 +254,12 @@ fn handle_key(
         // With nothing attached, Esc leaves; with a live pane it is a key for
         // the program, like q, r and Ctrl+C.
         Action::ClosePanel if attached.is_none() => return Ok(true),
-        Action::ScrollUp | Action::ScrollDown | Action::Palette => {
+        Action::ScrollUp
+        | Action::ScrollDown
+        | Action::Prefix
+        | Action::SelectTab(_)
+        | Action::AgentUp
+        | Action::AgentDown => {
             // Handled before the panel/following branches.
         }
         _ => {
@@ -390,6 +408,49 @@ fn run_command(core: &std::sync::Arc<hc::Core>, app: &mut App, command: Command)
     }
 }
 
+fn handle_prefix_key(core: &std::sync::Arc<hc::Core>, app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
+    if key.code == KeyCode::Esc {
+        app.prefix = false;
+        return Ok(false);
+    }
+    app.prefix = false;
+    let command = match (key.code, key.modifiers) {
+        (KeyCode::Char('c'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Command::NewTab),
+        (KeyCode::Char('w'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Command::NewSpace),
+        (KeyCode::Char('r'), KeyModifiers::NONE) => Some(Command::RenameTab),
+        (KeyCode::Char('R'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Command::RenameSpace),
+        (KeyCode::Char('x'), KeyModifiers::NONE) => Some(Command::CloseTab),
+        (KeyCode::Char('X'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Command::CloseSpace),
+        _ => None,
+    };
+    if let Some(command) = command {
+        execute_command(core, app, command)?;
+    }
+    Ok(false)
+}
+
+fn select_tab_index(app: &mut App, index: usize) {
+    let Some(row) = app.rows.get(index) else { return };
+    let id = row.id.clone();
+    app.model.select_tab(&id);
+    app.cursor = index;
+    app.rebuild_rows();
+}
+
+fn move_agent(app: &mut App, up: bool) {
+    let targets = view::agent_targets(app);
+    let Some(last) = targets.len().checked_sub(1) else { return };
+    let current = targets.iter().position(|index| *index == app.cursor);
+    let next = match current {
+        None if up => last,
+        None => 0,
+        Some(at) if up => at.saturating_sub(1),
+        Some(at) => (at + 1).min(last),
+    };
+    app.cursor = targets[next];
+    app.rebuild_rows();
+}
+
 fn handle_prompt_key(core: &std::sync::Arc<hc::Core>, app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
     let confirmation = match app.prompt.as_ref() {
         Some(Prompt::ConfirmClose { command, .. }) => Some(*command),
@@ -413,10 +474,6 @@ fn handle_prompt_key(core: &std::sync::Arc<hc::Core>, app: &mut App, key: KeyEve
         KeyCode::Enter => {
             let Some(prompt) = app.prompt.take() else { return Ok(false) };
             match prompt {
-                Prompt::Command(buffer) => match Command::parse(&buffer) {
-                    Some(command) => execute_command(core, app, command)?,
-                    None => app.doc_error = Some(format!("unknown command: {buffer}")),
-                },
                 Prompt::RenameSpace { id, buffer } => {
                     commit(core, app, Mutation::RenameSpace { id, name: buffer })?
                 }

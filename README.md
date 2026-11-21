@@ -68,7 +68,10 @@ was built from, so you can confirm which code is running.
 | `enter` | Attach to the highlighted tab and give it the keyboard |
 | `esc` | Close the panel; quit when nothing is attached |
 | `ctrl+q` / `ctrl+\` | Quit (also sends no key to the agent) |
-| `pageup` / `pagedown`, `alt+↑` / `alt+↓` | Scroll the frozen history; `q` or `esc` resumes the live pane |
+| `ctrl+o` then `c` / `w` / `r` / `x` | New tab / new space / rename tab / close tab; `R` and `X` target the space |
+| `alt+1`…`alt+9`, `alt+0` | Select tab 1…9, or tab 10 |
+| `alt+↑` / `alt+↓` | Move through the detected agent list |
+| `pageup` / `pagedown` | Scroll the frozen history; `q` or `esc` resumes the live pane |
 
 Touch and pointer gestures work by zone:
 
@@ -80,13 +83,13 @@ Touch and pointer gestures work by zone:
 | Wheel or vertical drag in the panel | Move the highlight |
 | Tap the terminal | Resume the live pane |
 
-`ctrl+o` opens the workspace palette from anywhere and is reserved, like
-`ctrl+q`. While the panel is open, `:` opens the same palette; with the panel
-closed, `:` is an ordinary character and reaches bash. The palette accepts `new space`,
-`new tab`, `rename space`, `rename tab`, `close tab`, `close space`, `space next`,
-`space prev`, `tab next`, `tab prev` and `move space|tab up|down`. The same create,
-rename and close actions are tappable in the sidebar footer. Rename opens a
-pre-filled one-line prompt: Enter commits, Esc cancels. Close asks for `y` or `n`.
+`ctrl+o` is a reserved tmux-style prefix. It opens a floating binding panel and
+the next key runs the action: `c` new tab, `w` new space, `r` rename tab,
+`R` rename space, `x` close tab, `X` close space. `esc` cancels before the
+action key. There is no typed command palette: `:` remains an ordinary character
+and reaches the agent. The same create, rename and close actions are tappable in
+the sidebar footer. Rename opens a pre-filled one-line prompt: Enter commits,
+Esc cancels. Close asks for `y` or `n`.
 
 Spaces and tabs are written to the shared `herdr-app` document through
 `doc.get`/`doc.set` with the core's version check; a conflict re-reads and

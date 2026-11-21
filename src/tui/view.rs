@@ -145,6 +145,53 @@ pub fn render(app: &App, frame: &mut Frame) {
     if z.terminal.width > 0 && z.terminal.height > 0 {
         draw_terminal(app, frame, z.terminal);
     }
+    if app.prefix {
+        draw_prefix(frame);
+    }
+}
+
+/// Tab indices reachable from the detected agent list, in attention order.
+pub fn agent_targets(app: &App) -> Vec<usize> {
+    let mut agents: Vec<&super::app::Terminal> = app.terminals.iter().collect();
+    agents.sort_by_key(|agent| (agent.state.priority(), agent.name.clone()));
+    agents
+        .iter()
+        .filter_map(|agent| {
+            app.rows.iter().position(|row| {
+                row.address.as_deref() == Some(agent.address.as_str())
+                    || row.address.as_deref() == agent.parent.as_deref()
+            })
+        })
+        .collect()
+}
+
+/// A temporary overlay while a workspace prefix command is pending.
+fn draw_prefix(frame: &mut Frame) {
+    let screen = frame.area();
+    let width = 34.min(screen.width.saturating_sub(2));
+    let height = 7.min(screen.height.saturating_sub(1));
+    if width == 0 || height == 0 {
+        return;
+    }
+    let area = Rect::new(
+        screen.x + (screen.width - width) / 2,
+        screen.y + (screen.height - height) / 2,
+        width,
+        height,
+    );
+    frame.render_widget(
+        Block::new().borders(Borders::ALL).border_style(Style::default().fg(theme::ACCENT)).style(Style::default().bg(theme::PANEL)),
+        area,
+    );
+    let lines = vec![
+        Line::from(Span::styled("WORKSPACE PREFIX", Style::default().fg(theme::ACCENT).add_modifier(Modifier::BOLD))),
+        Line::from("c  new tab      w  new space"),
+        Line::from("r  rename tab   R  rename space"),
+        Line::from("x  close tab    X  close space"),
+        Line::from(Span::styled("esc cancels", Style::default().fg(theme::DIM))),
+    ];
+    let inner = Rect::new(area.x + 1, area.y + 1, area.width.saturating_sub(2), area.height.saturating_sub(2));
+    frame.render_widget(Paragraph::new(lines).style(Style::default().fg(theme::TEXT)), inner);
 }
 
 /// Which tab row, if any, is drawn at this screen coordinate.
@@ -378,7 +425,6 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
     }
     if let Some(prompt) = &app.prompt {
         let text = match prompt {
-            super::app::Prompt::Command(buffer) => format!(":{buffer}"),
             super::app::Prompt::RenameSpace { buffer, .. } => format!("space name: {buffer}"),
             super::app::Prompt::RenameTab { buffer, .. } => format!("tab name: {buffer}"),
             super::app::Prompt::ConfirmClose { label, .. } => format!("{label} [y/N]"),
@@ -567,7 +613,7 @@ fn two_columns(left: &str, right: &str, width: u16) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tui::app::{App, Prompt};
+    use crate::tui::app::App;
     use crate::tui::workspace::Command;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
@@ -833,11 +879,14 @@ mod tests {
     }
 
     #[test]
-    fn the_palette_shows_the_typed_command() {
-        let mut app = app(true);
-        app.prompt = Some(Prompt::Command("new space".into()));
+    fn the_prefix_shows_a_floating_binding_panel() {
+        let mut app = app(false);
+        app.prefix = true;
         let rows = screen(&app, 40, 20);
-        assert!(rows.iter().any(|row| row.contains(":new space")), "{rows:?}");
+        let joined = rows.join("\n");
+        assert!(joined.contains("WORKSPACE PREFIX"), "{joined}");
+        assert!(joined.contains("c  new tab"), "{joined}");
+        assert!(joined.contains("esc cancels"), "{joined}");
     }
 
     #[test]

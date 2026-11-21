@@ -29,11 +29,13 @@ Keys:
   enter        attach to the highlighted tab
   j / k        move the highlight
   pageup / pagedown, alt+up / alt+down   scroll; q or esc resumes
-  ctrl+o        open the workspace command palette
+  ctrl+o        workspace prefix: c new tab, w new space, r rename, x close
+  alt+1..9      select tab; alt+up/down walk agents
+  pageup / pagedown   scroll the frozen history
   ctrl+q / ctrl+\\   quit
 
 While attached, q, r, esc and ctrl+c belong to the agent; ctrl+o and the quit
-keys are reserved.
+keys are reserved. Esc cancels the prefix.
 Touch: tap the header or a row; drag or wheel to scroll.
 
 See herdr.dev — the runtime your coding agents live on.

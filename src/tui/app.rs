@@ -68,7 +68,6 @@ pub enum Focus {
 /// A one-line text capture inside the panel. The agent never sees these keys.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Prompt {
-    Command(String),
     RenameSpace { id: String, buffer: String },
     RenameTab { id: String, buffer: String },
     ConfirmClose { label: String, command: super::workspace::Command },
@@ -108,6 +107,8 @@ pub struct App {
     pub prompt: Option<Prompt>,
     /// Last computed core pane size, used when creating a terminal.
     pub pane: (u16, u16),
+    /// Whether the next key is a workspace prefix command.
+    pub prefix: bool,
 }
 
 impl App {
@@ -132,20 +133,14 @@ impl App {
             copy: false,
             prompt: None,
             pane: (40, 11),
+            prefix: false,
         }
-    }
-
-    /// Open the command palette. Only the panel calls this.
-    pub fn open_command(&mut self) {
-        self.prompt = Some(Prompt::Command(String::new()));
     }
 
     /// The editable line of the active prompt, if any.
     pub fn prompt_buffer(&mut self) -> Option<&mut String> {
         match self.prompt.as_mut() {
-            Some(Prompt::Command(buffer))
-            | Some(Prompt::RenameSpace { buffer, .. })
-            | Some(Prompt::RenameTab { buffer, .. }) => Some(buffer),
+            Some(Prompt::RenameSpace { buffer, .. }) | Some(Prompt::RenameTab { buffer, .. }) => Some(buffer),
             Some(Prompt::ConfirmClose { .. }) | None => None,
         }
     }
