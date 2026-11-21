@@ -410,12 +410,10 @@ fn sync_attachment(
 
 /// The terminal pane's size in cells, accounting for the rail and header.
 fn pane_size(_app: &App, width: u16, height: u16) -> (u16, u16) {
-    let (cols, rows) = if width >= view::WIDE_AT {
-        (width.saturating_sub(view::RAIL_WIDTH + 1), height)
-    } else {
-        (width, height.saturating_sub(1))
-    };
-    (cols.max(1), rows.max(1))
+    // The phone sheet covers the pane but does not resize it: use the closed
+    // face's geometry so opening the sidebar cannot reflow a live program.
+    let zone = view::zones(ratatui::layout::Rect::new(0, 0, width, height), false);
+    (zone.terminal.width.max(1), zone.terminal.height.max(1))
 }
 
 /// Why a running core cannot serve this screen, in words rather than a `Debug` dump.
@@ -540,5 +538,17 @@ mod tests {
             .replace("\x1b[?1003h", "\x1b[?1002h")
             .replace("\x1b[?1003l", "\x1b[?1002l");
         assert_eq!(rewritten, original, "a wrapper must be a no-op");
+    }
+
+    #[test]
+    fn the_core_pane_matches_the_phone_terminal_zone() {
+        let mut app = App::new("default", "local");
+        for panel in [false, true] {
+            app.panel = panel;
+            let (cols, rows) = pane_size(&app, 40, 14);
+            let zone = view::zones(ratatui::layout::Rect::new(0, 0, 40, 14), false);
+            assert_eq!((cols, rows), (zone.terminal.width, zone.terminal.height), "panel={panel}");
+            assert_eq!(rows, 14 - view::BAND_ROWS, "the prompt must not be clipped");
+        }
     }
 }
