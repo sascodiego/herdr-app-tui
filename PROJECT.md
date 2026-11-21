@@ -243,6 +243,16 @@ Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
 `LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
 `roundtrip-ok`.
 
+**L21 — 2026-11-21** — El usuario planteó que en Termux, bajo mosh, el swipe
+solo funcionaba pasando por el wrapper `mosh-mouse` que reescribe `?1003h` a
+`?1002h`, y pidió una resolución nativa que sirva con o sin wrapper, desde
+tmux, herdr o bash por mosh. Confirmado: `crossterm::EnableMouseCapture` emite
+`?1000h ?1002h ?1003h ?1015h ?1006h`; mosh colapsa modos y Termux ignora
+`1003`. Reemplazado por `write_mouse_reporting`, que emite solo `1000/1002/1006`
+y el inverso al salir. Verificado en PTY: bytes exactos al entrar y salir, sin
+`1003` ni `1015`, rueda y taps intactos, y test que el wrapper es no-op. 191
+tests, clippy limpio.
+
 **L20 — 2026-11-21** — El usuario reportó que el copy mode perdía los
 colores. Causa: el historial venía de `terminal.read`, que es texto plano.
 Se descartó esa ruta: el scrollback de libghostty ya está en nuestra copia de

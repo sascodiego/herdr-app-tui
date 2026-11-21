@@ -13,19 +13,33 @@ pub mod view;
 
 use anyhow::{Context, anyhow};
 use crossterm::event::{
-    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
-    KeyModifiers, MouseEvent, MouseEventKind,
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use serde_json::{Value, json};
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Write};
 use std::time::Duration;
 
 use crate::hc;
 use app::App;
 use attach::Session;
 use input::Action;
+
+/// The mouse modes Termux, tmux and mosh all agree on: press/release,
+/// button-drag and SGR coordinates. Deliberately no `?1003h` (any-motion,
+/// which Termux ignores) and no `?1015h` (RXVT, superseded by SGR).
+const MOUSE_ON: &[u8] = b"\x1b[?1000h\x1b[?1002h\x1b[?1006h";
+const MOUSE_OFF: &[u8] = b"\x1b[?1006l\x1b[?1002l\x1b[?1000l";
+
+/// Enable or disable the minimal mouse reporting ourselves. crossterm's
+/// `EnableMouseCapture` emits `?1003h` too, which mosh collapses into its one
+/// mode and Termux does not implement, turning swipes into arrow keys.
+fn write_mouse_reporting(out: &mut impl Write, on: bool) -> anyhow::Result<()> {
+    out.write_all(if on { MOUSE_ON } else { MOUSE_OFF })
+        .context("cannot set mouse reporting")?;
+    out.flush().context("cannot flush mouse reporting")
+}
 
 /// One screen frame. Terminal output does not produce a crossterm event, so a
 /// long poll would leave the attach stream waiting: bytes would arrive in
@@ -62,9 +76,9 @@ pub fn run() -> anyhow::Result<i32> {
 
     let (channel, events, snapshot) = core.subscribe().context("events.subscribe")?;
     let mut terminal = ratatui::init();
-    crossterm::execute!(std::io::stdout(), EnableMouseCapture).context("cannot capture the pointer")?;
+    write_mouse_reporting(&mut std::io::stdout().lock(), true)?;
     let outcome = event_loop(&core, &mut app, &mut terminal, (channel, events), snapshot);
-    let _ = crossterm::execute!(std::io::stdout(), DisableMouseCapture);
+    let _ = write_mouse_reporting(&mut std::io::stdout().lock(), false);
     ratatui::restore();
     outcome
 }
@@ -493,4 +507,38 @@ pub fn attach_once(terminal: &str, text: Option<&str>) -> i32 {
     }
     session.detach(&core);
     0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mouse_reporting_uses_only_the_modes_everyone_understands() {
+        let mut out = Vec::new();
+        write_mouse_reporting(&mut out, true).expect("enable");
+        let on = String::from_utf8(out).expect("utf8");
+        assert_eq!(on, "\x1b[?1000h\x1b[?1002h\x1b[?1006h");
+        assert!(!on.contains("1003"), "Termux ignores any-motion");
+        assert!(!on.contains("1015"), "SGR supersedes RXVT coordinates");
+
+        let mut out = Vec::new();
+        write_mouse_reporting(&mut out, false).expect("disable");
+        let off = String::from_utf8(out).expect("utf8");
+        assert_eq!(off, "\x1b[?1006l\x1b[?1002l\x1b[?1000l");
+        assert!(!off.contains("1003"));
+        assert!(!off.contains("1015"));
+    }
+
+    #[test]
+    fn the_mosh_wrapper_has_nothing_to_rewrite() {
+        let mut out = Vec::new();
+        write_mouse_reporting(&mut out, true).expect("enable");
+        write_mouse_reporting(&mut out, false).expect("disable");
+        let original = String::from_utf8(out).expect("utf8");
+        let rewritten = original
+            .replace("\x1b[?1003h", "\x1b[?1002h")
+            .replace("\x1b[?1003l", "\x1b[?1002l");
+        assert_eq!(rewritten, original, "a wrapper must be a no-op");
+    }
 }

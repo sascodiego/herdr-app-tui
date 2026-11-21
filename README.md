@@ -77,6 +77,13 @@ Touch and pointer gestures work by zone:
 Copy mode scrolls libghostty's own scrollback, so colors, bold and background
 attributes are preserved; no plain-text dump is used.
 
+The TUI asks for mouse reporting directly with `?1000h ?1002h ?1006h` — no
+`?1003h` (any-motion) and no `?1015h` (RXVT). That keeps swipes working under
+Termux with or without the `mosh-mouse` wrapper, inside tmux, and over mosh;
+with the wrapper in front, the rewrite is a no-op. crossterm's
+`EnableMouseCapture` emits the two modes that break that path, so we do not use
+it.
+
 A tap is a press and release without movement; a drag needs at least two cells
 of vertical travel. The terminal emulator must forward pointer events for these
 to work; gestures consumed by the emulator never reach the TUI. Clicks are not
