@@ -36,9 +36,12 @@ herdr-app revision, and every local divergence is listed in
 ## Getting started
 
 ```bash
-cargo build --release
-./target/release/herdr-app-tui
+cargo build
+./target/debug/herdr-app-tui
 ```
+
+Use `cargo build --release` only when cutting a release; the normal loop is
+`cargo check` plus a debug build.
 
 Needs `herdr-core` (and its `hc` CLI) on `PATH`, or the one the desktop app
 installed. The session comes from `HC_SESSION`, `default` when unset.
@@ -46,12 +49,12 @@ installed. The session comes from `HC_SESSION`, `default` when unset.
 ## Running it
 
 ```bash
-cargo run --release
+cargo run
 ```
 
-Use `--release`: libghostty's parser is much slower in a debug build. The
-screen reacts to events pushed by herdr-core, so typing does not wait for a
-terminal list or a document read.
+The screen reacts to events pushed by herdr-core, so typing does not wait for a
+terminal list or a document read. A release build is faster for daily use but
+is reserved for releases by project policy.
 
 `herdr-app-tui --version` prints the crate version and the short commit hash it
 was built from, so you can confirm which code is running.
@@ -71,7 +74,7 @@ Touch and pointer gestures work by zone:
 
 | Gesture | What it does |
 |---|---|
-| Tap the header's `switch` / `close` | Open or close the panel |
+| Tap the band's `switch` / `x` block | Open or close the panel |
 | Tap a tab row | Select it, attach, and close the sheet on a phone |
 | Wheel or vertical drag in the terminal | Enter copy mode and scroll the history |
 | Wheel or vertical drag in the panel | Move the highlight |
@@ -91,6 +94,12 @@ A tap is a press and release without movement; a drag needs at least two cells
 of vertical travel. The terminal emulator must forward pointer events for these
 to work; gestures consumed by the emulator never reach the TUI. Clicks are not
 sent to the program inside the terminal.
+
+On a phone the top band has three rows: workspace and tab count, current path,
+and the agent total grouped by state. A fixed-width toggle block spans all
+three rows on the right. The band also names the pane state: `preview`,
+`attached` or `scrolled`. The sidebar has a one-cell gutter on every side, and
+the `AGENTS` section is a navigable list ordered by who needs attention.
 
 The panel lists the tabs of the active space in the shared `herdr-app`
 document — the same data the desktop app reads — and uses `terminal.list` only

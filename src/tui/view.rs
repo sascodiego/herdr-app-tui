@@ -180,9 +180,10 @@ fn draw_header(app: &App, area: Rect, frame: &mut Frame) {
             Span::styled(mark.to_string(), Style::default().fg(color)),
             Span::styled(
                 format!(
-                    " {} · {} tabs · {}",
+                    " {} · {} {} · {}",
                     app.workspace(),
                     app.rows().len(),
+                    tab_word(app.rows().len()),
                     app.pane_state()
                 ),
                 Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
@@ -217,6 +218,11 @@ fn draw_header(app: &App, area: Rect, frame: &mut Frame) {
         ));
     }
     frame.render_widget(Paragraph::new(toggle_lines).style(Style::default().bg(theme::SURFACE)), toggle);
+}
+
+/// The band reads `1 tab`, not `1 tabs`.
+fn tab_word(count: usize) -> &'static str {
+    if count == 1 { "tab" } else { "tabs" }
 }
 
 /// Truncate chrome text with `…` instead of wrapping it.
@@ -415,10 +421,8 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
 
     // The actions sit at the foot of the panel, not in a status bar.
     lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(
-        "settings  keys  reload  detach".to_string(),
-        Style::default().fg(theme::DIM),
-    )));
+    let actions = if wide { "set  keys  rel  det" } else { "settings  keys  reload  detach" };
+    lines.push(Line::from(Span::styled(actions.to_string(), Style::default().fg(theme::DIM))));
     (lines.lines, lines.rows)
 }
 
@@ -741,6 +745,29 @@ mod tests {
         assert!(section.iter().any(|row| row.contains("pi 2") && row.contains("needs you")), "{section:?}");
         assert!(section.iter().any(|row| row.contains("pi 3") && row.contains("working")), "{section:?}");
         assert!(!section.iter().any(|row| row.trim() == "◐ working 1"), "no statistic row: {section:?}");
+    }
+
+    #[test]
+    fn one_tab_is_singular_in_the_band() {
+        let mut app = app(false);
+        app.cursor = 0;
+        let rows = screen(&app, 40, 20);
+        assert!(rows[0].contains("3 tabs") || rows[0].contains("1 tab ·"), "{:?}", rows[0]);
+        let mut single = App::new("default", "local");
+        single.set_terminals(&json!({
+            "terminals": [{ "address": "t1", "name": "solo", "status": { "state": "idle" } }],
+            "hidden_finished": 0,
+            "machines": [],
+        }));
+        let rows = screen(&single, 40, 20);
+        assert!(rows[0].contains("1 tab ·"), "{:?}", rows[0]);
+        assert!(!rows[0].contains("1 tabs"), "{:?}", rows[0]);
+    }
+
+    #[test]
+    fn the_rail_abbreviates_its_actions() {
+        let rows = screen(&app(true), 100, 24);
+        assert!(rows.iter().any(|row| row.contains("set  keys  rel  det")), "{rows:?}");
     }
 
     #[test]
