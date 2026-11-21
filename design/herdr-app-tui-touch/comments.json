@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "comments": [
+    {
+      "id": "iu1xt362",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1)",
+      "excerpt": "default ubuntu-test ● close ×",
+      "comment": "Esta desproporcionado, descentrado. El close prefiero que sea solo una x asi podemos alinear y distribuir mejor el espacio. La informacion de la barra debe ser mas significativa como por ejelplo el workspace, el path, la cantidad de tabs. Hay que se inteligentes para lograr mostrar informacion sin que todo colapse",
+      "createdAt": "2026-11-21T15:19:33.107Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "waf0lkqn",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(3) > div:nth-of-type(2) > span",
+      "excerpt": "attached · 2 helpers",
+      "comment": "El desborde lo ponemos en una fila inferior con una tabulacion mayor al del nombre del tab",
+      "createdAt": "2026-11-21T15:20:23.981Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "nw58xcad",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(3) > div > div:nth-of-type(1) > div:nth-of-type(15) > span",
+      "excerpt": "─ pi 4 · cargo test --lib ──",
+      "comment": "Me oarece buena la idea de esta seccion pero no logro darme cuenta d edonde vas a obtener esta informacion que queres mostrar",
+      "createdAt": "2026-11-21T15:21:26.754Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "5rlxnq41",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(3) > div > div:nth-of-type(1) > div:nth-of-type(17) > span",
+      "excerpt": "settings keys reload detach",
+      "comment": "Esta barra debe tener mas destaque, estar alineada y tener un fondo mas destacado cada boton debe tener un box definido",
+      "createdAt": "2026-11-21T15:21:56.422Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "qyeh3j3w",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(10) > span",
+      "excerpt": "settings keys reload detach",
+      "comment": "La barra debe estar mas destacada con un fondo especifico, los botones deben tener un box definido y debe estar alineada abajo incluso cuando se abre y se cierra el teclado debe reacomodarse al alto",
+      "createdAt": "2026-11-21T15:22:32.417Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "vzz1vhf1",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body",
+      "excerpt": "01 — Safe-area sheet The current command sheet, re-cut for fingers. A three-row tap band replaces the one-row bar: an empty row above the text keeps it off the screen edge, and the whole band toggles the sheet. Tab rows are two cells tall so a swipe or tap has room. The sidebar keeps its actions at",
+      "comment": "La paleta de colores la vmos a cambiar, me gustaria que sea mas profundo, mas estilo https://terminalcolors.com/themes/gotham/default/",
+      "createdAt": "2026-11-21T15:27:52.554Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:27:57.493Z",
+      "resolvedAt": "2026-11-21T15:29:25.398Z",
+      "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "0wmndgbj",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(10) > span > span:nth-of-type(3)",
+      "excerpt": "[reload]",
+      "comment": "No me gustan los botones",
+      "createdAt": "2026-11-21T15:30:42.810Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "bjc4jrmv",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1)",
+      "excerpt": "default › research ~/herdr ● 4 tabs x",
+      "comment": "Sigue despropocionado el texto no se ajusta en espacio ni tamaño, deberia al menos estar centrado. El \"default\" imagino que es el space de herder-core no lo mostramos aca, vemos si lo mostramos en el sidebar pero en principio lo sacamos",
+      "createdAt": "2026-11-21T15:31:43.777Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "8pnqj3z9",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > p",
+      "excerpt": "The current command sheet, re-cut for fingers. A three-row tap band replaces the one-row bar: an empty row above the text keeps it off the screen edge, and the whole band toggles the sheet. Tab rows are two cells tall so a swipe or tap has room. The sidebar keeps its actions at its own foot.",
+      "comment": "Accessibility check on body > main > p: Low contrast.\n\"The current command sheet, re-cut for f…\" is 2.44 : 1 (#4e5166 on #0c1014); WCAG AA needs 4.5 : 1.\nFix it so it meets WCAG 2.2 AA, keeping the design's tokens.",
+      "createdAt": "2026-11-21T15:32:02.332Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "yklw9l3u",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div > div:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(2) > span:nth-of-type(1)",
+      "excerpt": "ubuntu-test",
+      "comment": "Accessibility check on body > main > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div > div:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(2) > span:nth-of-type(1): Low contrast.\n\"ubuntu-test\" is 2.29 : 1 (#4e5166 on #111820); WCAG AA needs 4.5 : 1.\nFix it so it meets WCAG 2.2 AA, keeping the design's tokens.",
+      "createdAt": "2026-11-21T15:32:16.272Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "5f627vnm",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div > div:nth-of-type(3) > span",
+      "excerpt": "◐ cargo test --lib",
+      "comment": "Accessibility check on body > main > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div > div:nth-of-type(3) > span: Low contrast.\n\"cargo test --lib\" is 2.44 : 1 (#4e5166 on #0c1014); WCAG AA needs 4.5 : 1.\nFix it so it meets WCAG 2.2 AA, keeping the design's tokens.",
+      "createdAt": "2026-11-21T15:32:25.924Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "rkkatgng",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(3) > div > div:nth-of-type(1) > div:nth-of-type(10)",
+      "excerpt": "▾ AGENTS 3",
+      "comment": "Esta seccion debe mostrar los agentes activos. Yo lo que hago es moverme entre agentes a medida que requieren mi atencion, una estadistica no me aporta nada en principio. Hoy tnemos workspaces, cada uno tiene agentes. Herdr detecta los agentes y su estado y los presenta en una lista de facil navegacion",
+      "createdAt": "2026-11-21T15:35:28.757Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:37:00.539Z",
+      "resolvedAt": "2026-11-21T15:39:09.018Z",
+      "resolution": "Replaced the AGENTS statistics with an attention-ordered navigable agent list and returned the header to a plain two-column row with the toggle hard-right."
+    },
+    {
+      "id": "9l62ffqe",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1)",
+      "excerpt": "research · ~/herdr · 4 tabs ● x",
+      "comment": "Sigue descentrado, desalineado. No me gusta. Aca creo que hay un limite que debes explicarme en chat. No se puede poner diferentes sizes de letra, creo que ese es el tema. En ese caso dejamos la fila con una fila vacia arriba y una abajo. Lo que si necesito es que me lo alinies horizontalmente par que el boton de toggle de la sidebar este siempre a la derecha",
+      "createdAt": "2026-11-21T15:36:58.211Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:37:00.539Z",
+      "resolvedAt": "2026-11-21T15:39:09.018Z",
+      "resolution": "Replaced the AGENTS statistics with an attention-ordered navigable agent list and returned the header to a plain two-column row with the toggle hard-right."
+    }
+  ]
+}

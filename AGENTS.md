@@ -78,12 +78,28 @@ herdr-app versions. The API schema is in
 
 ## How to build and test
 
+Use `cargo check` for the edit-compile loop: it is the fast way to verify that
+a change compiles. Build a debug binary only when a run needs one.
+
 ```bash
-cargo build --release
+cargo check                          # while writing code
+cargo build                          # debug binary, when needed
 cargo test
-cargo clippy  # must pass clean
-just build
+cargo clippy --all-targets -- -D warnings
 ```
+
+`cargo build --release` is for cutting a release, not for ordinary development.
+The same rule applies to `just release`. A dependency that genuinely needs
+release-mode verification is evaluated case by case and documented here; none
+is known today.
+
+`just build` is the debug build. `just check` runs tests and clippy. Formatting
+is not a gate: the copied `crates/ghostty-sys/build.rs` is not rustfmt-clean and
+reformatting it would be an upstream divergence.
+
+`just install` depends on `just release` because it copies
+`target/release/herdr-app-tui` into `~/.local/bin/` — that is a path dependency,
+not a requirement that tests run with `--release`.
 
 ## What ships in the box
 

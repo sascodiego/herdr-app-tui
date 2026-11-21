@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "chosen": "01-safe-area-sheet.html",
+  "handoffs": {
+    "01-safe-area-sheet.html": {
+      "status": "implemented",
+      "queued": false,
+      "sentAt": "2026-11-21T15:53:48.662Z",
+      "startedAt": "2026-11-21T15:54:13.203Z",
+      "implementedAt": "2026-11-21T16:11:59.330Z",
+      "feature": "odd/tasks/touch-first-layout.md",
+      "note": "Ratatui now renders the three-row band, fixed toggle block, one-cell sidebar gutters, two-cell tab targets, pane states and navigable AGENTS list. Debug build, 199+2 tests and clippy are clean; tmux captures at 40x14, 60x20, 100x30 and 180x50 verified after-only layout."
+    }
+  }
+}

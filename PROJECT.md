@@ -100,6 +100,7 @@ the app's neutral tokens for chrome, inherited from the sibling repositories.
 | T12 | S11, S12, S14, S15 | **code** | **done** | Artboard 01 (command sheet) in ratatui: header row, counted sections, agent rows hosted by their terminal, glyph plus word, selection as a surface band, rail on the left when wide, sheet over the screen on a phone, no status bar. Verified against a live core |
 | T13 | S13 | code | **done** | Desktop rail: the same panel, 26 columns on the **left**, one rule, terminal to its right. Covered by `a_wide_screen_keeps_the_rail_on_the_left` |
 | T14 | S1 | code | pending | Extract `herdr-client` inside herdr-app's workspace (hc, core_bin, model, layout, mirror, persist, spawn) so herdr-app and this TUI share one source of truth instead of a pinned copy. Blocked first step: herdr-app does not build here (`vendor/ghostty` submodule uninitialised, Zig needed for `ghostty-sys`) |
+| T17 | S1 | design + code | in_progress | Touch-first mobile layout with a retained sidebar: `odd/tasks/touch-first-layout.md` |
 | T15 | S6 | code | **done** | Read the shared workspace document with `doc.get({"name":"herdr-app"})` and convert it with the copied `Document::replace`. TABS now lists the active space's tabs from that document, so terminals outside every tab are not shown; a failed `doc.get` falls back to the core's terminal list. No new upstream modules were needed |
 
 ## Log
@@ -242,6 +243,28 @@ limpio y **cero `#[allow]`** (D9/D10 eliminaron los dos que venían de upstream)
 Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
 `LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
 `roundtrip-ok`.
+
+**L24 — 2026-11-21** — Sellado el rediseño touch-first. Se creó
+`odd/tasks/touch-first-layout.md` con 6 tareas. Yank queda afuera; la fila de
+acciones del sidebar se conserva. Se harán 3 artboards en
+`design/herdr-app-tui-touch/`, se elegirá uno y se implementará con prueba
+visual antes/después.
+
+**L23 — 2026-11-21** — El usuario pidió que `AGENTS.md` establezca que no se
+hacen release builds salvo que se esté cortando un release: el loop usa
+`cargo check` y, si hace falta binario, `cargo build` debug. Se ajustó el
+`justfile`: `build` es debug, nueva recipe `release`, `install` depende de
+`release` porque copia `target/release/herdr-app-tui` (dependencia de ruta, no
+de flag). Se documentó que ninguna dependencia requiere hoy verificación en
+release y que se evaluaría caso por caso. `cargo fmt --check` no se incluye
+como gate porque falla en la copia upstream `crates/ghostty-sys/build.rs`.
+
+**L22 — 2026-11-21** — El usuario pidió seguir con el repo. Se commiteó
+`.engram/config.json` y se pushearon los commits pendientes. Se agregó
+`build.rs`, que expone el hash corto del commit al compilar, y `--version` ahora
+imprime `herdr-app-tui <versión> (<hash>)`. También se corrigió el `HELP`, que
+todavía decía `q` para salir y `r` para refrescar. 191+2 tests, clippy limpio,
+`cargo build --release` correcto en 44 s. El `README.md` documenta el flag.
 
 **L21 — 2026-11-21** — El usuario planteó que en Termux, bajo mosh, el swipe
 solo funcionaba pasando por el wrapper `mosh-mouse` que reescribe `?1003h` a

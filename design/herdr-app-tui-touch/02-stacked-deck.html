@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>02 — Stacked deck</title>
+<style>
+  :root {
+    --bg:#0c1014; --panel:#111820; --surface:#0a3749; --text:#99d1ce;
+    --muted:#99d1ce; --dim:#99d1ce; --accent:#33859e;
+    --green:#2aa889; --yellow:#edb443; --red:#c23127; --rule:#195466;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font:12px/1.42 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    padding:24px 28px 32px; width:1080px;
+  }
+  h1 { margin:0 0 4px; font-size:14px; font-weight:700; }
+  h1 .n { color:var(--accent); }
+  .brief { margin:0 0 20px; color:var(--muted); max-width:100ch; }
+  .label { margin-bottom:6px; color:var(--dim); font-size:11px; }
+  .row { display:flex; gap:26px; align-items:flex-start; }
+  .device { border:1px solid var(--rule); background:var(--bg); padding:10px; }
+  .screen { width:40ch; }
+  .ln { display:flex; min-height:1.42em; white-space:pre; }
+  .ln > .l { flex:0 0 auto; }
+  .ln > .r { margin-left:auto; flex:0 0 auto; }
+  .band { display:flex; min-height:4.26em; background:var(--panel); }
+  .band-left { flex:1 1 auto; min-width:0; padding-left:1ch; }
+  .toggle { flex:0 0 8ch; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .sidebar { padding:0 1ch; }
+  .sel { background:var(--surface); }
+  .sec { color:var(--muted); font-weight:700; }
+  .cnt, .pm { color:var(--muted); }
+  .pd, .ft { color:var(--dim); }
+  .ac { color:var(--accent); }
+  .ok { color:var(--green); }
+  .wr { color:var(--yellow); }
+  .er { color:var(--red); }
+  .b { font-weight:700; }
+  [role="button"]:focus-visible { outline:1px solid var(--accent); outline-offset:-1px; }
+  .cols { display:flex; align-items:flex-start; }
+  .rail { width:26ch; background:var(--panel); border-right:1px solid var(--rule); }
+  .term { width:56ch; padding-left:1ch; }
+  .notes { margin-top:18px; color:var(--dim); font-size:11px; max-width:84ch; }
+  .notes b { color:var(--muted); font-weight:400; }
+  .fix { color:var(--green); }
+  .sub { margin:22px 0 6px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1><span class="n">02</span> — Stacked deck</h1>
+<p class="brief">
+  The collapsed face is shared with the other directions: one text row in a
+  three-row tap band. Opening it uses two-line tabs, with the label first and
+  the state plus context underneath. Easier to read at arm's length; the extra
+  line lives only inside the open sheet.
+</p>
+
+<div class="row">
+  <section aria-label="Phone, bar collapsed">
+    <div class="label">phone · collapsed · 40 × 18</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Open the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">○</span> researchs · 4 tabs</span></div>
+          <div class="ln pm"><span class="l">~/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">switch</div>
+      </div>
+      <div class="ln"><span class="l">❯ cargo test --lib</span></div>
+      <div class="ln pm"><span class="l">  <span class="wr">◐</span> running 41 tests</span></div>
+      <div class="ln pm"><span class="l">    test api::attach ... ok</span></div>
+      <div class="ln pm"><span class="l">    test api::list ... ok</span></div>
+      <div class="ln pm"><span class="l">    test terminals::run ... ok</span></div>
+      <div class="ln"><span class="l">    <span class="ok">test result: ok. 41 passed; 0 failed</span></span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln"><span class="l">❯ </span></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="ln"></div>
+    </div></div>
+  </section>
+
+  <section aria-label="Phone, bar open">
+    <div class="label">phone · sheet open · 40 × 18</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Close the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">○</span> researchs · 4 tabs</span></div>
+          <div class="ln pm"><span class="l">~/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">x</div>
+      </div>
+      <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
+      <div class="ln sel" role="button" tabindex="0" aria-label="Attach pi 4">
+        <div class="ln"><span class="l">  <span class="b">research</span>  pi 4</span><span class="r wr">◐ working</span></div>
+        <div class="ln pm"><span class="l">      attached · cargo test --lib</span></div>
+      </div>
+      <div class="ln" role="button" tabindex="0" aria-label="Attach pi 2">
+        <div class="ln"><span class="l">  api-work  pi 2</span><span class="r er">▲ needs you</span></div>
+        <div class="ln pm"><span class="l">      waiting on review</span></div>
+      </div>
+      <div class="ln" role="button" tabindex="0" aria-label="Attach pi 1">
+        <div class="ln"><span class="l">  release-check  pi 1</span><span class="r pm">○ idle</span></div>
+        <div class="ln pm"><span class="l">      last run 2h ago</span></div>
+      </div>
+      <div class="ln sec"><span class="l">▾ AGENTS</span><span class="r cnt">3</span></div>
+      <div class="ln wr"><span class="l">  ◐ working</span><span class="r cnt">1</span></div>
+      <div class="ln er"><span class="l">  ▲ needs you</span><span class="r cnt">1</span></div>
+      <div class="ln ft"><span class="l">settings  keys  reload  detach</span></div>
+      <div class="ln"></div>
+    </div></div>
+  </section>
+</div>
+
+<div class="sub">desktop · rail on the left, compact header preserved · 26 + 56 columns × 24 rows</div>
+<div class="device"><div class="cols">
+  <div class="rail">
+    <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span></span></div>
+    <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
+    <div class="ln sel"><span class="l">  <span class="b">research</span>  pi 4 <span class="wr">◐</span></span></div>
+    <div class="ln pm"><span class="l">      ○ helper a</span></div>
+    <div class="ln pm"><span class="l">      ○ helper b</span></div>
+    <div class="ln"><span class="l">  api-work  pi 2 <span class="er">▲</span></span></div>
+    <div class="ln"><span class="l">  release-check  pi 1 <span class="pm">○</span></span></div>
+    <div class="ln"><span class="l">  docs  pi 3 <span class="ok">✓</span></span></div>
+    <div class="ln"><span class="l"> </span></div>
+    <div class="ln sec"><span class="l">▾ AGENTS</span><span class="r cnt">3</span></div>
+    <div class="ln wr"><span class="l">  ◐ working</span><span class="r cnt">1</span></div>
+    <div class="ln er"><span class="l">  ▲ needs you</span><span class="r cnt">1</span></div>
+    <div class="ln pm"><span class="l">  ○ idle</span><span class="r cnt">1</span></div>
+    <div class="ln"><span class="l"> </span></div>
+    <div class="ln pd"><span class="l">─ pi 4 · cargo test --lib ──</span></div>
+    <div class="ln pm"><span class="l">  test api::attach ... ok</span></div>
+    <div class="ln ft"><span class="l">settings keys reload detach</span></div>
+    <div class="ln"></div>
+  </div>
+  <div class="term">
+    <div class="ln"><span class="l">❯ pi 4 · research</span></div>
+    <div class="ln pm"><span class="l">  <span class="wr">◐</span> cargo test --lib</span></div>
+    <div class="ln pm"><span class="l">    Compiling herdr-core v0.1.21</span></div>
+    <div class="ln pm"><span class="l">    Finished `test` profile</span></div>
+    <div class="ln pm"><span class="l">    running 41 tests</span></div>
+    <div class="ln pm"><span class="l">    test api::attach ... ok</span></div>
+    <div class="ln pm"><span class="l">    test api::list ... ok</span></div>
+    <div class="ln pm"><span class="l">    test terminals::run ... ok</span></div>
+    <div class="ln pm"><span class="l">    test wait::blocked ... ok</span></div>
+    <div class="ln"><span class="l">    <span class="ok">test result: ok. 41 passed; 0 failed</span></span></div>
+    <div class="ln"><span class="l"> </span></div>
+    <div class="ln"><span class="l">❯ </span></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+    <div class="ln"></div>
+  </div>
+</div></div>
+
+<div class="notes">
+  <b>Tradeoff:</b> the open sheet reads each tab as a two-line card without a
+  box, so labels and states are easier to separate at arm's length. It spends
+  one extra row per tab. Desktop keeps its dense one-row header.
+  <br><br>
+  <b>Fixes:</b> <span class="fix">P1</span> the shared three-row tap band keeps a
+  blank margin above the text; <span class="fix">P2</span> label and state are
+  separate roles in the open sheet;
+  <span class="fix">P3</span> two-line tab targets;
+  <span class="fix">P4</span> sidebar actions stay inside the sidebar;
+  <span class="fix">P5</span> no global status or footer bar.
+</div>
+</main>
+</body>
+</html>

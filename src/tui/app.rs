@@ -71,6 +71,8 @@ pub struct App {
     pub session: String,
     /// What the core calls itself.
     pub core: String,
+    /// The directory the TUI was launched from, shown in the mobile band.
+    pub path: String,
     pub connected: bool,
     /// Whether the panel is open.
     pub panel: bool,
@@ -100,6 +102,9 @@ impl App {
         App {
             session: session.to_string(),
             core: core.to_string(),
+            path: std::env::current_dir()
+                .map(|directory| directory.display().to_string())
+                .unwrap_or_else(|_| ".".to_string()),
             connected: true,
             panel: false,
             cursor: 0,
@@ -260,6 +265,11 @@ impl App {
         self.terminals.iter().filter(|terminal| terminal.parent.as_deref() == Some(address)).collect()
     }
 
+    /// The workspace named in the band: the highlighted tab, or the session.
+    pub fn workspace(&self) -> &str {
+        self.selected().map_or(self.session.as_str(), |row| row.name.as_str())
+    }
+
     /// The highlighted row.
     pub fn selected(&self) -> Option<&Row> {
         self.rows.get(self.cursor)
@@ -283,6 +293,17 @@ impl App {
     /// Where the keyboard is right now.
     pub fn focus(&self) -> Focus {
         if self.panel { Focus::Panel } else { Focus::Terminal }
+    }
+
+    /// What the mobile band says about the pane: live, history or preview.
+    pub fn pane_state(&self) -> &'static str {
+        if self.copy {
+            "scrolled"
+        } else if self.screen.is_some() {
+            "attached"
+        } else {
+            "preview"
+        }
     }
 
     /// `(working, needs you, idle)` for the agents rollup.
