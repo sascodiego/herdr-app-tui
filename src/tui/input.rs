@@ -21,6 +21,8 @@ pub enum Action {
     Up,
     Down,
     Refresh,
+    /// Open the workspace command palette; only read while the panel is open.
+    Command,
     Ignore,
 }
 
@@ -60,6 +62,7 @@ pub fn action(key: KeyEvent) -> Action {
         (KeyCode::Up, _) | (KeyCode::Char('k'), KeyModifiers::NONE) => Action::Up,
         (KeyCode::Down, _) | (KeyCode::Char('j'), KeyModifiers::NONE) => Action::Down,
         (KeyCode::Char('r'), KeyModifiers::NONE) => Action::Refresh,
+        (KeyCode::Char(':'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Action::Command,
         _ => Action::Ignore,
     }
 }
@@ -116,6 +119,12 @@ mod tests {
         assert_eq!(pointer(MouseEventKind::Drag(MouseButton::Left)), Some(Pointer::Drag));
         assert_eq!(pointer(MouseEventKind::Down(MouseButton::Right)), None);
         assert_eq!(pointer(MouseEventKind::Moved), None);
+    }
+
+    #[test]
+    fn colon_opens_the_command_palette() {
+        assert_eq!(action(key(KeyCode::Char(':'))), Action::Command);
+        assert_eq!(action(KeyEvent::new(KeyCode::Char(':'), KeyModifiers::SHIFT)), Action::Command);
     }
 
     #[test]

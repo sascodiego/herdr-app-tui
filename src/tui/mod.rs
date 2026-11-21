@@ -215,7 +215,7 @@ fn handle_key(
             Action::ClosePanel | Action::TogglePanel | Action::Attach => app.panel = false,
             Action::Up | Action::ScrollUp => app.move_cursor(-1),
             Action::Down | Action::ScrollDown => app.move_cursor(1),
-            Action::Refresh | Action::Ignore => {}
+            Action::Refresh | Action::Command | Action::Ignore => {}
             Action::Quit => return Ok(true),
         }
         return Ok(false);
@@ -229,7 +229,7 @@ fn handle_key(
         // With nothing attached, Esc leaves; with a live pane it is a key for
         // the program, like q, r and Ctrl+C.
         Action::ClosePanel if attached.is_none() => return Ok(true),
-        Action::ScrollUp | Action::ScrollDown => {
+        Action::ScrollUp | Action::ScrollDown | Action::Command => {
             // Both were handled before the panel/following branches.
         }
         _ => {

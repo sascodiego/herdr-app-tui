@@ -376,6 +376,15 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
     if wide {
         lines.push(header_line(app, width));
     }
+    if let Some(prompt) = &app.prompt {
+        let text = match prompt {
+            super::app::Prompt::Command(buffer) => format!(":{buffer}"),
+            super::app::Prompt::RenameSpace { buffer, .. } => format!("space name: {buffer}"),
+            super::app::Prompt::RenameTab { buffer, .. } => format!("tab name: {buffer}"),
+            super::app::Prompt::ConfirmClose { label, .. } => format!("{label} [y/N]"),
+        };
+        lines.push(Line::from(Span::styled(fit(&text, width as usize), Style::default().fg(theme::ACCENT))));
+    }
 
     let rows = app.rows();
     lines.push(section(&format!("{} TABS", glyph::EXPANDED), rows.len(), width));
@@ -421,9 +430,48 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
 
     // The actions sit at the foot of the panel, not in a status bar.
     lines.push(Line::from(""));
-    let actions = if wide { "set  keys  rel  det" } else { "settings  keys  reload  detach" };
-    lines.push(Line::from(Span::styled(actions.to_string(), Style::default().fg(theme::DIM))));
+    let actions = action_labels(wide).join("  ");
+    lines.push(Line::from(Span::styled(actions, Style::default().fg(theme::DIM))));
     (lines.lines, lines.rows)
+}
+
+/// The four workspace actions rendered inside the sidebar's footer.
+fn action_labels(wide: bool) -> [&'static str; 4] {
+    if wide { ["new sp", "new tb", "ren", "x"] } else { ["new space", "new tab", "rename", "close"] }
+}
+
+/// Which workspace action a tap on the sidebar footer selects.
+pub fn panel_action_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Option<super::workspace::Command> {
+    let inner = panel_inner(area);
+    if x < inner.x || x >= inner.x.saturating_add(inner.width) || y < inner.y || y >= inner.y.saturating_add(inner.height) {
+        return None;
+    }
+    let (lines, _, offset) = panel_view(app, inner.width, wide, inner.height);
+    let local = (y - inner.y) as usize + offset;
+    let labels = action_labels(wide);
+    let joined = labels.join("  ");
+    if rendered(lines.get(local)?) != joined {
+        return None;
+    }
+    let column = (x - inner.x) as usize;
+    let mut start = 0;
+    for (label, command) in labels.iter().zip([
+        super::workspace::Command::NewSpace,
+        super::workspace::Command::NewTab,
+        super::workspace::Command::RenameTab,
+        super::workspace::Command::CloseTab,
+    ]) {
+        let end = start + label.chars().count();
+        if column >= start && column < end {
+            return Some(command);
+        }
+        start = end + 2;
+    }
+    None
+}
+
+fn rendered(line: &Line<'_>) -> String {
+    line.spans.iter().map(|span| span.content.as_ref()).collect()
 }
 
 fn header_line(app: &App, width: u16) -> Line<'static> {
@@ -519,7 +567,8 @@ fn two_columns(left: &str, right: &str, width: u16) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tui::app::App;
+    use crate::tui::app::{App, Prompt};
+    use crate::tui::workspace::Command;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use serde_json::json;
@@ -625,7 +674,7 @@ mod tests {
         assert!(rows[0].contains("pi 2"), "band row: {:?}", rows[0]);
         assert!(rows[1].contains("switch"), "the toggle is centred in the band: {:?}", rows[1]);
         assert!(!rows.iter().any(|row| row.contains("▾ TABS")), "the panel is closed: {rows:?}");
-        assert!(!rows.iter().any(|row| row.contains("detach")), "no actions while closed: {rows:?}");
+        assert!(!rows.iter().any(|row| row.contains("new space")), "no actions while closed: {rows:?}");
     }
 
     #[test]
@@ -635,7 +684,7 @@ mod tests {
         assert!(rows.iter().any(|row| row.contains("▾ TABS")), "{rows:?}");
         assert!(rows.iter().any(|row| row.contains("▾ AGENTS")), "{rows:?}");
         assert!(rows.iter().any(|row| row.contains("needs you")), "{rows:?}");
-        assert!(rows.iter().any(|row| row.contains("detach")), "actions at the foot: {rows:?}");
+        assert!(rows.iter().any(|row| row.contains("new space")), "actions at the foot: {rows:?}");
     }
 
     #[test]
@@ -653,8 +702,8 @@ mod tests {
         let last = rows.last().expect("a last row");
         let rail_side: String = last.chars().take(RAIL_WIDTH as usize).collect();
         let terminal_side: String = last.chars().skip(RAIL_WIDTH as usize).collect();
-        assert!(!terminal_side.contains("detach"), "the terminal area is not chrome: {terminal_side:?}");
-        assert!(!rail_side.contains("detach") || terminal_side.trim().is_empty(), "{rail_side:?}");
+        assert!(!terminal_side.contains("new sp"), "the terminal area is not chrome: {terminal_side:?}");
+        assert!(!rail_side.contains("new sp") || terminal_side.trim().is_empty(), "{rail_side:?}");
     }
 
     #[test]
@@ -767,7 +816,28 @@ mod tests {
     #[test]
     fn the_rail_abbreviates_its_actions() {
         let rows = screen(&app(true), 100, 24);
-        assert!(rows.iter().any(|row| row.contains("set  keys  rel  det")), "{rows:?}");
+        assert!(rows.iter().any(|row| row.contains("new sp  new tb  ren  x")), "{rows:?}");
+    }
+
+    #[test]
+    fn the_sidebar_footer_maps_taps_to_workspace_commands() {
+        let app = app(true);
+        let panel = zones(Rect::new(0, 0, 40, 20), true).panel.expect("the phone sheet");
+        let inner = panel_inner(panel);
+        let (lines, _, _) = panel_view(&app, inner.width, false, inner.height);
+        let row = lines.iter().position(|line| rendered(line) == "new space  new tab  rename  close").expect("the action row");
+        let y = inner.y + row as u16;
+        assert_eq!(panel_action_at(&app, panel, inner.x, y, false), Some(Command::NewSpace));
+        assert_eq!(panel_action_at(&app, panel, inner.x + 28, y, false), Some(Command::CloseTab));
+        assert_eq!(panel_action_at(&app, panel, inner.x, y + 1, false), None);
+    }
+
+    #[test]
+    fn the_palette_shows_the_typed_command() {
+        let mut app = app(true);
+        app.prompt = Some(Prompt::Command("new space".into()));
+        let rows = screen(&app, 40, 20);
+        assert!(rows.iter().any(|row| row.contains(":new space")), "{rows:?}");
     }
 
     #[test]

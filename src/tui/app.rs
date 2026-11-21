@@ -65,6 +65,15 @@ pub enum Focus {
     Panel,
 }
 
+/// A one-line text capture inside the panel. The agent never sees these keys.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Prompt {
+    Command(String),
+    RenameSpace { id: String, buffer: String },
+    RenameTab { id: String, buffer: String },
+    ConfirmClose { label: String, command: super::workspace::Command },
+}
+
 /// Everything the view draws.
 pub struct App {
     /// The herdr-core session this screen is attached to.
@@ -95,6 +104,8 @@ pub struct App {
     pub screen: Option<ScreenState>,
     /// Whether the screen shows libghostty's scrollback instead of following.
     pub copy: bool,
+    /// The active text capture, when the panel owns the keyboard.
+    pub prompt: Option<Prompt>,
 }
 
 impl App {
@@ -117,6 +128,22 @@ impl App {
             rows: Vec::new(),
             screen: None,
             copy: false,
+            prompt: None,
+        }
+    }
+
+    /// Open the command palette. Only the panel calls this.
+    pub fn open_command(&mut self) {
+        self.prompt = Some(Prompt::Command(String::new()));
+    }
+
+    /// The editable line of the active prompt, if any.
+    pub fn prompt_buffer(&mut self) -> Option<&mut String> {
+        match self.prompt.as_mut() {
+            Some(Prompt::Command(buffer))
+            | Some(Prompt::RenameSpace { buffer, .. })
+            | Some(Prompt::RenameTab { buffer, .. }) => Some(buffer),
+            Some(Prompt::ConfirmClose { .. }) | None => None,
         }
     }
 
