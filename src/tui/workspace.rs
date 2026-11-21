@@ -5,7 +5,7 @@
 //! once after a conflict, exactly like herdr-app's `mirror_sync`.
 
 use crate::mirror::Document;
-use crate::model::Model;
+use crate::model::{Model, Tab};
 use anyhow::{Context, Result};
 use serde_json::{Value, json};
 
@@ -17,6 +17,86 @@ pub trait CoreCalls {
 impl CoreCalls for std::sync::Arc<crate::hc::Core> {
     fn call(&self, method: &str, params: Value) -> Result<Value> {
         crate::hc::Core::call(self, method, params)
+    }
+}
+
+/// A user-visible change to the shared workspace model.
+///
+/// Terminal addresses are returned by close operations so the caller can ask
+/// the core to end them. This type never touches a terminal itself.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Mutation {
+    NewSpace { name: String, folder: String, tab_name: String, address: String },
+    NewTab { space: Option<String>, name: String, address: String },
+    RenameSpace { id: String, name: String },
+    RenameTab { id: String, name: String },
+    SelectSpace { id: String },
+    SelectTab { id: String },
+    MoveSpace { id: String, index: usize },
+    MoveTab { id: String, index: usize },
+    CloseTab { id: String },
+    CloseSpace { id: String },
+}
+
+impl Mutation {
+    /// Apply once to a model. The same closure can be replayed after a CAS conflict.
+    pub fn apply(&self, model: &mut Model) -> Vec<String> {
+        match self {
+            Self::NewSpace { name, folder, tab_name, address } => {
+                let space = model.fresh_id_on("sp", None);
+                let tab = model.fresh_id_on("tb", None);
+                let pane = model.fresh_id_on("p", None);
+                model.add_space(&space, name, folder, Tab::new(&tab, tab_name, &pane, address));
+                Vec::new()
+            }
+            Self::NewTab { space, name, address } => {
+                let Some(space) = space.clone().or_else(|| model.active.clone()) else {
+                    return Self::NewSpace {
+                        name: String::new(),
+                        folder: String::new(),
+                        tab_name: name.clone(),
+                        address: address.clone(),
+                    }
+                    .apply(model);
+                };
+                let tab = model.fresh_id_on("tb", None);
+                let pane = model.fresh_id_on("p", None);
+                model.add_tab(&space, Tab::new(&tab, name, &pane, address));
+                Vec::new()
+            }
+            Self::RenameSpace { id, name } => {
+                if let Some(space) = model.space_mut(id) {
+                    space.name = name.clone();
+                }
+                Vec::new()
+            }
+            Self::RenameTab { id, name } => {
+                if let Some(tab) = model.tab_mut(id) {
+                    tab.name = name.clone();
+                }
+                Vec::new()
+            }
+            Self::SelectSpace { id } => {
+                if model.space(id).is_some() {
+                    model.active = Some(id.clone());
+                }
+                Vec::new()
+            }
+            Self::SelectTab { id } => {
+                model.select_tab(id);
+                Vec::new()
+            }
+            Self::MoveSpace { id, index } => {
+                model.move_space(id, *index);
+                Vec::new()
+            }
+            Self::MoveTab { id, index } => {
+                model.move_tab(id, *index);
+                Vec::new()
+            }
+            Self::CloseTab { id } => model.remove_tab(id).0,
+            Self::CloseSpace { id } => model.remove_space(id),
+        }
     }
 }
 
@@ -130,6 +210,69 @@ mod tests {
         assert_eq!(calls[2].1["version"], 7);
         assert_eq!(version, 8);
         assert_eq!(applied.get(), 2, "the mutation is replayed on the fresh model");
+    }
+
+    #[test]
+    fn a_new_space_opens_with_one_named_tab() {
+        let mut model = Model::default();
+        Mutation::NewSpace {
+            name: "research".into(),
+            folder: "/src".into(),
+            tab_name: "review".into(),
+            address: "t1".into(),
+        }
+        .apply(&mut model);
+
+        assert_eq!(model.spaces.len(), 1);
+        let space = &model.spaces[0];
+        assert_eq!(space.name, "research");
+        assert_eq!(space.folder, "/src");
+        assert_eq!(space.tabs.len(), 1);
+        assert_eq!(space.tabs[0].name, "review");
+        assert_eq!(model.active.as_deref(), Some(space.id.as_str()));
+    }
+
+    #[test]
+    fn close_returns_the_terminal_addresses_for_the_core_to_end() {
+        let mut model = Model::default();
+        Mutation::NewSpace {
+            name: "s".into(),
+            folder: "/tmp".into(),
+            tab_name: "a".into(),
+            address: "t1".into(),
+        }
+        .apply(&mut model);
+        let space = model.spaces[0].id.clone();
+        Mutation::NewTab { space: Some(space.clone()), name: "b".into(), address: "t2".into() }
+            .apply(&mut model);
+
+        let tab = model.spaces[0].tabs[1].id.clone();
+        assert_eq!(Mutation::CloseTab { id: tab }.apply(&mut model), vec!["t2".to_string()]);
+        assert_eq!(Mutation::CloseSpace { id: space }.apply(&mut model), vec!["t1".to_string()]);
+        assert!(model.spaces.is_empty());
+    }
+
+    #[test]
+    fn rename_select_and_move_operate_on_the_shared_model() {
+        let mut model = Model::default();
+        Mutation::NewSpace {
+            name: "first".into(),
+            folder: "/tmp".into(),
+            tab_name: "a".into(),
+            address: "t1".into(),
+        }
+        .apply(&mut model);
+        let space = model.spaces[0].id.clone();
+        let tab = model.spaces[0].tabs[0].id.clone();
+
+        Mutation::RenameSpace { id: space.clone(), name: "renamed".into() }.apply(&mut model);
+        Mutation::RenameTab { id: tab.clone(), name: "work".into() }.apply(&mut model);
+        Mutation::SelectTab { id: tab }.apply(&mut model);
+        Mutation::MoveSpace { id: space.clone(), index: 0 }.apply(&mut model);
+
+        assert_eq!(model.spaces[0].name, "renamed");
+        assert_eq!(model.spaces[0].tabs[0].name, "work");
+        assert_eq!(model.active.as_deref(), Some(space.as_str()));
     }
 
     #[test]
