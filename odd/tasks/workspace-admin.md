@@ -29,8 +29,8 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 | T2 | S1,S2 | parent | done | RED missing `Mutation`, GREEN CRUD and close-address tests; see L7 |
 | T3 | S3 | parent | done | RED missing launch/kill_tree, GREEN core-only lifecycle; 207+2 tests, clippy clean; see L8 |
 | T4 | S2,S5,S6 | parent | done | RED missing footer actions, GREEN palette key, command parse, prompt state and footer hit-testing; 211+2 tests, clippy clean; see L10 |
-| T5 | S1,S3 | parent | in_progress | RED wiring test then GREEN refresh/attach after mutations |
-| T6 | S7 | parent | pending | PTY smoke, docs, full suite and clippy |
+| T5 | S1,S3 | parent | done | GREEN by PTY smoke: new tab, close tab and rename; see L11 |
+| T6 | S7 | parent | in_progress | PTY smoke, docs, full suite and clippy |
 | T7 | all | parent | pending | work-unit commit(s) recorded here |
 
 ## Log
@@ -42,6 +42,8 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 **L3 — 2026-11-21** — "La idea es siempre que hagamos uso seguro del core asi como lo haria herdr app delegando las responsabilidades al core, nosotros le pedimos todo al cire no hacenks nada ditecto. ante la duda vemis como es el comportamiento de herdr app oficial"
 
 **L4 — 2026-11-21** — "sellado"
+
+**L11 — 2026-11-21** — T5 done. `handle_key` captures prompt text only while the panel is open; `:` opens the palette, Enter executes, Esc cancels, Backspace edits and `y`/`n` confirms a close. Commands route through `workspace::apply`, `launch` and `kill_tree`; close removes the model first, asks the core to kill the tree, then writes the document. PTY smoke at 40x14 with isolated core `tui-admin`: `:new tab` created `t2` and the panel showed 2 tabs; `:close tab` + `y` killed `t2`, which appeared as `1 finished hidden`, with no `terminal.rm`; `:rename tab` renamed `base` to `baserenamed`. The colon went to the agent while the panel was closed. README documents the palette, footer actions and core-authoritative lifecycle.
 
 **L10 — 2026-11-21** — T4 done. Added `Action::Command` for `:`, `workspace::Command` parsing for the full CRUD set, `App::Prompt` with command/rename/confirm variants, a prompt line in the panel, CRUD action labels in the sidebar footer and `panel_action_at` tap mapping shared with the rendered line. Existing action-row tests were updated. 211 + 2 tests, clippy clean. Execution wiring remains T5.
 

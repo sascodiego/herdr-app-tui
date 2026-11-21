@@ -28,14 +28,55 @@ impl CoreCalls for std::sync::Arc<crate::hc::Core> {
     }
 }
 
+/// Commands available from the sidebar action row and the `:` palette.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Command {
+    NewSpace,
+    NewTab,
+    RenameSpace,
+    RenameTab,
+    CloseTab,
+    CloseSpace,
+    SelectNextSpace,
+    SelectPrevSpace,
+    SelectNextTab,
+    SelectPrevTab,
+    MoveSpaceUp,
+    MoveSpaceDown,
+    MoveTabUp,
+    MoveTabDown,
+}
+
+impl Command {
+    pub fn parse(line: &str) -> Option<Self> {
+        match line.trim().to_ascii_lowercase().as_str() {
+            "new space" | "space new" => Some(Self::NewSpace),
+            "new tab" | "tab new" => Some(Self::NewTab),
+            "rename space" | "space rename" => Some(Self::RenameSpace),
+            "rename tab" | "tab rename" => Some(Self::RenameTab),
+            "close tab" | "tab close" => Some(Self::CloseTab),
+            "close space" | "space close" => Some(Self::CloseSpace),
+            "space next" => Some(Self::SelectNextSpace),
+            "space prev" => Some(Self::SelectPrevSpace),
+            "tab next" => Some(Self::SelectNextTab),
+            "tab prev" => Some(Self::SelectPrevTab),
+            "move space up" => Some(Self::MoveSpaceUp),
+            "move space down" => Some(Self::MoveSpaceDown),
+            "move tab up" => Some(Self::MoveTabUp),
+            "move tab down" => Some(Self::MoveTabDown),
+            _ => None,
+        }
+    }
+}
+
 /// A user-visible change to the shared workspace model.
 ///
 /// Terminal addresses are returned by close operations so the caller can ask
 /// the core to end them. This type never touches a terminal itself.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mutation {
-    NewSpace { name: String, folder: String, tab_name: String, address: String },
-    NewTab { space: Option<String>, name: String, address: String },
+    NewSpace { id: String, tab_id: String, pane_id: String, name: String, folder: String, tab_name: String, address: String },
+    NewTab { space: String, id: String, pane_id: String, name: String, address: String },
     RenameSpace { id: String, name: String },
     RenameTab { id: String, name: String },
     SelectSpace { id: String },
@@ -47,29 +88,55 @@ pub enum Mutation {
 }
 
 impl Mutation {
+    /// Allocate ids for a space with one tab and its first terminal.
+    pub fn new_space(model: &mut Model, name: String, folder: String, tab_name: String, address: String) -> Self {
+        Self::NewSpace {
+            id: model.fresh_id_on("sp", None),
+            tab_id: model.fresh_id_on("tb", None),
+            pane_id: model.fresh_id_on("p", None),
+            name,
+            folder,
+            tab_name,
+            address,
+        }
+    }
+
+    /// Allocate ids for a tab, or create a space when none is active.
+    pub fn new_tab(model: &mut Model, space: Option<String>, name: String, address: String) -> Self {
+        let Some(space) = space.or_else(|| model.active.clone()) else {
+            return Self::new_space(model, String::new(), String::new(), name, address);
+        };
+        Self::NewTab {
+            space,
+            id: model.fresh_id_on("tb", None),
+            pane_id: model.fresh_id_on("p", None),
+            name,
+            address,
+        }
+    }
+
+    /// Fill in the terminal address returned by the core.
+    pub fn with_address(self, address: String) -> Self {
+        match self {
+            Self::NewSpace { id, tab_id, pane_id, name, folder, tab_name, .. } => {
+                Self::NewSpace { id, tab_id, pane_id, name, folder, tab_name, address }
+            }
+            Self::NewTab { space, id, pane_id, name, .. } => {
+                Self::NewTab { space, id, pane_id, name, address }
+            }
+            other => other,
+        }
+    }
+
     /// Apply once to a model. The same closure can be replayed after a CAS conflict.
     pub fn apply(&self, model: &mut Model) -> Vec<String> {
         match self {
-            Self::NewSpace { name, folder, tab_name, address } => {
-                let space = model.fresh_id_on("sp", None);
-                let tab = model.fresh_id_on("tb", None);
-                let pane = model.fresh_id_on("p", None);
-                model.add_space(&space, name, folder, Tab::new(&tab, tab_name, &pane, address));
+            Self::NewSpace { id, tab_id, pane_id, name, folder, tab_name, address } => {
+                model.add_space(id, name, folder, Tab::new(tab_id, tab_name, pane_id, address));
                 Vec::new()
             }
-            Self::NewTab { space, name, address } => {
-                let Some(space) = space.clone().or_else(|| model.active.clone()) else {
-                    return Self::NewSpace {
-                        name: String::new(),
-                        folder: String::new(),
-                        tab_name: name.clone(),
-                        address: address.clone(),
-                    }
-                    .apply(model);
-                };
-                let tab = model.fresh_id_on("tb", None);
-                let pane = model.fresh_id_on("p", None);
-                model.add_tab(&space, Tab::new(&tab, name, &pane, address));
+            Self::NewTab { space, id, pane_id, name, address } => {
+                model.add_tab(space, Tab::new(id, name, pane_id, address));
                 Vec::new()
             }
             Self::RenameSpace { id, name } => {
@@ -289,15 +356,18 @@ mod tests {
     }
 
     #[test]
+    fn palette_commands_parse_from_typed_text() {
+        assert_eq!(Command::parse("  New Space "), Some(Command::NewSpace));
+        assert_eq!(Command::parse("tab close"), Some(Command::CloseTab));
+        assert_eq!(Command::parse("move tab down"), Some(Command::MoveTabDown));
+        assert_eq!(Command::parse("delete everything"), None);
+    }
+
+    #[test]
     fn a_new_space_opens_with_one_named_tab() {
         let mut model = Model::default();
-        Mutation::NewSpace {
-            name: "research".into(),
-            folder: "/src".into(),
-            tab_name: "review".into(),
-            address: "t1".into(),
-        }
-        .apply(&mut model);
+        Mutation::new_space(&mut model, "research".into(), "/src".into(), "review".into(), "t1".into())
+            .apply(&mut model);
 
         assert_eq!(model.spaces.len(), 1);
         let space = &model.spaces[0];
@@ -311,15 +381,10 @@ mod tests {
     #[test]
     fn close_returns_the_terminal_addresses_for_the_core_to_end() {
         let mut model = Model::default();
-        Mutation::NewSpace {
-            name: "s".into(),
-            folder: "/tmp".into(),
-            tab_name: "a".into(),
-            address: "t1".into(),
-        }
-        .apply(&mut model);
+        Mutation::new_space(&mut model, "s".into(), "/tmp".into(), "a".into(), "t1".into())
+            .apply(&mut model);
         let space = model.spaces[0].id.clone();
-        Mutation::NewTab { space: Some(space.clone()), name: "b".into(), address: "t2".into() }
+        Mutation::new_tab(&mut model, Some(space.clone()), "b".into(), "t2".into())
             .apply(&mut model);
 
         let tab = model.spaces[0].tabs[1].id.clone();
@@ -331,13 +396,8 @@ mod tests {
     #[test]
     fn rename_select_and_move_operate_on_the_shared_model() {
         let mut model = Model::default();
-        Mutation::NewSpace {
-            name: "first".into(),
-            folder: "/tmp".into(),
-            tab_name: "a".into(),
-            address: "t1".into(),
-        }
-        .apply(&mut model);
+        Mutation::new_space(&mut model, "first".into(), "/tmp".into(), "a".into(), "t1".into())
+            .apply(&mut model);
         let space = model.spaces[0].id.clone();
         let tab = model.spaces[0].tabs[0].id.clone();
 

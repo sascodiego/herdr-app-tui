@@ -23,9 +23,10 @@ use std::io::{IsTerminal, Write};
 use std::time::Duration;
 
 use crate::hc;
-use app::App;
+use app::{App, Prompt};
 use attach::Session;
 use input::Action;
+use workspace::{Command, Mutation};
 
 /// The mouse modes Termux, tmux and mosh all agree on: press/release,
 /// button-drag and SGR coordinates. Deliberately no `?1003h` (any-motion,
@@ -140,6 +141,7 @@ fn event_loop(
         if let Some(session) = attached.as_mut() {
             let area = terminal.get_frame().area();
             let (cols, rows) = pane_size(app, area.width, area.height);
+            app.pane = (cols, rows);
             session.resize(core, cols, rows);
             session.drain(core)?;
             // In copy mode this frame is libghostty's scrolled viewport, so
@@ -185,6 +187,9 @@ fn handle_key(
     if key.kind != KeyEventKind::Press {
         return Ok(false);
     }
+    if app.panel && app.prompt.is_some() {
+        return handle_prompt_key(core, app, key);
+    }
     let action = input::action(key);
     if action == Action::Quit {
         return Ok(true);
@@ -215,7 +220,8 @@ fn handle_key(
             Action::ClosePanel | Action::TogglePanel | Action::Attach => app.panel = false,
             Action::Up | Action::ScrollUp => app.move_cursor(-1),
             Action::Down | Action::ScrollDown => app.move_cursor(1),
-            Action::Refresh | Action::Command | Action::Ignore => {}
+            Action::Refresh | Action::Ignore => {}
+            Action::Command => app.open_command(),
             Action::Quit => return Ok(true),
         }
         return Ok(false);
@@ -229,7 +235,7 @@ fn handle_key(
         // With nothing attached, Esc leaves; with a live pane it is a key for
         // the program, like q, r and Ctrl+C.
         Action::ClosePanel if attached.is_none() => return Ok(true),
-        Action::ScrollUp | Action::ScrollDown | Action::Command => {
+        Action::ScrollUp | Action::ScrollDown => {
             // Both were handled before the panel/following branches.
         }
         _ => {
@@ -237,6 +243,196 @@ fn handle_key(
                 session.key(core, key);
             }
         }
+    }
+    Ok(false)
+}
+
+fn commit(core: &std::sync::Arc<hc::Core>, app: &mut App, mutation: Mutation) -> anyhow::Result<()> {
+    let version = app.doc_version.unwrap_or(0);
+    let version = workspace::apply(core, &mut app.model, version, None, |model| {
+        mutation.apply(model);
+    })?;
+    app.doc_version = Some(version);
+    app.rebuild_rows();
+    Ok(())
+}
+
+fn commit_close(core: &std::sync::Arc<hc::Core>, app: &mut App, mutation: Mutation) -> anyhow::Result<()> {
+    let doomed = mutation.apply(&mut app.model);
+    workspace::kill_tree(core, &doomed)?;
+    let version = app.doc_version.unwrap_or(0);
+    let version = workspace::apply(core, &mut app.model, version, None, |model| {
+        mutation.apply(model);
+    })?;
+    app.doc_version = Some(version);
+    app.rebuild_rows();
+    Ok(())
+}
+
+fn current_space(app: &App) -> Option<String> {
+    app.model.active.clone()
+}
+
+fn execute_command(core: &std::sync::Arc<hc::Core>, app: &mut App, command: Command) -> anyhow::Result<()> {
+    match command {
+        Command::CloseTab | Command::CloseSpace => {
+            let label = if command == Command::CloseTab { "Close tab?" } else { "Close space?" };
+            app.prompt = Some(Prompt::ConfirmClose { label: label.to_string(), command });
+            Ok(())
+        }
+        other => run_command(core, app, other),
+    }
+}
+
+fn run_command(core: &std::sync::Arc<hc::Core>, app: &mut App, command: Command) -> anyhow::Result<()> {
+    match command {
+        Command::NewSpace => {
+            let name = format!("space {}", app.model.spaces.len() + 1);
+            let mutation = Mutation::new_space(
+                &mut app.model,
+                name,
+                app.path.clone(),
+                "tab".to_string(),
+                String::new(),
+            );
+            let (space, tab) = match &mutation {
+                Mutation::NewSpace { id, tab_id, .. } => (id.clone(), tab_id.clone()),
+                _ => return Ok(()),
+            };
+            let address = workspace::launch(core, Some(&app.path), app.pane.0, app.pane.1, &space, &tab)?;
+            commit(core, app, mutation.with_address(address))
+        }
+        Command::NewTab => {
+            let space = current_space(app).ok_or_else(|| anyhow!("no space yet: make one first"))?;
+            let folder = app
+                .model
+                .space(&space)
+                .map(|space| space.folder.clone())
+                .unwrap_or_else(|| app.path.clone());
+            let mutation = Mutation::new_tab(
+                &mut app.model,
+                Some(space.clone()),
+                "tab".to_string(),
+                String::new(),
+            );
+            let tab = match &mutation {
+                Mutation::NewTab { id, .. } => id.clone(),
+                Mutation::NewSpace { tab_id, .. } => tab_id.clone(),
+                _ => return Ok(()),
+            };
+            let address = workspace::launch(core, Some(&folder), app.pane.0, app.pane.1, &space, &tab)?;
+            commit(core, app, mutation.with_address(address))
+        }
+        Command::RenameSpace => {
+            let Some(id) = current_space(app) else { return Ok(()) };
+            let buffer = app.model.space(&id).map_or(String::new(), |space| space.name.clone());
+            app.prompt = Some(Prompt::RenameSpace { id, buffer });
+            Ok(())
+        }
+        Command::RenameTab => {
+            let Some(tab) = app.model.active_tab().map(|tab| tab.id.clone()) else { return Ok(()) };
+            let buffer = app.model.tab(&tab).map_or(String::new(), |tab| tab.name.clone());
+            app.prompt = Some(Prompt::RenameTab { id: tab, buffer });
+            Ok(())
+        }
+        Command::CloseTab => {
+            let Some(tab) = app.model.active_tab().map(|tab| tab.id.clone()) else { return Ok(()) };
+            commit_close(core, app, Mutation::CloseTab { id: tab })
+        }
+        Command::CloseSpace => {
+            let Some(space) = current_space(app) else { return Ok(()) };
+            commit_close(core, app, Mutation::CloseSpace { id: space })
+        }
+        Command::SelectNextSpace | Command::SelectPrevSpace => {
+            let count = app.model.spaces.len();
+            if count == 0 {
+                return Ok(());
+            }
+            let at = app.model.active_index().unwrap_or(0);
+            let step = if command == Command::SelectNextSpace { 1 } else { count - 1 };
+            let id = app.model.spaces[(at + step) % count].id.clone();
+            app.model.active = Some(id);
+            app.rebuild_rows();
+            Ok(())
+        }
+        Command::SelectNextTab | Command::SelectPrevTab => {
+            let Some(space) = current_space(app) else { return Ok(()) };
+            let Some(space_mut) = app.model.space_mut(&space) else { return Ok(()) };
+            let count = space_mut.tabs.len();
+            if count == 0 {
+                return Ok(());
+            }
+            let at = space_mut.tabs.iter().position(|tab| Some(tab.id.as_str()) == space_mut.active.as_deref()).unwrap_or(0);
+            let step = if command == Command::SelectNextTab { 1 } else { count - 1 };
+            space_mut.active = Some(space_mut.tabs[(at + step) % count].id.clone());
+            app.rebuild_rows();
+            Ok(())
+        }
+        Command::MoveSpaceUp | Command::MoveSpaceDown => {
+            let Some(id) = current_space(app) else { return Ok(()) };
+            let at = app.model.active_index().unwrap_or(0);
+            let index = if command == Command::MoveSpaceUp { at.saturating_sub(1) } else { at + 1 };
+            commit(core, app, Mutation::MoveSpace { id, index })
+        }
+        Command::MoveTabUp | Command::MoveTabDown => {
+            let Some(tab) = app.model.active_tab().map(|tab| tab.id.clone()) else { return Ok(()) };
+            let Some(space) = current_space(app) else { return Ok(()) };
+            let at = app.model.space(&space).and_then(|space| space.tabs.iter().position(|item| item.id == tab)).unwrap_or(0);
+            let index = if command == Command::MoveTabUp { at.saturating_sub(1) } else { at + 1 };
+            commit(core, app, Mutation::MoveTab { id: tab, index })
+        }
+    }
+}
+
+fn handle_prompt_key(core: &std::sync::Arc<hc::Core>, app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
+    let confirmation = match app.prompt.as_ref() {
+        Some(Prompt::ConfirmClose { command, .. }) => Some(*command),
+        _ => None,
+    };
+    if let Some(command) = confirmation {
+        match key.code {
+            KeyCode::Char('y' | 'Y') => {
+                app.prompt = None;
+                return run_command(core, app, command).map(|()| false);
+            }
+            KeyCode::Char('n' | 'N') | KeyCode::Esc => {
+                app.prompt = None;
+                return Ok(false);
+            }
+            _ => return Ok(false),
+        }
+    }
+    match key.code {
+        KeyCode::Esc => app.prompt = None,
+        KeyCode::Enter => {
+            let Some(prompt) = app.prompt.take() else { return Ok(false) };
+            match prompt {
+                Prompt::Command(buffer) => match Command::parse(&buffer) {
+                    Some(command) => execute_command(core, app, command)?,
+                    None => app.doc_error = Some(format!("unknown command: {buffer}")),
+                },
+                Prompt::RenameSpace { id, buffer } => {
+                    commit(core, app, Mutation::RenameSpace { id, name: buffer })?
+                }
+                Prompt::RenameTab { id, buffer } => {
+                    commit(core, app, Mutation::RenameTab { id, name: buffer })?
+                }
+                Prompt::ConfirmClose { .. } => {}
+            }
+        }
+        KeyCode::Backspace => {
+            if let Some(buffer) = app.prompt_buffer() {
+                buffer.pop();
+            }
+        }
+        KeyCode::Char(character)
+            if key.modifiers == KeyModifiers::NONE || key.modifiers == KeyModifiers::SHIFT =>
+        {
+            if let Some(buffer) = app.prompt_buffer() {
+                buffer.push(character);
+            }
+        }
+        _ => {}
     }
     Ok(false)
 }

@@ -80,6 +80,19 @@ Touch and pointer gestures work by zone:
 | Wheel or vertical drag in the panel | Move the highlight |
 | Tap the terminal | Resume the live pane |
 
+With the panel open, `:` opens the workspace palette. It accepts `new space`,
+`new tab`, `rename space`, `rename tab`, `close tab`, `close space`, `space next`,
+`space prev`, `tab next`, `tab prev` and `move space|tab up|down`. The same create,
+rename and close actions are tappable in the sidebar footer. Rename opens a
+pre-filled one-line prompt: Enter commits, Esc cancels. Close asks for `y` or `n`.
+
+Spaces and tabs are written to the shared `herdr-app` document through
+`doc.get`/`doc.set` with the core's version check; a conflict re-reads and
+replays the change once. Terminals are created with `terminal.run` and closed
+with `terminal.kill` through the core, including their child tree while sparing
+kept sub-agents. Agents themselves are detected by herdr-core and are not
+managed here. Terminals are never removed directly by the TUI.
+
 Copy mode scrolls libghostty's own scrollback, so colors, bold and background
 attributes are preserved; no plain-text dump is used.
 
