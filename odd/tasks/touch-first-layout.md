@@ -28,8 +28,8 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 | T2 | S4 | human choice | done | `01-safe-area-sheet.html` chosen; handoff taken; see L20 |
 | T3 | S2,S3,S5 | parent | done | RED compile failure then GREEN: 194+2 tests, clippy clean; see L21 |
 | T4 | S2,S5 | parent | done | RED: 3 failing tests; GREEN: 197+2 tests, clippy clean; see L22 |
-| T5 | S6 | parent | in_progress | captures, PTY smoke, tests, clippy, docs |
-| T6 | all | parent | pending | work-unit commit(s) recorded here |
+| T5 | S6 | parent | done | captures, PTY smoke, tests, clippy, docs; see L23-L24 |
+| T6 | all | parent | done | `a3fd7c6`, `295d52f`, `50bbc44`; see L24 |
 | T7 | S7, S8 | parent | done | `design/system.md` and `design/system.html` synced to Gotham and the new layout rules |
 
 ## Specs tail
@@ -41,6 +41,8 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 ## Log
 
 **L17 — 2026-11-21** — Immediate correction, verbatim: "Perdon, dejamos las 3 filas en la banda lo demas todo lo que te dije". The three-row band is restored; the one-row text placement, four-sided sidebar gutter and system sync remain in force. S2 was rewritten again before any artboard edit.
+
+**L24 — 2026-11-21** — Feature close. Implementation work units are `a3fd7c6`, `295d52f` and `50bbc44`, on branch `touch-first-layout`. T1–T5 and T7 are done; T6 is done with these commits. Tests/clippy were re-run at the closing commit: 199 + 2 passed, 1 ignored, 0 failed; clippy clean. Publishing is a user decision and is not authorized by these commits.
 
 **L23 — 2026-11-21** — T5 done. `cargo build`, `cargo test --all-targets` (199 + 2 passed, 1 ignored, 0 failed) and `cargo clippy --all-targets -- -D warnings` are clean. A tmux/PTY smoke used isolated core `tui-visual` with one tab; text captures at 40x14, 60x20, 100x30 and 180x50 are in `/tmp/tui-shots/`. The 40x14 open capture shows the three-row band, `switch`/`x` block hard-right, one-cell sheet gutter, two-cell tab target, navigable AGENTS row and the action row; the wide captures show the left rail with its gutter and abbreviated actions. PNG attempts: headless Chromium failed under snap confinement, so ImageMagick produced monochrome text-layout PNGs in a temporary `.tmp-shots/` directory that was removed; those PNGs do not carry ANSI colors and there is no pre-change capture, so this is an after-only layout check, not a claimed exact visual diff. Color tokens are covered by `theme.rs` tests. `README.md` now documents debug builds, the band, pane states, AGENTS list and the new tap target. The chosen artboard handoff is marked implemented.
 
