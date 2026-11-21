@@ -6,7 +6,7 @@
 <style>
   :root {
     --bg:#0c1014; --panel:#111820; --surface:#0a3749; --text:#99d1ce;
-    --muted:#4e5166; --dim:#195466; --accent:#33859e;
+    --muted:#99d1ce; --dim:#99d1ce; --accent:#33859e;
     --green:#2aa889; --yellow:#edb443; --red:#c23127; --rule:#195466;
   }
   * { box-sizing:border-box; }
@@ -29,8 +29,11 @@
   .tap { min-height:4.26em; background:var(--panel); }
   .sel { background:var(--surface); }
   .actions { background:var(--surface); }
-  .act { background:var(--panel); color:var(--text); }
+  .act { color:var(--text); }
   .hdr .l { font-weight:700; }
+  .center { position:relative; justify-content:center; }
+  .center .c { margin-left:auto; margin-right:auto; }
+  .center .r { position:absolute; right:0; margin-left:0; }
   .sec { color:var(--muted); font-weight:700; }
   .cnt, .pm { color:var(--muted); }
   .pd, .ft { color:var(--dim); }
@@ -65,7 +68,7 @@
     <div class="device"><div class="screen">
       <div class="ln tap" role="button" tabindex="0" aria-label="Open the sidebar">
         <div class="ln"></div>
-        <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span>  switch</span></div>
+        <div class="ln hdr center"><span class="c">research · ~/herdr <span class="ac">●</span></span><span class="r">switch</span></div>
         <div class="ln"></div>
       </div>
       <div class="ln"><span class="l">❯ pi 4 · research</span></div>
@@ -88,7 +91,7 @@
     <div class="device"><div class="screen">
       <div class="ln tap" role="button" tabindex="0" aria-label="Close the sidebar">
         <div class="ln"></div>
-        <div class="ln hdr"><span class="l">default › research</span><span class="r"><span class="pm">~/herdr</span> <span class="ac">●</span> <span class="pm">4 tabs</span> x</span></div>
+        <div class="ln hdr center"><span class="c">research · ~/herdr · 4 tabs <span class="ac">●</span></span><span class="r">x</span></div>
         <div class="ln"></div>
       </div>
       <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
@@ -104,11 +107,13 @@
         <div class="ln"><span class="l">  release-check  pi 1 <span class="pm">○ idle</span></span></div>
         <div class="ln pm"><span class="l">      last run 2h ago</span></div>
       </div>
+      <div class="ln sec"><span class="l">▾ SPACES</span><span class="r cnt">1</span></div>
+      <div class="ln pm"><span class="l">  default</span><span class="r cnt">4 tabs</span></div>
       <div class="ln sec"><span class="l">▾ AGENTS</span><span class="r cnt">3</span></div>
       <div class="ln wr"><span class="l">  ◐ working</span><span class="r cnt">1</span></div>
       <div class="ln er"><span class="l">  ▲ needs you</span><span class="r cnt">1</span></div>
       <div class="ln pm"><span class="l">  ○ idle</span><span class="r cnt">1</span></div>
-      <div class="ln actions"><span class="l"><span class="act">[settings]</span> <span class="act">[keys]</span> <span class="act">[reload]</span> <span class="act">[detach]</span></span></div>
+      <div class="ln actions"><span class="l"><span class="act">settings</span>  <span class="act">keys</span>  <span class="act">reload</span>  <span class="act">detach</span></span></div>
       <div class="ln"></div>
     </div></div>
   </section>
@@ -133,7 +138,7 @@
     <div class="ln"><span class="l"> </span></div>
     <div class="ln pd"><span class="l">─ pi 4 · attached ──────────</span></div>
     <div class="ln pm"><span class="l">  test api::attach ... ok</span></div>
-    <div class="ln actions"><span class="l"><span class="act">[set]</span> <span class="act">[keys]</span> <span class="act">[rel]</span> <span class="act">[det]</span></span></div>
+    <div class="ln actions"><span class="l"><span class="act">set</span>  <span class="act">keys</span>  <span class="act">rel</span>  <span class="act">det</span></span></div>
     <div class="ln"></div>
   </div>
   <div class="term">
@@ -164,11 +169,14 @@
   <b>Fixes:</b> <span class="fix">P1</span> the tap target is three rows with a blank
   row above it; <span class="fix">P2</span> every tab target is two rows;
   <span class="fix">P3</span> the selected band covers both rows;
-  <span class="fix">P4</span> the action row sits on a distinct surface band with
-  boxed buttons and stays last as the terminal height changes with the keyboard;
-  <span class="fix">P5</span> the header reports workspace, path and tab count, and
-  the close control is a single `x`;
-  <span class="fix">P6</span> overflow text moves to a deeper-indented second line.
+  <span class="fix">P4</span> the action row is plain aligned text on a distinct
+  surface band, not buttons, and stays last as the keyboard changes the height;
+  <span class="fix">P5</span> the header drops the core `default` space, centers
+  tab, path and count, and closes with a single `x`; the space moves to a SPACES
+  section in the sidebar;
+  <span class="fix">P6</span> overflow text moves to a deeper-indented second line;
+  <span class="fix">P7</span> secondary text uses the Gotham foreground token
+  because Gotham's midtones measure under 4.5:1 on this background.
   <br><br>
   <b>Data source:</b> the separator row reads the selected tab's terminal name and
   attach state from the shared document plus `terminal.list`. There is no command

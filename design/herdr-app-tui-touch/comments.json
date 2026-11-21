@@ -72,6 +72,66 @@
       "sentAt": "2026-11-21T15:27:57.493Z",
       "resolvedAt": "2026-11-21T15:29:25.398Z",
       "resolution": "Rebalanced the open header, deepened overflow indentation, sourced the separator row, boxed the sidebar actions on a distinct band, and moved this artboard to a Gotham-inspired palette."
+    },
+    {
+      "id": "0wmndgbj",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(10) > span > span:nth-of-type(3)",
+      "excerpt": "[reload]",
+      "comment": "No me gustan los botones",
+      "createdAt": "2026-11-21T15:30:42.810Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "bjc4jrmv",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1)",
+      "excerpt": "default › research ~/herdr ● 4 tabs x",
+      "comment": "Sigue despropocionado el texto no se ajusta en espacio ni tamaño, deberia al menos estar centrado. El \"default\" imagino que es el space de herder-core no lo mostramos aca, vemos si lo mostramos en el sidebar pero en principio lo sacamos",
+      "createdAt": "2026-11-21T15:31:43.777Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "8pnqj3z9",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > p",
+      "excerpt": "The current command sheet, re-cut for fingers. A three-row tap band replaces the one-row bar: an empty row above the text keeps it off the screen edge, and the whole band toggles the sheet. Tab rows are two cells tall so a swipe or tap has room. The sidebar keeps its actions at its own foot.",
+      "comment": "Accessibility check on body > main > p: Low contrast.\n\"The current command sheet, re-cut for f…\" is 2.44 : 1 (#4e5166 on #0c1014); WCAG AA needs 4.5 : 1.\nFix it so it meets WCAG 2.2 AA, keeping the design's tokens.",
+      "createdAt": "2026-11-21T15:32:02.332Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "yklw9l3u",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div > div:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(2) > span:nth-of-type(1)",
+      "excerpt": "ubuntu-test",
+      "comment": "Accessibility check on body > main > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div > div:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(2) > span:nth-of-type(1): Low contrast.\n\"ubuntu-test\" is 2.29 : 1 (#4e5166 on #111820); WCAG AA needs 4.5 : 1.\nFix it so it meets WCAG 2.2 AA, keeping the design's tokens.",
+      "createdAt": "2026-11-21T15:32:16.272Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
+    },
+    {
+      "id": "5f627vnm",
+      "file": "01-safe-area-sheet.html",
+      "selector": "body > main > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div > div:nth-of-type(3) > span",
+      "excerpt": "◐ cargo test --lib",
+      "comment": "Accessibility check on body > main > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div > div:nth-of-type(3) > span: Low contrast.\n\"cargo test --lib\" is 2.44 : 1 (#4e5166 on #0c1014); WCAG AA needs 4.5 : 1.\nFix it so it meets WCAG 2.2 AA, keeping the design's tokens.",
+      "createdAt": "2026-11-21T15:32:25.924Z",
+      "status": "resolved",
+      "sentAt": "2026-11-21T15:32:41.261Z",
+      "resolvedAt": "2026-11-21T15:33:55.600Z",
+      "resolution": "Removed the boxed buttons, centered the header without the core space, moved that space into the sidebar, and raised secondary text to a Gotham foreground token for AA contrast."
     }
   ]
 }
