@@ -124,6 +124,10 @@ impl App {
     /// source of the panel's rows; the terminal list only supplies their live
     /// state, exactly as it does in herdr-app.
     pub fn set_workspace(&mut self, result: &Value) {
+        let version = result.get("version").and_then(Value::as_u64);
+        if self.doc_available && version.is_some() && version == self.doc_version {
+            return;
+        }
         self.doc_available = result.get("value").is_some_and(|value| !value.is_null());
         let value = result.get("value").cloned().unwrap_or(Value::Null);
         let document: Document = if value.is_null() {
@@ -141,7 +145,7 @@ impl App {
         if self.model.active.is_none() {
             self.model.active = self.model.spaces.first().map(|space| space.id.clone());
         }
-        self.doc_version = result.get("version").and_then(Value::as_u64);
+        self.doc_version = version;
         self.doc_error = None;
         self.rebuild_rows();
     }
@@ -437,6 +441,32 @@ mod tests {
             ] } }
         ])));
         assert_eq!(app.rows()[0].state, State::NeedsYou, "t2 is blocked in the core");
+    }
+
+    #[test]
+    fn an_unchanged_document_version_does_not_rebuild_the_workspace() {
+        let mut app = app();
+        app.set_workspace(&workspace(json!([
+            { "id": "tb1", "name": "first" }
+        ])));
+        app.set_workspace(&json!({
+            "version": 5,
+            "value": { "spaces": [{ "tabs": [{ "id": "tb2", "name": "second" }] }] }
+        }));
+        let names: Vec<&str> = app.rows().iter().map(|row| row.name.as_str()).collect();
+        assert_eq!(names, ["first"], "the same version cannot carry new content");
+    }
+
+    #[test]
+    fn a_new_document_version_rebuilds_the_workspace() {
+        let mut app = app();
+        app.set_workspace(&workspace(json!([{ "id": "tb1", "name": "first" }])));
+        app.set_workspace(&json!({
+            "version": 6,
+            "value": { "spaces": [{ "tabs": [{ "id": "tb2", "name": "second" }] }] }
+        }));
+        let names: Vec<&str> = app.rows().iter().map(|row| row.name.as_str()).collect();
+        assert_eq!(names, ["second"]);
     }
 
     #[test]

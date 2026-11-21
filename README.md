@@ -43,6 +43,16 @@ cargo build --release
 Needs `herdr-core` (and its `hc` CLI) on `PATH`, or the one the desktop app
 installed. The session comes from `HC_SESSION`, `default` when unset.
 
+## Running it
+
+```bash
+cargo run --release
+```
+
+Use `--release`: libghostty's parser is much slower in a debug build. The
+screen reacts to events pushed by herdr-core, so typing does not wait for a
+terminal list or a document read.
+
 ## Keys
 
 | Key | What it does |

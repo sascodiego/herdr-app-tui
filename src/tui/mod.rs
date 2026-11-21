@@ -24,8 +24,10 @@ use app::App;
 use attach::Session;
 use input::Action;
 
-/// How long between refreshes when nobody presses a key.
+/// How long to wait for a key or a pushed event.
 const TICK: Duration = Duration::from_millis(250);
+/// Full resync even if no event arrived, in case the stream went quiet.
+const HEARTBEAT_TICKS: u32 = 16;
 
 /// Run the screen. Returns the process exit code.
 pub fn run() -> anyhow::Result<i32> {
@@ -44,7 +46,7 @@ pub fn run() -> anyhow::Result<i32> {
         .to_string();
 
     let mut app = App::new(&session, &core_name);
-    refresh(&core, &mut app)?;
+    refresh(&core, &mut app, true)?;
 
     // Not a terminal (a pipe, a test): print once and leave, so the binary stays
     // usable from a script.
@@ -53,22 +55,58 @@ pub fn run() -> anyhow::Result<i32> {
         return Ok(0);
     }
 
+    let (channel, events, snapshot) = core.subscribe().context("events.subscribe")?;
     let mut terminal = ratatui::init();
-    let outcome = event_loop(&core, &mut app, &mut terminal);
+    let outcome = event_loop(&core, &mut app, &mut terminal, (channel, events), snapshot);
     ratatui::restore();
     outcome
 }
 
-/// Read keys, drain the stream, tick the data.
+/// Read keys, drain the streams, redraw. The core pushes changes; a key never
+/// waits for a round trip to list terminals or read the document.
 fn event_loop(
     core: &std::sync::Arc<hc::Core>,
     app: &mut App,
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    subscription: (u32, async_channel::Receiver<hc::Stream>),
+    snapshot: Value,
 ) -> anyhow::Result<i32> {
     let mut attached: Option<Session> = None;
     let mut attached_address: Option<String> = None;
+    let mut subscription = Some(subscription);
+    let mut lines = hc::EventLines::new(&snapshot);
+    let mut ticks = 0u32;
 
     loop {
+        if subscription.is_none()
+            && let Ok((channel, events, snapshot)) = core.subscribe()
+        {
+            subscription = Some((channel, events));
+            lines = hc::EventLines::new(&snapshot);
+            refresh(core, app, attached.is_none())?;
+        }
+
+        let mut sub = subscription.take();
+        let mut docs_changed = false;
+        let mut terminals_changed = false;
+        if let Some((channel, events)) = &sub {
+            while let Ok(stream) = events.try_recv() {
+                match stream {
+                    hc::Stream::Data(bytes) => {
+                        let pushed = lines.push(&bytes);
+                        docs_changed |= pushed.docs;
+                        terminals_changed |= pushed.terminals;
+                        core.credit(*channel, bytes.len());
+                    }
+                    _ => {
+                        sub = None;
+                        break;
+                    }
+                }
+            }
+        }
+        subscription = sub;
+
         // A tab selected in the panel owns the pane. Attach as soon as it is
         // selected, including on the first frame, so there is a live prompt
         // without waiting for another key press.
@@ -130,7 +168,11 @@ fn event_loop(
             }
         }
 
-        refresh(core, app)?;
+        let heartbeat = ticks.is_multiple_of(HEARTBEAT_TICKS);
+        ticks = ticks.saturating_add(1);
+        if docs_changed || terminals_changed || heartbeat {
+            refresh(core, app, attached.is_none())?;
+        }
     }
 }
 
@@ -203,8 +245,9 @@ fn describe_mismatch(mismatch: hc::Mismatch) -> anyhow::Error {
     }
 }
 
-/// Pull the terminal list, and the highlighted terminal's tail.
-fn refresh(core: &std::sync::Arc<hc::Core>, app: &mut App) -> anyhow::Result<()> {
+/// Pull what changed. The preview is only needed while no terminal is
+/// attached: a live pane already shows the output.
+fn refresh(core: &std::sync::Arc<hc::Core>, app: &mut App, preview: bool) -> anyhow::Result<()> {
     let list = core.call("terminal.list", json!({})).context("terminal.list")?;
     app.set_terminals(&list);
 
@@ -213,7 +256,9 @@ fn refresh(core: &std::sync::Arc<hc::Core>, app: &mut App) -> anyhow::Result<()>
         Err(error) => app.doc_error = Some(format!("cannot read the workspace document: {error:#}")),
     }
 
-    if let Some(address) = app.selected().and_then(|row| row.address.clone()) {
+    if preview
+        && let Some(address) = app.selected().and_then(|row| row.address.clone())
+    {
         let read = core
             .call("terminal.read", json!({ "terminal": address, "lines": app::PREVIEW_LINES }))
             .context("terminal.read")?;

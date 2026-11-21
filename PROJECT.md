@@ -88,7 +88,7 @@ the app's neutral tokens for chrome, inherited from the sibling repositories.
 |----|-------|------|--------|-------------|
 | T1 | S1, S10 | **code** | **done** | Scaffold: Cargo.toml, CLI, config, plain-mode JSON-RPC client, demo listing. `cargo check`, 9 tests and `clippy -D warnings` are green. Framed mode is explicitly not here: it is T2 |
 | T2 | S1, S2 | code | pending | Framed mode (`hello` with `framed: true`, length-prefixed wire format read from herdr-core's `rpc.rs`, not guessed) and the protocol-generation check. Also verify the socket candidates in `config.rs` against herdr-core's `paths.rs` and `platform/unix.rs`, and decide between trying paths directly and spawning `hc connect` like herdr-app does |
-| T3 | S8 | code | pending | Events subscription: subscribe, parse JSON event stream, maintain sequence |
+| T3 | S8 | code | **done** | `events.subscribe` drives the UI: `EventLines` parses the pushed stream, credits the channel, and a 4s heartbeat resyncs if it goes quiet. A key press no longer triggers `terminal.list`/`doc.get`/`terminal.read` |
 | T4 | S3 | code | pending | Terminal list UI: ratatui widget, coloured status, refresh from events |
 | T5 | S4, S5 | code | **done** | Two-way terminal: `hc::attach`, first paint, stream drain with `credit`, libghostty rendering via copied `vt.rs`, keys encoded to DATA, resize, detach. Round trip verified against a live core |
 | T6 | S5 | code | **done** | Input handling: the highlighted tab attaches on the first frame, `tab` toggles the panel, `enter` attaches, and every other key goes to the agent (`q`, `r`, `esc` and `ctrl+c` included). `ctrl+q`/`ctrl+\` quit. Mouse deliberately out of scope |
@@ -242,6 +242,15 @@ limpio y **cero `#[allow]`** (D9/D10 eliminaron los dos que venían de upstream)
 Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
 `LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
 `roundtrip-ok`.
+
+**L16 — 2026-11-21** — El usuario notó que la TUI era más lenta que herdr-app
+desktop, aunque el desktop conecte por red. La causa no era la red sino el
+loop local: `refresh()` corría después de **cada tecla** (3 RPC sincrónicos:
+`terminal.list`, `doc.get`, `terminal.read`) y además en un poll de 250 ms.
+herdr-app usa `events.subscribe` y no hace RPC por tecla. T3 pasa a usar el
+stream push con `EventLines`, `set_workspace` ignora un `version` repetido, y
+la preview de `terminal.read` se pide solo cuando no hay attach. Verificado en
+un core aislado: `PUSH-OK` escrito desde el PTY apareció en el pane y `ctrl+q`salió con exit 0. 183 tests, clippy limpio.
 
 **L15 — 2026-11-21** — El usuario corrió la TUI por Mosh en la notebook y
 reportó que veía el panel pero no podía interactuar: sin prompt y sin mouse.
