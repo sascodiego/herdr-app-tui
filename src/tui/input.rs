@@ -21,7 +21,9 @@ pub enum Action {
     Up,
     Down,
     Refresh,
-    /// Open the workspace command palette; only read while the panel is open.
+    /// Open the workspace command palette from anywhere; reserved like Quit.
+    Palette,
+    /// Type a command while the panel is open.
     Command,
     Ignore,
 }
@@ -54,6 +56,7 @@ pub fn action(key: KeyEvent) -> Action {
         (KeyCode::Char('\\'), KeyModifiers::CONTROL)
         | (KeyCode::Char('4'), KeyModifiers::CONTROL)
         | (KeyCode::Char('q'), KeyModifiers::CONTROL) => Action::Quit,
+        (KeyCode::Char('o'), KeyModifiers::CONTROL) => Action::Palette,
         (KeyCode::Tab, _) => Action::TogglePanel,
         (KeyCode::Esc, _) => Action::ClosePanel,
         (KeyCode::Enter, _) => Action::Attach,
@@ -119,6 +122,12 @@ mod tests {
         assert_eq!(pointer(MouseEventKind::Drag(MouseButton::Left)), Some(Pointer::Drag));
         assert_eq!(pointer(MouseEventKind::Down(MouseButton::Right)), None);
         assert_eq!(pointer(MouseEventKind::Moved), None);
+    }
+
+    #[test]
+    fn ctrl_o_opens_the_palette_without_typing_a_colon() {
+        assert_eq!(action(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL)), Action::Palette);
+        assert_ne!(action(key(KeyCode::Char(':'))), Action::Palette);
     }
 
     #[test]

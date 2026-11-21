@@ -194,6 +194,12 @@ fn handle_key(
     if action == Action::Quit {
         return Ok(true);
     }
+    if action == Action::Palette {
+        app.panel = true;
+        app.exit_copy();
+        app.open_command();
+        return Ok(false);
+    }
 
     match action {
         Action::ScrollUp => {
@@ -220,7 +226,7 @@ fn handle_key(
             Action::ClosePanel | Action::TogglePanel | Action::Attach => app.panel = false,
             Action::Up | Action::ScrollUp => app.move_cursor(-1),
             Action::Down | Action::ScrollDown => app.move_cursor(1),
-            Action::Refresh | Action::Ignore => {}
+            Action::Refresh | Action::Ignore | Action::Palette => {}
             Action::Command => app.open_command(),
             Action::Quit => return Ok(true),
         }
@@ -235,8 +241,8 @@ fn handle_key(
         // With nothing attached, Esc leaves; with a live pane it is a key for
         // the program, like q, r and Ctrl+C.
         Action::ClosePanel if attached.is_none() => return Ok(true),
-        Action::ScrollUp | Action::ScrollDown => {
-            // Both were handled before the panel/following branches.
+        Action::ScrollUp | Action::ScrollDown | Action::Palette => {
+            // Handled before the panel/following branches.
         }
         _ => {
             if let Some(session) = attached.as_mut() {

@@ -29,9 +29,11 @@ Keys:
   enter        attach to the highlighted tab
   j / k        move the highlight
   pageup / pagedown, alt+up / alt+down   scroll; q or esc resumes
+  ctrl+o        open the workspace command palette
   ctrl+q / ctrl+\\   quit
 
-While attached, q, r, esc and ctrl+c belong to the agent.
+While attached, q, r, esc and ctrl+c belong to the agent; ctrl+o and the quit
+keys are reserved.
 Touch: tap the header or a row; drag or wheel to scroll.
 
 See herdr.dev — the runtime your coding agents live on.
@@ -98,6 +100,7 @@ mod tests {
     #[test]
     fn the_help_lists_the_current_quit_and_scroll_keys() {
         assert!(HELP.contains("ctrl+q / ctrl+\\"));
+        assert!(HELP.contains("ctrl+o"));
         assert!(HELP.contains("pageup / pagedown"));
         assert!(!HELP.contains("r            refresh now"));
     }

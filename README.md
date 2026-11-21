@@ -80,7 +80,9 @@ Touch and pointer gestures work by zone:
 | Wheel or vertical drag in the panel | Move the highlight |
 | Tap the terminal | Resume the live pane |
 
-With the panel open, `:` opens the workspace palette. It accepts `new space`,
+`ctrl+o` opens the workspace palette from anywhere and is reserved, like
+`ctrl+q`. While the panel is open, `:` opens the same palette; with the panel
+closed, `:` is an ordinary character and reaches bash. The palette accepts `new space`,
 `new tab`, `rename space`, `rename tab`, `close tab`, `close space`, `space next`,
 `space prev`, `tab next`, `tab prev` and `move space|tab up|down`. The same create,
 rename and close actions are tappable in the sidebar footer. Rename opens a
