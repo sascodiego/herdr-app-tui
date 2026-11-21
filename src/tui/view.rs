@@ -73,13 +73,21 @@ impl ScreenState {
 pub const WIDE_AT: u16 = 60;
 /// The rail's width when the screen is wide.
 pub const RAIL_WIDTH: u16 = 26;
+/// Rows in the mobile information band.
+pub const BAND_ROWS: u16 = 3;
+/// Width of the fixed toggle block at the right of the band.
+pub const TOGGLE_COLS: u16 = 8;
+/// Minimum gutter around sidebar content, in cells.
+pub const GUTTER: u16 = 1;
+/// Cells a phone tab target occupies: label plus detail.
+const TAB_CELLS: u16 = 2;
 
 /// Where a pointer can land. The same zones drive the render and the input
 /// routing, so a tap always hits what the screen shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Zones {
     pub wide: bool,
-    /// The single row at the top of a phone-sized screen.
+    /// The three-row information band at the top of a phone-sized screen.
     pub header: Option<Rect>,
     /// The sheet on a phone, the rail on a desktop.
     pub panel: Option<Rect>,
@@ -101,13 +109,25 @@ pub fn zones(area: Rect, panel_open: bool) -> Zones {
         let [rail, rest] = Layout::horizontal([Constraint::Length(RAIL_WIDTH), Constraint::Min(1)]).areas(area);
         let [rule, terminal] = Layout::horizontal([Constraint::Length(1), Constraint::Min(1)]).areas(rest);
         Zones { wide: true, header: None, panel: Some(rail), rule: Some(rule), terminal }
-    } else if panel_open {
-        let [header, body] = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(area);
-        Zones { wide: false, header: Some(header), panel: Some(body), rule: None, terminal: Rect::new(0, 0, 0, 0) }
     } else {
-        let [header, terminal] = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(area);
-        Zones { wide: false, header: Some(header), panel: None, rule: None, terminal }
+        let band = BAND_ROWS.min(area.height);
+        let [header, body] = Layout::vertical([Constraint::Length(band), Constraint::Min(0)]).areas(area);
+        if panel_open {
+            Zones { wide: false, header: Some(header), panel: Some(body), rule: None, terminal: Rect::new(0, 0, 0, 0) }
+        } else {
+            Zones { wide: false, header: Some(header), panel: None, rule: None, terminal: body }
+        }
     }
+}
+
+/// The sidebar's content area: one cell in from every side.
+fn panel_inner(area: Rect) -> Rect {
+    Rect::new(
+        area.x.saturating_add(GUTTER),
+        area.y.saturating_add(GUTTER),
+        area.width.saturating_sub(2 * GUTTER),
+        area.height.saturating_sub(2 * GUTTER),
+    )
 }
 
 /// Draw one frame.
@@ -128,27 +148,85 @@ pub fn render(app: &App, frame: &mut Frame) {
 }
 
 /// Which tab row, if any, is drawn at this screen coordinate.
-pub fn panel_row_at(app: &App, area: Rect, y: u16, wide: bool) -> Option<usize> {
-    let local = y.checked_sub(area.y)?;
-    let (_, rows) = panel_content(app, area.width, wide);
+pub fn panel_row_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Option<usize> {
+    let inner = panel_inner(area);
+    if x < inner.x
+        || x >= inner.x.saturating_add(inner.width)
+        || y < inner.y
+        || y >= inner.y.saturating_add(inner.height)
+    {
+        return None;
+    }
+    let local = y - inner.y;
+    let (_, rows) = panel_content(app, inner.width, wide);
     rows.get(local as usize).copied().flatten()
 }
 
-/// One row: where you are on the left, the core and the toggle on the right.
+/// The three-row phone band: workspace and tabs, path, agent totals, toggle.
 fn draw_header(app: &App, area: Rect, frame: &mut Frame) {
+    frame.buffer_mut().set_style(area, Style::default().bg(theme::PANEL));
+    let left_width = area.width.saturating_sub(TOGGLE_COLS);
+    let left = Rect { x: area.x, y: area.y, width: left_width, height: area.height };
+    let toggle = Rect {
+        x: area.x.saturating_add(left_width),
+        y: area.y,
+        width: area.width.saturating_sub(left_width),
+        height: area.height,
+    };
+    let (working, needs_you, idle) = app.counts();
     let (mark, color) = connection(app);
-    let toggle = if app.panel { format!("close {}", glyph::CLOSE) } else { "switch".to_string() };
-    let copy = if app.copy { " copy" } else { "" };
-    let right = format!("{} {mark}  {toggle}{copy}", app.core);
-    let gap = (area.width as usize).saturating_sub(app.session.chars().count() + right.chars().count());
-    let line = Line::from(vec![
-        Span::styled(app.session.clone(), Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD)),
-        Span::raw(" ".repeat(gap)),
-        Span::styled(format!("{} ", app.core), Style::default().fg(theme::MUTED)),
-        Span::styled(mark.to_string(), Style::default().fg(color)),
-        Span::styled(format!("  {toggle}{copy}"), Style::default().fg(theme::DIM)),
-    ]);
-    frame.render_widget(Paragraph::new(line), area);
+    let copy = if app.copy { "  copy" } else { "" };
+    let lines = vec![
+        Line::from(vec![
+            Span::styled(mark.to_string(), Style::default().fg(color)),
+            Span::styled(
+                format!(" {} · {} tabs", app.workspace(), app.rows().len()),
+                Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(copy.to_string(), Style::default().fg(theme::DIM)),
+        ]),
+        Line::from(Span::styled(fit(&app.path, left_width as usize), Style::default().fg(theme::MUTED))),
+        Line::from(Span::styled(
+            fit(
+                &format!(
+                    "{} idle {} · {} work {} · {} needs {}",
+                    State::Idle.glyph(),
+                    idle,
+                    State::Working.glyph(),
+                    working,
+                    State::NeedsYou.glyph(),
+                    needs_you,
+                ),
+                left_width as usize,
+            ),
+            Style::default().fg(theme::TEXT),
+        )),
+    ];
+    frame.render_widget(Paragraph::new(lines), left);
+
+    let label = if app.panel { "x" } else { "switch" };
+    let pad = (toggle.width as usize).saturating_sub(label.chars().count()) / 2;
+    let mut toggle_lines = vec![Line::from(""); area.height as usize];
+    if let Some(middle) = toggle_lines.get_mut(area.height as usize / 2) {
+        *middle = Line::from(Span::styled(
+            format!("{}{}", " ".repeat(pad), label),
+            Style::default().fg(theme::TEXT),
+        ));
+    }
+    frame.render_widget(Paragraph::new(toggle_lines).style(Style::default().bg(theme::SURFACE)), toggle);
+}
+
+/// Truncate chrome text with `…` instead of wrapping it.
+fn fit(text: &str, width: usize) -> String {
+    let length = text.chars().count();
+    if length <= width {
+        return text.to_string();
+    }
+    if width == 0 {
+        return String::new();
+    }
+    let head: String = text.chars().take(width - 1).collect();
+    format!("{head}…")
 }
 
 /// The core's connection marker and the color it takes.
@@ -167,9 +245,13 @@ fn draw_rule(area: Rect, frame: &mut Frame) {
 
 /// The panel: counted sections, the selected row banded, actions at the foot.
 fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
-    let (lines, _) = panel_content(app, area.width, wide);
-    let style = Style::default().bg(theme::PANEL).fg(theme::TEXT);
-    frame.render_widget(Paragraph::new(lines).style(style), area);
+    frame.buffer_mut().set_style(area, Style::default().bg(theme::PANEL));
+    let inner = panel_inner(area);
+    if inner.width == 0 || inner.height == 0 {
+        return;
+    }
+    let (lines, _) = panel_content(app, inner.width, wide);
+    frame.render_widget(Paragraph::new(lines).style(Style::default().fg(theme::TEXT)), inner);
 }
 
 /// Panel lines plus, for each line, the tab row it shows.
@@ -188,6 +270,13 @@ impl PanelLines {
     fn push_row(&mut self, line: Line<'static>, index: usize) {
         self.lines.push(line);
         self.rows.push(Some(index));
+    }
+
+    fn push_row_cells(&mut self, top: Line<'static>, detail: Line<'static>, index: usize) {
+        self.push_row(top, index);
+        for _ in 1..TAB_CELLS {
+            self.push_row(detail.clone(), index);
+        }
     }
 }
 
@@ -261,7 +350,12 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
     let rows = app.rows();
     lines.push(section(&format!("{} TABS", glyph::EXPANDED), rows.len(), width));
     for (index, row) in rows.iter().enumerate() {
-        lines.push_row(row_line(row, index == app.cursor, width), index);
+        let top = row_line(row, index == app.cursor, width);
+        if wide {
+            lines.push_row(top, index);
+        } else {
+            lines.push_row_cells(top, row_detail(app, row, width), index);
+        }
         if let Some(address) = &row.address {
             for child in app.children_of(address) {
                 lines.push(child_line(child));
@@ -334,6 +428,22 @@ fn row_line(row: &super::app::Row, selected: bool, width: u16) -> Line<'static> 
         Span::styled(" ".repeat(gap), padding),
         Span::styled(state, value),
     ])
+}
+
+/// The lower touch cell of a phone tab: deeper than its label, never repeated.
+fn row_detail(app: &App, row: &super::app::Row, width: u16) -> Line<'static> {
+    let helpers = row.address.as_ref().map_or(0, |address| app.children_of(address).len());
+    let attached = app.selected().is_some_and(|selected| selected.address == row.address) && app.screen.is_some();
+    let text = match (attached, helpers) {
+        (true, 0) => "attached".to_string(),
+        (true, count) => format!("attached · {count} helpers"),
+        (false, count) if count > 0 => format!("{count} helpers"),
+        (false, _) => row.preview.last().cloned().unwrap_or_default(),
+    };
+    Line::from(Span::styled(
+        fit(&format!("        {text}"), width as usize),
+        Style::default().fg(theme::MUTED),
+    ))
 }
 
 fn child_line(terminal: &super::app::Terminal) -> Line<'static> {
@@ -412,11 +522,12 @@ mod tests {
     }
 
     #[test]
-    fn the_header_zone_only_exists_on_a_phone() {
+    fn the_band_zone_only_exists_on_a_phone() {
         let phone = zones(Rect::new(0, 0, 40, 22), false);
         assert!(Zones::contains(phone.header, 10, 0));
-        assert!(!Zones::contains(phone.header, 10, 1));
-        assert!(Zones::contains(Some(phone.terminal), 10, 1));
+        assert!(Zones::contains(phone.header, 10, 2));
+        assert!(!Zones::contains(phone.header, 10, 3));
+        assert!(Zones::contains(Some(phone.terminal), 10, 3));
         assert!(!Zones::contains(phone.panel, 10, 5));
 
         let wide = zones(Rect::new(0, 0, 100, 24), false);
@@ -429,11 +540,14 @@ mod tests {
     #[test]
     fn a_tap_on_a_tab_row_resolves_to_its_index() {
         let app = app(true);
-        let panel = Rect::new(0, 1, 40, 21);
-        let (_, rows) = panel_content(&app, panel.width, false);
+        let panel = zones(Rect::new(0, 0, 40, 22), true).panel.expect("the phone sheet");
+        let inner = panel_inner(panel);
+        let (_, rows) = panel_content(&app, inner.width, false);
         let line = rows.iter().position(|row| *row == Some(0)).expect("first tab row");
-        assert_eq!(panel_row_at(&app, panel, 1 + line as u16, false), Some(0));
-        assert_eq!(panel_row_at(&app, panel, 0, false), None, "the header is not a row");
+        let x = inner.x + 2;
+        let y = inner.y + line as u16;
+        assert_eq!(panel_row_at(&app, panel, x, y, false), Some(0));
+        assert_eq!(panel_row_at(&app, panel, panel.x, y, false), None, "the gutter is not a row");
     }
 
     #[test]
@@ -455,29 +569,29 @@ mod tests {
         });
         let mut terminal = Terminal::new(TestBackend::new(40, 22)).expect("test terminal");
         terminal.draw(|frame| render(&app, frame)).expect("draw");
-        let cell = terminal.backend().buffer()[(0, 1)].clone();
+        let cell = terminal.backend().buffer()[(0, BAND_ROWS)].clone();
         assert_eq!(cell.symbol(), "X");
         assert_eq!(cell.fg, ratatui::style::Color::Red);
         assert_eq!(cell.bg, ratatui::style::Color::Blue);
         assert!(cell.modifier.contains(Modifier::BOLD));
         let rows = screen(&app, 40, 22);
-        assert!(rows[0].contains("copy"), "the header states the mode");
+        assert!(rows[0].contains("copy"), "the band states the mode: {:?}", &rows[..3]);
     }
 
     #[test]
     fn a_wide_screen_keeps_the_rail_on_the_left() {
         let rows = screen(&app(true), 100, 24);
-        assert!(rows.first().is_some_and(|row| row.starts_with("default")), "{:?}", &rows[..2]);
-        assert!(rows.iter().any(|row| row.starts_with("▾ TABS")), "rail sections start at column 0: {rows:?}");
+        assert!(rows[1].contains("default"), "{:?}", &rows[..3]);
+        assert!(rows.iter().any(|row| row.starts_with(" ▾ TABS")), "rail sections start after the gutter: {rows:?}");
         // The rule sits where the rail ends; the terminal area is to its right.
         assert!(rows.iter().any(|row| row.chars().nth(RAIL_WIDTH as usize) == Some('│')), "no rule after the rail");
     }
 
     #[test]
-    fn a_narrow_screen_with_the_bar_closed_is_the_terminal_and_one_row() {
+    fn a_narrow_screen_with_the_bar_closed_is_the_terminal_below_it() {
         let rows = screen(&app(false), 40, 22);
-        assert!(rows[0].contains("default"), "header row: {:?}", rows[0]);
-        assert!(rows[0].contains("switch"), "the toggle lives in the header: {:?}", rows[0]);
+        assert!(rows[0].contains("pi 2"), "band row: {:?}", rows[0]);
+        assert!(rows[1].contains("switch"), "the toggle is centred in the band: {:?}", rows[1]);
         assert!(!rows.iter().any(|row| row.contains("▾ TABS")), "the panel is closed: {rows:?}");
         assert!(!rows.iter().any(|row| row.contains("detach")), "no actions while closed: {rows:?}");
     }
@@ -485,7 +599,7 @@ mod tests {
     #[test]
     fn opening_the_panel_on_a_narrow_screen_covers_it_with_sections() {
         let rows = screen(&app(true), 40, 22);
-        assert!(rows[0].contains("close"), "the toggle turns into close: {:?}", rows[0]);
+        assert!(rows[1].trim_end().ends_with('x'), "the toggle turns into x: {:?}", rows[1]);
         assert!(rows.iter().any(|row| row.contains("▾ TABS")), "{rows:?}");
         assert!(rows.iter().any(|row| row.contains("▾ AGENTS")), "{rows:?}");
         assert!(rows.iter().any(|row| row.contains("needs you")), "{rows:?}");
@@ -493,11 +607,10 @@ mod tests {
     }
 
     #[test]
-    fn the_session_name_is_written_once_per_screen() {
+    fn the_band_names_the_workspace_once() {
         for panel in [false, true] {
             let rows = screen(&app(panel), 40, 22);
-            let joined = rows.join("\n");
-            assert_eq!(joined.matches("default").count(), 1, "panel={panel}:\n{joined}");
+            assert_eq!(rows[0].matches("pi 2").count(), 1, "panel={panel}: {:?}", rows[0]);
         }
     }
 
@@ -517,6 +630,7 @@ mod tests {
         let rows = screen(&app(true), 40, 22);
         let first_row = rows
             .iter()
+            .skip((BAND_ROWS + GUTTER) as usize)
             .find(|row| row.contains("pi "))
             .expect("a terminal row");
         assert!(first_row.contains("pi 2"), "blocked comes first: {first_row:?}");
@@ -524,14 +638,55 @@ mod tests {
     }
 
     #[test]
-    fn the_toggle_words_are_switch_and_close() {
-        assert!(screen(&app(false), 40, 22)[0].contains("switch"));
-        assert!(screen(&app(true), 40, 22)[0].contains("close"));
+    fn the_toggle_words_are_switch_and_x() {
+        assert!(screen(&app(false), 40, 22)[1].contains("switch"));
+        assert!(screen(&app(true), 40, 22)[1].trim_end().ends_with('x'));
     }
 
     #[test]
     fn two_columns_fills_the_width_and_leaves_a_gap() {
         assert_eq!(two_columns("ab", "cd", 10), "ab      cd");
         assert_eq!(two_columns("abcdef", "gh", 4), "abcdefgh", "never truncates, never panics");
+    }
+
+    #[test]
+    fn a_phone_band_has_three_rows_and_a_fixed_toggle() {
+        let mut app = app(false);
+        app.path = "~/src/herdr/herdr-app-tui".to_string();
+        let rows = screen(&app, 40, 20);
+        assert!(rows[0].contains("pi 2") && rows[0].contains("tabs"), "{:?}", &rows[..3]);
+        assert!(rows[1].contains("~/src/herdr/herdr-app-tui"), "{:?}", &rows[..3]);
+        assert!(rows[2].contains("○ idle") && rows[2].contains("▲ needs"), "{:?}", &rows[..3]);
+        let toggle_x = (40 - TOGGLE_COLS) as usize;
+        assert!(rows[1][toggle_x..].contains("switch"), "{:?}", rows[1]);
+        let z = zones(Rect::new(0, 0, 40, 20), false);
+        assert_eq!(z.header.expect("a phone band").height, BAND_ROWS);
+    }
+
+    #[test]
+    fn a_phone_tab_target_spans_two_cells_inside_the_gutter() {
+        let app = app(true);
+        let z = zones(Rect::new(0, 0, 40, 20), true);
+        let panel = z.panel.expect("the phone sheet");
+        let inner = Rect::new(
+            panel.x + GUTTER,
+            panel.y + GUTTER,
+            panel.width.saturating_sub(2 * GUTTER),
+            panel.height.saturating_sub(2 * GUTTER),
+        );
+        let (_, lines) = panel_content(&app, inner.width, false);
+        let first = lines.iter().position(|line| *line == Some(0)).expect("the first tab");
+        assert_eq!(lines[first], lines[first + 1], "both cells belong to one target");
+        let y = inner.y + first as u16;
+        assert_eq!(panel_row_at(&app, panel, inner.x + 2, y, false), Some(0));
+        assert_eq!(panel_row_at(&app, panel, inner.x + 2, y + 1, false), Some(0));
+    }
+
+    #[test]
+    fn the_sidebar_keeps_a_one_cell_gutter_on_desktop() {
+        let rows = screen(&app(true), 100, 24);
+        let header = rows.get(1).expect("the first rail row");
+        assert_eq!(header.chars().next(), Some(' '), "left gutter: {header:?}");
+        assert_ne!(header.chars().nth(1), Some(' '), "content starts at column 1: {header:?}");
     }
 }

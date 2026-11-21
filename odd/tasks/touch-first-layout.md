@@ -25,9 +25,9 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 | ID | S# | Route | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | T1 | S1-S5, S7, S8 | parent, gentle-design | done | three-row band with distributed info, four-sided gutter; see L16-L18 |
-| T2 | S4 | human choice | blocked | waiting for the user to pick a direction on the canvas; unblocks when the chosen artboard is named |
-| T3 | S2,S3,S5 | parent | pending | RED geometry test then GREEN shared geometry and touch targets |
-| T4 | S2,S5 | parent | pending | RED state test then GREEN attached/preview/scrolled and panel scroll |
+| T2 | S4 | human choice | done | `01-safe-area-sheet.html` chosen; handoff taken; see L20 |
+| T3 | S2,S3,S5 | parent | done | RED compile failure then GREEN: 194+2 tests, clippy clean; see L21 |
+| T4 | S2,S5 | parent | in_progress | RED state/agent test then GREEN attached/preview/scrolled, navigable AGENTS and visible selection |
 | T5 | S6 | parent | pending | captures, PTY smoke, tests, clippy, docs |
 | T6 | all | parent | pending | work-unit commit(s) recorded here |
 | T7 | S7, S8 | parent | done | `design/system.md` and `design/system.html` synced to Gotham and the new layout rules |
@@ -41,6 +41,10 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 ## Log
 
 **L17 — 2026-11-21** — Immediate correction, verbatim: "Perdon, dejamos las 3 filas en la banda lo demas todo lo que te dije". The three-row band is restored; the one-row text placement, four-sided sidebar gutter and system sync remain in force. S2 was rewritten again before any artboard edit.
+
+**L21 — 2026-11-21** — T3 done. RED was a compile failure on the new geometry constants and `App::path`; GREEN after implementing `BAND_ROWS = 3`, `TOGGLE_COLS = 8`, `GUTTER = 1`, `panel_inner`, `panel_row_at(app, area, x, y, wide)`, a three-row band with workspace/tabs, path and grouped agent totals, and two-cell phone tab targets. `cargo test --all-targets`: 194 passed + 2 bin tests, 1 ignored, 0 failed. `cargo clippy --all-targets -- -D warnings` clean. The chosen artboard handoff was reported `in_progress`.
+
+**L20 — 2026-11-21** — User confirmation, verbatim: "Listo. confirmado". `01-safe-area-sheet.html` is the chosen artboard; 02 and 03 stay as alternatives. `gentle_design implement` returned the handoff for that artboard and requires `handoff` progress reports; T2 is done and T3 starts with a RED geometry test.
 
 **L19 — 2026-11-21** — Work-unit slice `e6acd9b design: distribute header info and sync the design system` holds T1 and T7. Running total: 1243 authored changed lines in 7 commits on `touch-first-layout`. Publishing is not authorized by these commits.
 

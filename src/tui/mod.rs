@@ -320,7 +320,7 @@ fn handle_pointer(
                         app.panel = !app.panel;
                     }
                     Some(Zone::Panel) => {
-                        if let Some(index) = z.panel.and_then(|p| view::panel_row_at(app, p, y, z.wide)) {
+                        if let Some(index) = z.panel.and_then(|p| view::panel_row_at(app, p, x, y, z.wide)) {
                             app.cursor = index;
                             if !z.wide {
                                 app.panel = false;
