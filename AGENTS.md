@@ -9,6 +9,10 @@ visible from both the desktop app and this TUI.
 
 - **No `unsafe` code.** Every rule has a safe equivalent. If you believe
   you need `unsafe`, restructure the code instead.
+- **Exception — FFI to libghostty.** `vt.rs` and `ghostty-sys` are copied from
+  herdr-app and contain `unsafe` only to call libghostty's C ABI. This is the
+  one allowed use, documented as D5 in `UPSTREAM.md`. No other module may
+  introduce `unsafe`, and no new FFI surface is added without a decision.
 - **No `.unwrap()`, `.expect()`, `.get().unwrap()` or similar panicking
   access outside test code.** Production code handles errors explicitly with
   `Result`, `Option`, pattern matching, or fallback logic.

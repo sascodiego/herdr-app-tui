@@ -1,0 +1,1 @@
+/src/herdr/herdr-app/vendor/ghostty/src/terminal/kitty/graphics_unicode.zig

@@ -1,0 +1,14 @@
+# Copied from herdr-app (https://github.com/herdrdev/herdr-app), Apache-2.0.
+# Upstream revision: 317e673. Pinned deliberately; see UPSTREAM.md (D5).
+
+[package]
+name = "ghostty-sys"
+version = "0.0.0"
+description = "Generated bindings to upstream libghostty-vt (vendor/ghostty)"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+links = "ghostty-vt"
+
+[build-dependencies]
+bindgen = "0.72"

@@ -9,7 +9,26 @@ homepage = "https://herdr.dev"
 keywords = ["terminal", "tui", "herdr", "coding-agents"]
 categories = ["command-line-utilities"]
 
+[workspace]
+members = ["crates/ghostty-sys"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+redundant_clone = "warn"
+
 [dependencies]
+ghostty-sys = { path = "crates/ghostty-sys" }
+fancy-regex = "0.19"
+png = "0.17"
+base64 = "0.22"
 anyhow = "1"
 async-channel = "2"
 serde = { version = "1", features = ["derive"] }

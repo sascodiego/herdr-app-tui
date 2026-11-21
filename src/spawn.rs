@@ -9,8 +9,10 @@ use std::ffi::OsStr;
 use std::process::Command;
 
 pub fn command(program: impl AsRef<OsStr>) -> Command {
-    #[allow(unused_mut)]
+    #[cfg(windows)]
     let mut cmd = Command::new(program);
+    #[cfg(not(windows))]
+    let cmd = Command::new(program);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
