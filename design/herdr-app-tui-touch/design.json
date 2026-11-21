@@ -1,0 +1,28 @@
+{
+  "title": "herdr-app-tui touch-first layout",
+  "brief": "Redesign the mobile TUI around touch targets and a sidebar that keeps its actions, without degrading the desktop rail.",
+  "feature": "odd/tasks/touch-first-layout.md",
+  "artboards": [
+    {
+      "file": "01-safe-area-sheet.html",
+      "title": "Safe-area sheet",
+      "tradeoff": "Closest to today's sheet; two-cell tab rows cost vertical space.",
+      "width": 1080,
+      "height": 980
+    },
+    {
+      "file": "02-stacked-deck.html",
+      "title": "Stacked deck",
+      "tradeoff": "Two-line tab rows read clearly at arm's length; one extra row per tab.",
+      "width": 1080,
+      "height": 980
+    },
+    {
+      "file": "03-rising-peek.html",
+      "title": "Rising peek",
+      "tradeoff": "Keeps live output visible while choosing; shorter tab list and a harder zone boundary.",
+      "width": 1080,
+      "height": 980
+    }
+  ]
+}

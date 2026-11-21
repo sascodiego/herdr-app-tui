@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>01 — Safe-area sheet</title>
+<style>
+  :root {
+    --bg:#11111b; --panel:#181825; --surface:#313244; --text:#cdd6f4;
+    --muted:#7f849c; --dim:#585b70; --accent:#b4befe;
+    --green:#a6e3a1; --yellow:#f9e2af; --red:#f38ba8; --rule:#262626;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font:12px/1.42 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    padding:24px 28px 32px; width:1080px;
+  }
+  h1 { margin:0 0 4px; font-size:14px; font-weight:700; }
+  h1 .n { color:var(--accent); }
+  .brief { margin:0 0 20px; color:var(--muted); max-width:100ch; }
+  .label { margin-bottom:6px; color:var(--dim); font-size:11px; }
+  .row { display:flex; gap:26px; align-items:flex-start; }
+  .device { border:1px solid var(--rule); background:var(--bg); padding:10px; }
+  .screen { width:40ch; }
+  .ln { display:flex; min-height:1.42em; white-space:pre; }
+  .ln > .l { flex:0 0 auto; }
+  .ln > .r { margin-left:auto; flex:0 0 auto; }
+  .tap { min-height:4.26em; background:var(--panel); }
+  .sel { background:var(--surface); }
+  .hdr .l { font-weight:700; }
+  .sec { color:var(--muted); font-weight:700; }
+  .cnt, .pm { color:var(--muted); }
+  .pd, .ft { color:var(--dim); }
+  .ac { color:var(--accent); }
+  .ok { color:var(--green); }
+  .wr { color:var(--yellow); }
+  .er { color:var(--red); }
+  .b { font-weight:700; }
+  [role="button"]:focus-visible { outline:1px solid var(--accent); outline-offset:-1px; }
+  .cols { display:flex; align-items:flex-start; }
+  .rail { width:26ch; background:var(--panel); border-right:1px solid var(--rule); }
+  .term { width:56ch; padding-left:1ch; }
+  .notes { margin-top:18px; color:var(--dim); font-size:11px; max-width:84ch; }
+  .notes b { color:var(--muted); font-weight:400; }
+  .fix { color:var(--green); }
+  .sub { margin:22px 0 6px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1><span class="n">01</span> — Safe-area sheet</h1>
+<p class="brief">
+  The current command sheet, re-cut for fingers. A three-row tap band replaces the
+  one-row bar: an empty row above the text keeps it off the screen edge, and the
+  whole band toggles the sheet. Tab rows are two cells tall so a swipe or tap has
+  room. The sidebar keeps its actions at its own foot.
+</p>
+
+<div class="row">
+  <section aria-label="Phone, bar collapsed">
+    <div class="label">phone · collapsed · 40 × 18</div>
+    <div class="device"><div class="screen">
+      <div class="ln tap" role="button" tabindex="0" aria-label="Open the sidebar">
+        <div class="ln"></div>
+        <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span>  switch</span></div>
+        <div class="ln"></div>
+      </div>
+      <div class="ln"><span class="l">❯ pi 4 · research</span></div>
+      <div class="ln pm"><span class="l">  <span class="wr">◐</span> cargo test --lib</span></div>
+      <div class="ln pm"><span class="l">    running 41 tests</span></div>
+      <div class="ln pm"><span class="l">    test api::attach ... ok</span></div>
+      <div class="ln pm"><span class="l">    test api::list ... ok</span></div>
+      <div class="ln pm"><span class="l">    test terminals::run ... ok</span></div>
+      <div class="ln"><span class="l">    <span class="ok">test result: ok. 41 passed; 0 failed</span></span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln"><span class="l">❯ </span></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="ln"></div>
+    </div></div>
+  </section>
+
+  <section aria-label="Phone, bar open">
+    <div class="label">phone · sheet open · 40 × 18</div>
+    <div class="device"><div class="screen">
+      <div class="ln tap" role="button" tabindex="0" aria-label="Close the sidebar">
+        <div class="ln"></div>
+        <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span>  close ×</span></div>
+        <div class="ln"></div>
+      </div>
+      <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
+      <div class="ln sel" role="button" tabindex="0" aria-label="Attach pi 4">
+        <div class="ln"><span class="l">  <span class="b">research</span>  pi 4 <span class="wr">◐ working</span></span></div>
+        <div class="ln pm"><span class="l">      attached · 2 helpers</span></div>
+      </div>
+      <div class="ln" role="button" tabindex="0" aria-label="Attach pi 2">
+        <div class="ln"><span class="l">  api-work  pi 2 <span class="er">▲ needs you</span></span></div>
+        <div class="ln pm"><span class="l">      waiting on review</span></div>
+      </div>
+      <div class="ln" role="button" tabindex="0" aria-label="Attach pi 1">
+        <div class="ln"><span class="l">  release-check  pi 1 <span class="pm">○ idle</span></span></div>
+        <div class="ln pm"><span class="l">      last run 2h ago</span></div>
+      </div>
+      <div class="ln sec"><span class="l">▾ AGENTS</span><span class="r cnt">3</span></div>
+      <div class="ln wr"><span class="l">  ◐ working</span><span class="r cnt">1</span></div>
+      <div class="ln er"><span class="l">  ▲ needs you</span><span class="r cnt">1</span></div>
+      <div class="ln pm"><span class="l">  ○ idle</span><span class="r cnt">1</span></div>
+      <div class="ln ft"><span class="l">settings  keys  reload  detach</span></div>
+      <div class="ln"></div>
+    </div></div>
+  </section>
+</div>
+
+<div class="sub">desktop · rail on the left, always visible · 26 + 56 columns × 24 rows</div>
+<div class="device"><div class="cols">
+  <div class="rail">
+    <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span></span></div>
+    <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
+    <div class="ln sel"><span class="l">  <span class="b">research</span>  pi 4 <span class="wr">◐</span></span></div>
+    <div class="ln pm"><span class="l">      ○ helper a</span></div>
+    <div class="ln pm"><span class="l">      ○ helper b</span></div>
+    <div class="ln"><span class="l">  api-work  pi 2 <span class="er">▲</span></span></div>
+    <div class="ln"><span class="l">  release-check  pi 1 <span class="pm">○</span></span></div>
+    <div class="ln"><span class="l">  docs  pi 3 <span class="ok">✓</span></span></div>
+    <div class="ln"><span class="l"> </span></div>
+    <div class="ln sec"><span class="l">▾ AGENTS</span><span class="r cnt">3</span></div>
+    <div class="ln wr"><span class="l">  ◐ working</span><span class="r cnt">1</span></div>
+    <div class="ln er"><span class="l">  ▲ needs you</span><span class="r cnt">1</span></div>
+    <div class="ln pm"><span class="l">  ○ idle</span><span class="r cnt">1</span></div>
+    <div class="ln"><span class="l"> </span></div>
+    <div class="ln pd"><span class="l">─ pi 4 · cargo test --lib ──</span></div>
+    <div class="ln pm"><span class="l">  test api::attach ... ok</span></div>
+    <div class="ln ft"><span class="l">settings keys reload detach</span></div>
+    <div class="ln"></div>
+  </div>
+  <div class="term">
+    <div class="ln"><span class="l">❯ pi 4 · research</span></div>
+    <div class="ln pm"><span class="l">  <span class="wr">◐</span> cargo test --lib</span></div>
+    <div class="ln pm"><span class="l">    Compiling herdr-core v0.1.21</span></div>
+    <div class="ln pm"><span class="l">    Finished `test` profile</span></div>
+    <div class="ln pm"><span class="l">    running 41 tests</span></div>
+    <div class="ln pm"><span class="l">    test api::attach ... ok</span></div>
+    <div class="ln pm"><span class="l">    test api::list ... ok</span></div>
+    <div class="ln pm"><span class="l">    test terminals::run ... ok</span></div>
+    <div class="ln pm"><span class="l">    test wait::blocked ... ok</span></div>
+    <div class="ln pm"><span class="l">    test wait::timeout ... ok</span></div>
+    <div class="ln"><span class="l">    <span class="ok">test result: ok. 41 passed; 0 failed</span></span></div>
+    <div class="ln"><span class="l"> </span></div>
+    <div class="ln"><span class="l">❯ </span></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  </div>
+</div></div>
+
+<div class="notes">
+  <b>Tradeoff:</b> closest to today's sheet, so the desktop rail and the collapsed face
+  stay familiar. Two-cell tab rows cost vertical space; on a very short phone the
+  last rows scroll instead of shrinking.
+  <br><br>
+  <b>Fixes:</b> <span class="fix">P1</span> the tap target is three rows with a blank
+  row above it; <span class="fix">P2</span> every tab target is two rows;
+  <span class="fix">P3</span> the selected band covers both rows;
+  <span class="fix">P4</span> the sidebar actions remain in their own foot row;
+  <span class="fix">P5</span> no global bottom bar was introduced.
+</div>
+</main>
+</body>
+</html>
