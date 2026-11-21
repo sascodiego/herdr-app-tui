@@ -8,7 +8,7 @@ Branch: `touch-first-layout` (from `main`). Delivery strategy: ask-on-risk. Test
 Yank remains out of scope.
 
 **S2** — Problem, verbatim: "Dijimos que sin footer. Lo que necesito es que haya mejor ux de la tui. En el caso mobile la barra eta muy chica es dificil de accionarla debe tener un poquoto de margen sobre el borde. Es decir toda la view mobile esta muy mal optimozada para los toques touch"
-Acceptance: at phone widths the top control has a blank margin row above it, the whole band is tappable, and tab rows have touch-sized hit areas. There is no global bottom bar.
+Acceptance: at phone widths the top control is a three-row band with a blank margin row above it and the whole band tappable. The toggle is a fixed-width block spanning all three rows, always hard-right, with two lines of information on the left. Tab rows have touch-sized hit areas. There is no global bottom bar.
 
 **S3** — Correction, verbatim: "La linea de settings keys y reload es valida, porque esta denreo del sidebar. Igjal deberiamos rediseñar el layout oensando en algo mas mobile first UX sin descuidar la cersio desktop"
 Acceptance: `settings keys reload detach` stays inside the sidebar; the desktop rail remains left, compact and unchanged in substance.
@@ -24,7 +24,7 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 
 | ID | S# | Route | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| T1 | S1-S5 | parent, gentle-design | done | 3 artboards + manifest + canvas open; comments applied to 01; see L6-L8 |
+| T1 | S1-S5 | parent, gentle-design | done | 3 artboards + manifest + canvas open; toggle-block correction applied; see L6-L14 |
 | T2 | S4 | human choice | blocked | waiting for the user to pick a direction on the canvas; unblocks when the chosen artboard is named |
 | T3 | S2,S3,S5 | parent | pending | RED geometry test then GREEN shared geometry and touch targets |
 | T4 | S2,S5 | parent | pending | RED state test then GREEN attached/preview/scrolled and panel scroll |
@@ -42,6 +42,10 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 **L4 — 2026-11-21** — "sellado"
 
 **L5 — 2026-11-21** — Created after the mobile-first redesign proposal. The earlier footer-removal idea was rejected by the user; the sidebar action row is retained. Exploration agent `gentle-ai-explore` failed twice in this session ("no final report"); parent used direct reads and reports that fallback.
+
+**L14 — 2026-11-21** — User correction, verbatim: "Sin cambios , lo que te indique de la barra no lo tocaste. Herdr hizo de alguna manera que el boton de toggle este siempr a la derecha y grande. [Image#1] tiene lo que te digo. . son dos o tres filas, el boton ocupa las tres filas con un ancho fijo y siempre alineado a la derecha". The attached phone capture shows the reference: a three-row header, two left info lines, and a fixed-width toggle block spanning all three rows on the right. S2 was rewritten; T1 reopened. Applied to `01-safe-area-sheet.html` only: `.band` with a 10ch `surface` toggle block spanning the full band, left column carrying `○ research`, `tab 1 · 1/2` and `~/herdr · all idle`, no `default` in the header. The parent explained in chat that ratatui cannot optically centre or vary font size, but can paint a fixed-width block across three rows.
+
+**L13 — 2026-11-21** — Work-unit slice `8d709c7 design: show active agents and align the header row` holds the two agent-list/alignment comments. Running total: 785 authored changed lines in 4 commits on `touch-first-layout`. Publishing is not authorized by these commits.
 
 **L12 — 2026-11-21** — Two canvas comments were applied to `01-safe-area-sheet.html` only and resolved: `rkkatgng`, `9l62ffqe`. Verbatim: "Esta seccion debe mostrar los agentes activos. Yo lo que hago es moverme entre agentes a medida que requieren mi atencion, una estadistica no me aporta nada en principio... Herdr detecta los agentes y su estado y los presenta en una lista de facil navegacion" and "Sigue descentrado, desalineado. No me gusta... No se puede poner diferentes sizes de letra... Lo que si necesito es que me lo alinies horizontalmente par que el boton de toggle de la sidebar este siempre a la derecha". Applied: AGENTS is now an attention-ordered navigable list of detected agents with glyph and word state; the header uses a plain two-column row with info left and toggle hard-right, keeping one blank row above and below. The parent will explain the terminal-grid constraint in chat. `gentle-ai-worker` was launched for this bounded slice and also failed with "assistant returned no final report"; parent applied it inline and reports that fallback.
 
