@@ -79,9 +79,24 @@ impl Session {
         Ok(saw_data)
     }
 
-    /// The screen to draw.
+    /// The screen to draw. In copy mode this is the scrolled viewport, with
+    /// the program's own styles still on every cell.
     pub fn frame(&mut self) -> Frame {
         self.vt.frame()
+    }
+
+    /// Move through libghostty's scrollback. Positive lines show older output.
+    pub fn scroll_up(&mut self, lines: usize) {
+        self.vt.scroll_viewport(-(lines as isize));
+    }
+
+    pub fn scroll_down(&mut self, lines: usize) {
+        self.vt.scroll_viewport(lines as isize);
+    }
+
+    /// Resume following live output.
+    pub fn scroll_to_live(&mut self) {
+        self.vt.scroll_to_bottom();
     }
 
     /// Keep the viewer's size in sync with the pane.

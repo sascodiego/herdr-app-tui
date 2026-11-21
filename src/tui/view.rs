@@ -138,7 +138,7 @@ pub fn panel_row_at(app: &App, area: Rect, y: u16, wide: bool) -> Option<usize> 
 fn draw_header(app: &App, area: Rect, frame: &mut Frame) {
     let (mark, color) = connection(app);
     let toggle = if app.panel { format!("close {}", glyph::CLOSE) } else { "switch".to_string() };
-    let copy = if app.copy.is_some() { " copy" } else { "" };
+    let copy = if app.copy { " copy" } else { "" };
     let right = format!("{} {mark}  {toggle}{copy}", app.core);
     let gap = (area.width as usize).saturating_sub(app.session.chars().count() + right.chars().count());
     let line = Line::from(vec![
@@ -193,15 +193,8 @@ impl PanelLines {
 
 /// The terminal area: the attached screen when there is one, the preview otherwise.
 fn draw_terminal(app: &App, frame: &mut Frame, area: Rect) {
-    if let Some((lines, _)) = app.copy_view() {
-        let rows: Vec<Line> = lines
-            .iter()
-            .take(area.height as usize)
-            .map(|line| Line::from(Span::styled(line.clone(), Style::default().fg(theme::TEXT))))
-            .collect();
-        frame.render_widget(Paragraph::new(rows).style(Style::default().bg(theme::BG)), area);
-        return;
-    }
+    // Copy mode uses the very same ScreenState, taken from the scrolled
+    // libghostty viewport, so every cell keeps its program-defined style.
     if let Some(screen) = &app.screen {
         draw_screen(screen, area, frame);
         return;
@@ -311,7 +304,7 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
 
 fn header_line(app: &App, width: u16) -> Line<'static> {
     let (mark, color) = connection(app);
-    let copy = if app.copy.is_some() { " copy" } else { "" };
+    let copy = if app.copy { " copy" } else { "" };
     let right = format!("{} {mark}{copy}", app.core);
     let gap = (width as usize).saturating_sub(app.session.chars().count() + right.chars().count());
     Line::from(vec![
@@ -444,25 +437,31 @@ mod tests {
     }
 
     #[test]
-    fn copy_mode_shows_frozen_history_and_a_header_mark() {
+    fn copy_mode_paints_the_styled_scrolled_frame() {
         let mut app = app(false);
-        app.enter_copy("older\nnewer", 22);
+        app.enter_copy();
+        app.screen = Some(ScreenState {
+            rows: vec![vec![ScreenCell {
+                text: "X".to_string(),
+                fg: ratatui::style::Color::Red,
+                bg: Some(ratatui::style::Color::Blue),
+                bold: true,
+                italic: false,
+                faint: false,
+                strike: false,
+                underline: false,
+            }]],
+            cursor: None,
+        });
+        let mut terminal = Terminal::new(TestBackend::new(40, 22)).expect("test terminal");
+        terminal.draw(|frame| render(&app, frame)).expect("draw");
+        let cell = terminal.backend().buffer()[(0, 1)].clone();
+        assert_eq!(cell.symbol(), "X");
+        assert_eq!(cell.fg, ratatui::style::Color::Red);
+        assert_eq!(cell.bg, ratatui::style::Color::Blue);
+        assert!(cell.modifier.contains(Modifier::BOLD));
         let rows = screen(&app, 40, 22);
-        assert!(rows.iter().any(|row| row.contains("newer")), "{rows:?}");
         assert!(rows[0].contains("copy"), "the header states the mode");
-    }
-
-    #[test]
-    fn scrolling_paints_older_history_lines() {
-        let mut app = app(false);
-        let history: Vec<String> = (0..25).map(|n| format!("L{n:02}")).collect();
-        app.enter_copy(&history.join("\n"), 3);
-        let bottom = screen(&app, 40, 22);
-        assert!(bottom[1].contains("L22"), "{:?}", &bottom[..4]);
-        app.scroll_copy(1);
-        let older = screen(&app, 40, 22);
-        assert!(older[1].contains("L21"), "{:?}", &older[..4]);
-        assert!(older[2].contains("L22"));
     }
 
     #[test]

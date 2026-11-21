@@ -10,32 +10,6 @@ use super::glyph::State;
 
 /// How many lines of a terminal's output the preview keeps.
 pub const PREVIEW_LINES: usize = 6;
-/// How much history to fetch when entering copy mode.
-pub const COPY_LINES: usize = 2000;
-
-/// A frozen history view, independent of the live pane.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CopyState {
-    pub lines: Vec<String>,
-    /// How many lines above the bottom we are looking.
-    pub offset: usize,
-    /// Visible rows, so the offset cannot scroll past the first line.
-    pub height: usize,
-}
-
-impl CopyState {
-    fn max_offset(&self) -> usize {
-        self.lines.len().saturating_sub(self.height.max(1))
-    }
-
-    pub fn scroll_up(&mut self, amount: usize) {
-        self.offset = self.offset.saturating_add(amount).min(self.max_offset());
-    }
-
-    pub fn scroll_down(&mut self, amount: usize) {
-        self.offset = self.offset.saturating_sub(amount);
-    }
-}
 
 /// One terminal, as the panel shows it.
 #[derive(Clone, Debug)]
@@ -117,8 +91,8 @@ pub struct App {
     pub rows: Vec<Row>,
     /// The attached screen, when a terminal is being viewed live.
     pub screen: Option<ScreenState>,
-    /// Frozen history while scrolling; the live screen is not replaced.
-    pub copy: Option<CopyState>,
+    /// Whether the screen shows libghostty's scrollback instead of following.
+    pub copy: bool,
 }
 
 impl App {
@@ -137,39 +111,18 @@ impl App {
             doc_error: None,
             rows: Vec::new(),
             screen: None,
-            copy: None,
+            copy: false,
         }
     }
 
-    /// Freeze `terminal.read` text as the copy-mode view.
-    pub fn enter_copy(&mut self, text: &str, height: u16) {
-        let lines = text.lines().map(|line| line.trim_end_matches('\r').to_string()).collect();
-        self.copy = Some(CopyState { lines, offset: 0, height: height.max(1) as usize });
+    /// Enter copy mode. The scrollback itself lives in the attached `Vt`.
+    pub fn enter_copy(&mut self) {
+        self.copy = true;
     }
 
     /// Resume the live pane.
     pub fn exit_copy(&mut self) {
-        self.copy = None;
-    }
-
-    /// Scroll the frozen history; a no-op when not in copy mode.
-    pub fn scroll_copy(&mut self, amount: isize) {
-        if let Some(copy) = self.copy.as_mut() {
-            if amount > 0 {
-                copy.scroll_up(amount as usize);
-            } else {
-                copy.scroll_down(amount.unsigned_abs());
-            }
-        }
-    }
-
-    /// The history rows to paint, starting at the current offset.
-    pub fn copy_view(&self) -> Option<(&[String], usize)> {
-        self.copy.as_ref().map(|copy| {
-            let start = copy.lines.len().saturating_sub(copy.offset.saturating_add(copy.height));
-            let end = start.saturating_add(copy.height).min(copy.lines.len());
-            (&copy.lines[start..end], start)
-        })
+        self.copy = false;
     }
 
     /// Replace the terminal list from a `terminal.list` result.
@@ -538,44 +491,13 @@ mod tests {
     }
 
     #[test]
-    fn copy_mode_starts_at_the_bottom_of_the_frozen_history() {
+    fn copy_mode_only_tracks_whether_to_follow_the_live_pane() {
         let mut app = app();
-        app.enter_copy("one\ntwo\nthree", 2);
-        let (lines, start) = app.copy_view().expect("copy view");
-        assert_eq!(lines, ["two", "three"]);
-        assert_eq!(start, 1);
-    }
-
-    #[test]
-    fn scrolling_up_stops_at_the_first_line() {
-        let mut app = app();
-        app.enter_copy("one\ntwo\nthree", 2);
-        app.scroll_copy(99);
-        let (lines, start) = app.copy_view().expect("copy view");
-        assert_eq!(lines, ["one", "two"]);
-        assert_eq!(start, 0);
-    }
-
-    #[test]
-    fn scrolling_down_stops_at_the_live_edge() {
-        let mut app = app();
-        app.enter_copy("one\ntwo\nthree", 2);
-        app.scroll_copy(1);
-        app.scroll_copy(1);
-        app.scroll_copy(-99);
-        let (lines, start) = app.copy_view().expect("copy view");
-        assert_eq!(lines, ["two", "three"]);
-        assert_eq!(start, 1);
-    }
-
-    #[test]
-    fn exiting_copy_returns_to_the_live_pane() {
-        let mut app = app();
-        app.enter_copy("one", 2);
-        app.scroll_copy(1);
+        assert!(!app.copy);
+        app.enter_copy();
+        assert!(app.copy, "the scrollback lives in Vt, not in App");
         app.exit_copy();
-        assert!(app.copy.is_none());
-        assert!(app.copy_view().is_none());
+        assert!(!app.copy);
     }
 
     #[test]

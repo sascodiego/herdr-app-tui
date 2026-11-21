@@ -127,9 +127,9 @@ fn event_loop(
             let (cols, rows) = pane_size(app, area.width, area.height);
             session.resize(core, cols, rows);
             session.drain(core)?;
-            if app.copy.is_none() {
-                app.screen = Some(view::ScreenState::from_frame(session.frame()));
-            }
+            // In copy mode this frame is libghostty's scrolled viewport, so
+            // the program's colors and attributes come along with the text.
+            app.screen = Some(view::ScreenState::from_frame(session.frame()));
         }
 
         terminal.draw(|frame| view::render(app, frame)).context("cannot draw")?;
@@ -137,14 +137,14 @@ fn event_loop(
         if event::poll(FRAME).context("cannot wait for an event")? {
             match event::read().context("cannot read an event")? {
                 Event::Key(key) => {
-                    if handle_key(core, app, terminal, key, &mut attached)? {
+                    if handle_key(core, app, key, &mut attached)? {
                         detach(attached.take(), core);
                         return Ok(0);
                     }
                 }
                 Event::Mouse(mouse) => {
                     handle_pointer(
-                        core, app, terminal, mouse, &mut pointer_down, &mut drag_anchor,
+                        app, terminal, mouse, &mut attached, &mut pointer_down, &mut drag_anchor,
                     )?;
                 }
                 _ => {}
@@ -164,7 +164,6 @@ fn event_loop(
 fn handle_key(
     core: &std::sync::Arc<hc::Core>,
     app: &mut App,
-    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     key: KeyEvent,
     attached: &mut Option<Session>,
 ) -> anyhow::Result<bool> {
@@ -176,14 +175,23 @@ fn handle_key(
         return Ok(true);
     }
 
-    if app.copy.is_some() {
-        match action {
-            Action::ScrollUp => app.scroll_copy(1),
-            Action::ScrollDown => app.scroll_copy(-1),
-            Action::ClosePanel => app.exit_copy(),
-            _ if key.code == KeyCode::Char('q') && key.modifiers == KeyModifiers::NONE => app.exit_copy(),
-            _ => {}
+    match action {
+        Action::ScrollUp => {
+            scroll_history(app, attached, true);
+            return Ok(false);
         }
+        Action::ScrollDown => {
+            scroll_history(app, attached, false);
+            return Ok(false);
+        }
+        _ => {}
+    }
+
+    if app.copy
+        && (action == Action::ClosePanel
+            || (key.code == KeyCode::Char('q') && key.modifiers == KeyModifiers::NONE))
+    {
+        resume_live(app, attached);
         return Ok(false);
     }
 
@@ -206,8 +214,9 @@ fn handle_key(
         // With nothing attached, Esc leaves; with a live pane it is a key for
         // the program, like q, r and Ctrl+C.
         Action::ClosePanel if attached.is_none() => return Ok(true),
-        Action::ScrollUp => scroll_history(core, app, terminal, 1)?,
-        Action::ScrollDown => scroll_history(core, app, terminal, -1)?,
+        Action::ScrollUp | Action::ScrollDown => {
+            // Both were handled before the panel/following branches.
+        }
         _ => {
             if let Some(session) = attached.as_mut() {
                 session.key(core, key);
@@ -217,27 +226,27 @@ fn handle_key(
     Ok(false)
 }
 
-/// Freeze the terminal's history on first scroll, then move within it.
-fn scroll_history(
-    core: &std::sync::Arc<hc::Core>,
-    app: &mut App,
-    terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
-    amount: isize,
-) -> anyhow::Result<()> {
-    if app.copy.is_none() {
-        let Some(address) = app.selected().and_then(|row| row.address.clone()) else {
-            return Ok(());
-        };
-        let read = core
-            .call("terminal.read", json!({ "terminal": address, "lines": app::COPY_LINES }))
-            .context("terminal.read")?;
-        let text = read.get("text").and_then(Value::as_str).unwrap_or("");
-        let area = terminal.get_frame().area();
-        let height = view::zones(area, app.panel).terminal.height;
-        app.enter_copy(text, height);
+/// Move through the same styled scrollback the live pane renders.
+fn scroll_history(app: &mut App, attached: &mut Option<Session>, up: bool) {
+    let Some(session) = attached.as_mut() else {
+        return;
+    };
+    if !app.copy {
+        app.enter_copy();
     }
-    app.scroll_copy(amount);
-    Ok(())
+    if up {
+        session.scroll_up(1);
+    } else {
+        session.scroll_down(1);
+    }
+}
+
+/// Follow live output again, leaving the scrolled viewport.
+fn resume_live(app: &mut App, attached: &mut Option<Session>) {
+    app.exit_copy();
+    if let Some(session) = attached.as_mut() {
+        session.scroll_to_live();
+    }
 }
 
 /// A pointer's zone, resolved from the same rectangles the renderer uses.
@@ -263,10 +272,10 @@ fn zone_at(z: view::Zones, x: u16, y: u16) -> Option<Zone> {
 /// Route a touch or pointer event by zone. A tap keeps its old meaning: open
 /// the sheet, select a row, or resume the live pane. Movement becomes scroll.
 fn handle_pointer(
-    core: &std::sync::Arc<hc::Core>,
     app: &mut App,
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     mouse: MouseEvent,
+    attached: &mut Option<Session>,
     pointer_down: &mut Option<(u16, u16)>,
     drag_anchor: &mut Option<u16>,
 ) -> anyhow::Result<()> {
@@ -293,8 +302,8 @@ fn handle_pointer(
                 }
                 match zone {
                     Some(Zone::Header) => {
+                        resume_live(app, attached);
                         app.panel = !app.panel;
-                        app.exit_copy();
                     }
                     Some(Zone::Panel) => {
                         if let Some(index) = z.panel.and_then(|p| view::panel_row_at(app, p, y, z.wide)) {
@@ -304,7 +313,7 @@ fn handle_pointer(
                             }
                         }
                     }
-                    Some(Zone::Terminal) => app.exit_copy(),
+                    Some(Zone::Terminal) => resume_live(app, attached),
                     None => {}
                 }
             }
@@ -314,7 +323,7 @@ fn handle_pointer(
             let up = gesture == input::Pointer::ScrollUp;
             match zone {
                 Some(Zone::Panel) => app.move_cursor(if up { -1 } else { 1 }),
-                Some(Zone::Terminal) => scroll_history(core, app, terminal, if up { 1 } else { -1 })?,
+                Some(Zone::Terminal) => scroll_history(app, attached, up),
                 None | Some(Zone::Header) => {}
             }
         }
@@ -330,7 +339,7 @@ fn handle_pointer(
             let up = delta < 0;
             match zone {
                 Some(Zone::Panel) => app.move_cursor(if up { -1 } else { 1 }),
-                Some(Zone::Terminal) => scroll_history(core, app, terminal, if up { 1 } else { -1 })?,
+                Some(Zone::Terminal) => scroll_history(app, attached, up),
                 None | Some(Zone::Header) => {}
             }
             *anchor = y;

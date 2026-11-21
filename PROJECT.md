@@ -92,7 +92,7 @@ the app's neutral tokens for chrome, inherited from the sibling repositories.
 | T4 | S3 | code | **done** | The panel is a ratatui widget with glyph+word state and counted sections, driven by `events.subscribe` (T3, T12) |
 | T5 | S4, S5 | code | **done** | Two-way terminal: `hc::attach`, first paint, stream drain with `credit`, libghostty rendering via copied `vt.rs`, keys encoded to DATA, resize, detach. Round trip verified against a live core |
 | T6 | S5 | code | **done** | Input handling: the highlighted tab attaches on the first frame, `tab` toggles the panel, `enter` attaches, and every other key goes to the agent (`q`, `r`, `esc` and `ctrl+c` included). `ctrl+q`/`ctrl+\` quit. Mouse deliberately out of scope |
-| T7 | S5 | code | **done** | Scrollback and copy mode: `terminal.read` freezes history on first scroll, `App::CopyState` clamps the offset, the view paints it and marks `copy` in the header. Mouse capture routes wheel and drag to the pane or panel and leaves taps on the header/rows intact. Selection/yank stays out of scope |
+| T7 | S5 | code | **done** | Scrollback and copy mode through libghostty's own scrollback: `Session::scroll_up/down/scroll_to_live`, a `copy` flag in `App`, and the scrolled `ScreenState` painted with all its styles. Mouse capture routes wheel and drag to the pane or panel and leaves taps on the header/rows intact. Selection/yank stays out of scope |
 | T8 | S7 | code | **dropped** | Machine support: prefix machine/t7 addresses in list, machine label display. Out of MVP by the human's decision; see S7 |
 | T9 | S9 | code | **done** | `HC_SESSION`/`HC_SOCKET` and the socket candidates are handled by the copied `hc.rs`/`core_bin.rs`. No separate TUI config file was needed for the MVP |
 | T10 | S10 | code | **done** | No `unsafe` outside the documented libghostty FFI (D5), zero clippy warnings with `-D warnings`, 183 tests green |
@@ -242,6 +242,15 @@ limpio y **cero `#[allow]`** (D9/D10 eliminaron los dos que venían de upstream)
 Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
 `LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
 `roundtrip-ok`.
+
+**L20 — 2026-11-21** — El usuario reportó que el copy mode perdía los
+colores. Causa: el historial venía de `terminal.read`, que es texto plano.
+Se descartó esa ruta: el scrollback de libghostty ya está en nuestra copia de
+`vt.rs` (`scroll_viewport`, `scroll_to_bottom`) y sus frames traen celdas con
+estilos. `App::CopyState` se simplificó a un flag; `Session` expone el scroll
+y el loop pinta el frame scrolleado como `ScreenState`. Verificado en PTY:
+después de la rueda aparecieron secuencias `38;2;...mCOLOR-21`, y los taps
+del header, la fila y el pane siguen funcionando. 189 tests, clippy limpio.
 
 **L19 — 2026-11-21** — T7 verificado: 193 tests y clippy limpio. En un core
 aislado con PTY de 40x22 y eventos SGR sintéticos, la rueda sobre el pane

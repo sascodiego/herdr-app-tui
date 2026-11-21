@@ -74,6 +74,9 @@ Touch and pointer gestures work by zone:
 | Wheel or vertical drag in the panel | Move the highlight |
 | Tap the terminal | Resume the live pane |
 
+Copy mode scrolls libghostty's own scrollback, so colors, bold and background
+attributes are preserved; no plain-text dump is used.
+
 A tap is a press and release without movement; a drag needs at least two cells
 of vertical travel. The terminal emulator must forward pointer events for these
 to work; gestures consumed by the emulator never reach the TUI. Clicks are not
