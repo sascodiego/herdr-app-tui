@@ -1,0 +1,43 @@
+[package]
+name = "herdr-app-tui"
+version = "0.0.1"
+edition = "2024"
+description = "Terminal UI client for herdr-core"
+license = "Apache-2.0"
+repository = "https://github.com/herdrdev/herdr-app-tui"
+homepage = "https://herdr.dev"
+keywords = ["terminal", "tui", "herdr", "coding-agents"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+anyhow = "1"
+async-channel = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "process", "io-util", "macros", "signal"] }
+regex = "1"
+sha2 = "0.10"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
+crossterm = "0.29"
+clap = { version = "4", features = ["derive", "help", "usage", "error-context", "string"] }
+toml = { version = "0.8", default-features = false, features = ["parse"] }
+
+# Unix socket transport (interprocess is version 2.x)
+interprocess = "2.4.2"
+
+# Terminal emulation is vendored inside herdr (`herdr/crates/ghostty-vt`) and is
+# not published to crates.io. T5 wires it as a path dependency or vendors it; it
+# is deliberately absent here so the scaffold resolves.
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+redundant_clone = "warn"
