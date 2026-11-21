@@ -1,50 +1,66 @@
 # herdr-app-tui
 
-**A terminal UI client for herdr-core.** Connect to the same core as the
-Herdr desktop app, share sessions, workspaces, terminals, and machines
-between your phone (Mosh + Termux), your desktop app, and your terminal.
+**herdr-app, as a terminal UI.** The same client and model layers the Herdr
+desktop app uses, with a ratatui screen in place of the GPUI window — so the
+app and this TUI share one core: sessions, spaces, tabs and terminals.
 
 ## Why
 
-The Herdr TUI (`herdr`) runs its own server and does not share state with
-herdr-app. This project builds a **pure-client TUI** that speaks JSON-RPC
-to herdr-core directly — the same backend herdr-app uses — so everything is
-shared.
+The Herdr TUI (`herdr`) runs its own server. This one does not: it speaks
+JSON-RPC to `herdr-core` through `hc connect`, exactly like `herdr-app`, and
+renders locally.
 
-## How it works
+## Based on herdr-app
 
-```
-herdr-app-tui ─── JSON-RPC (framed) ───▶ herdr-core
-                                           ▲
-herdr-app ───▶ hc ─── JSON-RPC ───────────┘
-```
+The protocol, core discovery and model are **copied from
+[herdr-app](https://github.com/herdrdev/herdr-app)** (Apache-2.0, © Herdr, Inc.),
+not reimplemented:
 
-- **No embedded server.** All terminals, panes, sessions, and machines live
-  in herdr-core. Detach from the TUI, reattach from the desktop app, and
-  vice versa: it is the same state.
-- **One Rust binary.** Built with ratatui, crossterm, and tokio. No
-  Electron, no Node.js.
-- **SSH / Mosh ready.** Run the TUI on a remote machine over Mosh. Your
-  agents keep running even if the link drops.
+| Copied from `herdr-app/src` | Lines | What it does |
+|---|---:|---|
+| `hc.rs` | 869 | JSON-RPC over `hc connect`: attach, events, input, resize, flow control |
+| `model.rs` | 1129 | Spaces, tabs, panes and agents |
+| `layout.rs` | 919 | Layout documents |
+| `core_bin.rs` + `core_bin/cli_link.rs` | 549 | Finds and runs the core binary |
+| `mirror.rs` | 359 | Machine mirroring |
+| `persist.rs` | 119 | Atomic file replacement |
+| `spawn.rs` | 17 | Process spawning |
+
+Only the UI layer is original: `src/tui/` (ratatui view, glyph and state
+vocabulary, input, theme). The GPUI widget layer of herdr-app is **not** used.
+
+Upstream updates are **deliberate, never automatic**: this copy is pinned to a
+herdr-app revision, and every local divergence is listed in
+[`UPSTREAM.md`](UPSTREAM.md) so a sync is a review, not a merge.
 
 ## Getting started
 
 ```bash
 cargo build --release
-
-# Point it at the same session as herdr-app
-export HC_SESSION=my-session
 ./target/release/herdr-app-tui
 ```
 
-Requires herdr-core running (started automatically by herdr-app, or
-manually with `hc server start`).
+Needs `herdr-core` (and its `hc` CLI) on `PATH`, or the one the desktop app
+installed. The session comes from `HC_SESSION`, `default` when unset.
+
+## Keys
+
+| Key | What it does |
+|---|---|
+| `tab` | Open or close the panel |
+| `j` `k` / arrows | Move the highlight |
+| `r` | Refresh now |
+| `q` | Leave the panel, then quit |
+
+Until the attach stream lands (T5), this screen is a viewer: it shows each
+terminal's tail and does not forward keys to an agent.
 
 ## Status
 
-Early development. See `PROJECT.md` for the full specification and task
-list.
+Early. `PROJECT.md` holds the specification and the task list;
+`design/herdr-app-tui-mobile/` holds the layout directions, and
+`01-command-sheet.html` is the one being implemented.
 
 ## License
 
-Apache-2.0# herdr-app-tui
+Apache-2.0. Portions copied from herdr-app, Apache-2.0, © Herdr, Inc.

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>herdr-app-tui — design system</title>
+<style>
+  :root {
+    --bg: #11111b;
+    --panel: #181825;
+    --surface: #313244;
+    --text: #cdd6f4;
+    --muted: #7f849c;
+    --dim: #585b70;
+    --accent: #b4befe;
+    --green: #a6e3a1;
+    --yellow: #f9e2af;
+    --red: #f38ba8;
+    --rule: #262626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.45 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    padding: 28px 32px 40px;
+    width: 1440px;
+  }
+  h1 { font-size: 15px; font-weight: 700; margin: 0 0 2px; letter-spacing: 0; }
+  h1 .sub { color: var(--muted); font-weight: 400; }
+  p.lede { color: var(--muted); margin: 0 0 22px; max-width: 96ch; }
+  h2 {
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    margin: 26px 0 8px; padding-bottom: 4px;
+    border-bottom: 1px solid var(--rule);
+    text-transform: none;
+  }
+  .grid { display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap; }
+  .col { flex: 1 1 380px; min-width: 360px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 3px 10px 3px 0; vertical-align: middle; }
+  th { color: var(--muted); font-weight: 400; font-size: 11px; border-bottom: 1px solid var(--rule); }
+  td.tok { color: var(--text); white-space: nowrap; }
+  td.val { color: var(--muted); white-space: nowrap; }
+  td.use { color: var(--dim); }
+  .sw { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px;
+        border: 1px solid var(--rule); }
+  .roles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 28px; }
+  .glyphs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 24px; }
+  .glyphs span { color: var(--text); }
+  .glyphs b { color: var(--accent); font-weight: 400; display: inline-block; width: 2ch; }
+  .glyphs em { color: var(--muted); font-style: normal; }
+  pre.demo {
+    margin: 0; padding: 0; border: 0; background: none;
+    font: inherit; color: var(--text); white-space: pre;
+  }
+  .frame {
+    background: var(--panel); padding: 10px 12px; border: 1px solid var(--rule);
+    display: inline-block;
+  }
+  .note { color: var(--dim); margin-top: 8px; font-size: 11px; }
+  .ok { color: var(--green); }
+  .wip { color: var(--yellow); }
+  .bad { color: var(--red); }
+  .b { font-weight: 700; }
+  .m { color: var(--muted); }
+  .d { color: var(--dim); }
+  .sel { background: var(--surface); }
+</style>
+</head>
+<body>
+
+<h1>herdr-app-tui <span class="sub">— terminal design system</span></h1>
+<p class="lede">
+  Inherited from the sibling repositories: the app's neutral tokens and the TUI's
+  default catppuccin theme. The cell is the only unit. No sizes, radii or shadows,
+  because a terminal has none.
+</p>
+
+<h2>Color roles — dark canvas</h2>
+<div class="grid">
+  <div class="col">
+    <table>
+      <tr><th>token</th><th>value</th><th>usage</th></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--bg)"></span>bg</td><td class="val">#11111b</td><td class="use">canvas and pane background</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--panel)"></span>panel</td><td class="val">#181825</td><td class="use">sheet and rail surface</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--surface)"></span>surface</td><td class="val">#313244</td><td class="use">selected row, active tab</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--text)"></span>text</td><td class="val">#cdd6f4</td><td class="use">primary text</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--muted)"></span>muted</td><td class="val">#7f849c</td><td class="use">headers, counts, paths</td></tr>
+    </table>
+  </div>
+  <div class="col">
+    <table>
+      <tr><th>token</th><th>value</th><th>usage</th></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--dim)"></span>dim</td><td class="val">#585b70</td><td class="use">separators, footer at rest</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--accent)"></span>accent</td><td class="val">#b4befe</td><td class="use">selection marker, focus</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--green)"></span>green</td><td class="val">#a6e3a1</td><td class="use">idle, connected</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--yellow)"></span>yellow</td><td class="val">#f9e2af</td><td class="use">working, warning</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:var(--red)"></span>red</td><td class="val">#f38ba8</td><td class="use">blocked, error, offline</td></tr>
+    </table>
+  </div>
+</div>
+
+<h2>Color roles — app chrome (inherited neutral)</h2>
+<div class="grid">
+  <div class="col">
+    <table>
+      <tr><th>token</th><th>value</th><th>usage</th></tr>
+      <tr><td class="tok"><span class="sw" style="background:#0a0a0a"></span>background</td><td class="val">#0a0a0a</td><td class="use">app-matching canvas</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:#fafafa"></span>foreground</td><td class="val">#fafafa</td><td class="use">app-matching primary text</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:#a3a3a3"></span>muted_foreground</td><td class="val">#a3a3a3</td><td class="use">app-matching secondary text</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:#262626"></span>border</td><td class="val">#262626</td><td class="use">rule and separator</td></tr>
+      <tr><td class="tok"><span class="sw" style="background:#f87171"></span>destructive</td><td class="val">#f87171</td><td class="use">destructive label</td></tr>
+    </table>
+  </div>
+  <div class="col">
+    <div class="note">Source: <span class="m">../herdr-app/vendor/gpui-kit/crates/shell/src/default-tokens.json</span> (dark group).</div>
+    <div class="note">Light group exists in the same file; recorded, not shipped.</div>
+  </div>
+</div>
+
+<h2>Roles from weight and color</h2>
+<div class="grid">
+  <div class="col">
+    <div class="roles">
+      <div><span class="m b">▾ SECTION</span> <span class="m">header</span></div>
+      <div><span class="b">Row primary</span> <span class="m">bold vs normal</span></div>
+      <div><span class="m">Row secondary</span> <span class="d">muted vs dim</span></div>
+      <div><span class="sel">&nbsp;Active row&nbsp;</span> <span class="m">surface + accent glyph</span></div>
+      <div><span class="d">footer action</span> <span class="d">dim at rest</span></div>
+      <div><span class="ok">● connected</span> <span class="d">accent marker</span></div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="note">Type size never changes: one size, four weights of meaning.</div>
+  </div>
+</div>
+
+<h2>Glyphs — one geometric family</h2>
+<div class="grid">
+  <div class="col">
+    <div class="glyphs">
+      <span><b>●</b><em>selected / active</em></span>
+      <span><b>○</b><em>unselected</em></span>
+      <span><b>◐</b><em>working</em></span>
+      <span><b>▸</b><em>collapsed</em></span>
+      <span><b>▾</b><em>expanded</em></span>
+      <span><b>×</b><em>close</em></span>
+      <span><b>›</b><em>path separator</em></span>
+      <span><b>·</b><em>secondary separator</em></span>
+    </div>
+  </div>
+  <div class="col">
+    <div class="note">Never emoji in chrome: double-width cells break the grid.</div>
+    <div class="note">State is always glyph plus word, never color alone.</div>
+  </div>
+</div>
+
+<h2>Component rules — one header row, one footer row, no status bar</h2>
+<div class="grid">
+  <div class="col">
+    <div class="frame">
+<pre class="demo"><span class="b">researchs</span>                            <span class="m">local</span> <span style="color:var(--accent)">●</span>
+<span class="d">──────────────────────────────────────</span>
+<span class="m b">▾ TABS · RESEARCHS</span>                    <span class="m">5</span>
+<span class="sel"><span style="color:var(--accent)">●</span> tab 4  <span class="b">pi 4</span> <span style="color:var(--yellow)">◐ working</span>         <span class="m">2 helpers</span></span>
+<span class="m">    ○ helper a · idle</span>
+<span class="m">    ○ helper b · idle</span>
+  ○ tab 2  pi 2 <span style="color:var(--red)">○ blocked</span>       <span style="color:var(--red)">needs you</span>
+  ○ tab 1  pi 1 <span style="color:var(--green)">○ idle</span>
+<span class="d">settings  keys  reload  detach</span></pre>
+    </div>
+  </div>
+  <div class="col">
+    <div class="note"><span class="ok">✓</span> Header left is the space, right is the core and connection.</div>
+    <div class="note"><span class="ok">✓</span> The active tab is marked in the list, never restated in the header.</div>
+    <div class="note"><span class="ok">✓</span> One blank row between groups, never two.</div>
+    <div class="note"><span class="ok">✓</span> Footer actions are one dim row, separated by two spaces.</div>
+    <div class="note wip">△ A helper row indents 4 columns, never more.</div>
+    <div class="note"><span class="ok">✓</span> No bottom status bar: the header carries connection, the terminal
+      emulator's own key bar carries keyboard hints.</div>
+  </div>
+</div>
+
+</body>
+</html>

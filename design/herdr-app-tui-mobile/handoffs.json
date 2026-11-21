@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "chosen": "01-command-sheet.html",
+  "handoffs": {
+    "01-command-sheet.html": {
+      "status": "implemented",
+      "queued": true,
+      "sentAt": "2026-11-20T23:52:06.793Z",
+      "startedAt": "2026-11-20T23:53:15.543Z",
+      "implementedAt": "2026-11-21T00:36:28.530Z",
+      "note": "Implemented in ratatui on herdr-app's own client layer (hc.rs, copied, Apache-2.0). One header row: session left, core + connection glyph + switch/close right. Panel: counted TABS section with agent rows hosted by their terminal and helpers nested, AGENTS rollup, preview, dim footer actions. Selection is a surface band, no selection glyph. Rail 26 cols on the left at >=60 cols, full-screen sheet below that. No status bar. 104 tests, clippy clean. Terminal area shows terminal.read tails until the attach stream (T5)."
+    }
+  }
+}

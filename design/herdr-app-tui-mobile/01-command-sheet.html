@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>01 — Command sheet</title>
+<style>
+  :root {
+    --bg:#11111b; --panel:#181825; --surface:#313244; --text:#cdd6f4;
+    --muted:#7f849c; --dim:#585b70; --accent:#b4befe;
+    --green:#a6e3a1; --yellow:#f9e2af; --red:#f38ba8; --rule:#262626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:#0b0b12; color:var(--text);
+    font:12px/1.42 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    padding:24px 28px 32px; width:1000px;
+  }
+  h1 { font-size:14px; font-weight:700; margin:0 0 4px; }
+  h1 .n { color:var(--accent); }
+  .brief { color:var(--muted); margin:0 0 20px; max-width:100ch; }
+  .row { display:flex; gap:26px; align-items:flex-start; }
+  .label { color:var(--dim); font-size:11px; margin-bottom:6px; }
+  .device { border:1px solid var(--rule); background:var(--bg); padding:10px; }
+  .screen { width:40ch; }
+  .ln { display:flex; white-space:pre; min-height:1.42em; }
+  .ln > .l { flex:0 0 auto; }
+  .ln > .r { margin-left:auto; flex:0 0 auto; }
+  .sel { background:var(--surface); }
+  .hdr .l { font-weight:700; }
+  .sec { color:var(--muted); font-weight:700; }
+  .cnt { color:var(--muted); }
+  .pm { color:var(--muted); }
+  .pd { color:var(--dim); }
+  .ac { color:var(--accent); }
+  .ok { color:var(--green); }
+  .wr { color:var(--yellow); }
+  .er { color:var(--red); }
+  .ft { color:var(--dim); }
+  .b { font-weight:700; }
+  .cols { display:flex; align-items:flex-start; }
+  .rail { width:26ch; background:var(--panel); border-right:1px solid var(--rule); }
+  .term { width:56ch; padding-left:1ch; }
+  .notes { margin-top:18px; color:var(--dim); font-size:11px; max-width:78ch; }
+  .notes b { color:var(--muted); font-weight:400; }
+  .fix { color:var(--green); }
+  .sub { margin:22px 0 6px; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<h1><span class="n">01</span> — Command sheet</h1>
+<p class="brief">
+  Today's model, restructured. Both faces of the toggle: the collapsed bar is one
+  row over a full-screen terminal; opening it covers the screen with three counted
+  sections, agents folded under the tab that hosts them, and the selected agent's
+  last output filling the half that was dead.
+</p>
+
+<div class="row">
+
+  <div>
+    <div class="label">phone · bar collapsed · 40 × 22</div>
+    <div class="device">
+      <div class="screen">
+        <div class="ln hdr"><span class="l">researchs</span><span class="r"><span class="pm">local</span> <span class="ac">●</span>  <span class="pm">switch</span></span></div>
+        <div class="ln"><span class="l">❯ herdr-read deps</span></div>
+        <div class="ln pm"><span class="l">  Reading 4 files...</span></div>
+        <div class="ln pm"><span class="l">  <span class="ok">✓</span> crates/herdr-core/src/api.rs</span></div>
+        <div class="ln pm"><span class="l">  <span class="ok">✓</span> crates/herdr-core/src/viewers.rs</span></div>
+        <div class="ln"><span class="l">  <span class="wr">◐</span> cargo test</span></div>
+        <div class="ln pm"><span class="l">    running 41 tests</span></div>
+        <div class="ln pm"><span class="l">    test api::attach ... ok</span></div>
+        <div class="ln pm"><span class="l">    test api::list ... ok</span></div>
+        <div class="ln pm"><span class="l">    test terminals::run ... ok</span></div>
+        <div class="ln pm"><span class="l">    test wait::blocked ... ok</span></div>
+        <div class="ln pm"><span class="l">    test wait::timeout ... ok</span></div>
+        <div class="ln pm"><span class="l">    test wait::children ... ok</span></div>
+        <div class="ln pm"><span class="l">    test put::chunks ... ok</span></div>
+        <div class="ln pm"><span class="l">    test remote::dial ... ok</span></div>
+        <div class="ln pm"><span class="l">    test machines::add ... ok</span></div>
+        <div class="ln pm"><span class="l">    test keys::parse ... ok</span></div>
+        <div class="ln pm"><span class="l">    test stitch::screen ... ok</span></div>
+        <div class="ln"><span class="l">  <span class="ok">41 passed; 0 failed</span></span></div>
+        <div class="ln"><span class="l"> </span></div>
+        <div class="ln"><span class="l">❯ </span></div>
+        <div class="ln"><span class="l"> </span></div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="label">phone · bar open · 40 × 22</div>
+    <div class="device">
+      <div class="screen">
+        <div class="ln hdr"><span class="l">researchs</span><span class="r"><span class="pm">local</span> <span class="ac">●</span>  close ×</span></div>
+        <div class="ln"><span class="l pd">────────────────────────────────────────</span></div>
+        <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">5</span></div>
+        <div class="ln sel"><span class="l">  <span class="b">tab 4</span>  pi 4 <span class="wr">◐ working</span></span><span class="r pm">2 helpers</span></div>
+        <div class="ln pm"><span class="l">      ○ helper a · idle</span></div>
+        <div class="ln pm"><span class="l">      ○ helper b · idle</span></div>
+        <div class="ln"><span class="l">  tab 2  pi 2 <span class="er">▲ needs you</span></span><span class="r er">now</span></div>
+        <div class="ln"><span class="l">  tab 1  pi 1 <span class="pm">○ idle</span></span></div>
+        <div class="ln"><span class="l">  tab 3  pi 3 <span class="pm">○ idle</span></span></div>
+        <div class="ln pd"><span class="l">  tab 5  pi 5 ✓ done</span></div>
+        <div class="ln"><span class="l"> </span></div>
+        <div class="ln sec"><span class="l">▾ SPACES</span><span class="r cnt">2</span></div>
+        <div class="ln"><span class="l">  researchs</span><span class="r pm">5 tabs</span></div>
+        <div class="ln pm"><span class="l">  api-work</span><span class="r pm">2 tabs</span></div>
+        <div class="ln"><span class="l"> </span></div>
+        <div class="ln pd"><span class="l">─ pi 4 · cargo test --lib ──────────────</span></div>
+        <div class="ln pm"><span class="l">  running 41 tests</span></div>
+        <div class="ln pm"><span class="l">  test api::attach ... ok</span></div>
+        <div class="ln pm"><span class="l">  test wait::blocked ... ok</span></div>
+        <div class="ln"><span class="l"> </span></div>
+        <div class="ln ft"><span class="l">settings  keys  reload  detach</span></div>
+        <div class="ln"><span class="l"> </span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="sub">desktop · rail on the left, always visible · 26 + 56 columns × 24 rows</div>
+<div class="device">
+  <div class="cols">
+
+    <div class="rail">
+      <div class="ln hdr"><span class="l">researchs</span><span class="r"><span class="pm">local</span> <span class="ac">●</span></span></div>
+      <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">5</span></div>
+      <div class="ln sel"><span class="l">  <span class="b">tab 4</span>  pi 4 <span class="wr">◐</span></span></div>
+      <div class="ln pm"><span class="l">    ○ helper a</span></div>
+      <div class="ln pm"><span class="l">    ○ helper b</span></div>
+      <div class="ln"><span class="l">  tab 2  pi 2 <span class="er">▲</span></span></div>
+      <div class="ln"><span class="l">  tab 1  pi 1 <span class="pm">○</span></span></div>
+      <div class="ln"><span class="l">  tab 3  pi 3 <span class="pm">○</span></span></div>
+      <div class="ln pd"><span class="l">  tab 5  pi 5 ✓</span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln sec"><span class="l">▾ SPACES</span><span class="r cnt">2</span></div>
+      <div class="ln"><span class="l">  researchs</span></div>
+      <div class="ln pm"><span class="l">  api-work</span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln sec"><span class="l">▾ AGENTS</span><span class="r cnt">4</span></div>
+      <div class="ln wr"><span class="l">  ◐ working</span><span class="r pm">1</span></div>
+      <div class="ln er"><span class="l">  ▲ needs you</span><span class="r pm">1</span></div>
+      <div class="ln pm"><span class="l">  ○ idle</span><span class="r pm">2</span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln pd"><span class="l">─ pi 4 ─</span></div>
+      <div class="ln pm"><span class="l">  test api::attach ... ok</span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln ft"><span class="l">settings keys reload</span></div>
+      <div class="ln"><span class="l"> </span></div>
+    </div>
+
+    <div class="term">
+      <div class="ln"><span class="l">❯ pi 4 · researchs</span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln"><span class="l">  I'll run the suite before touching the API.</span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln"><span class="l">  <span class="wr">◐</span> cargo test --lib</span></div>
+      <div class="ln pm"><span class="l">    Compiling herdr-core v0.1.21</span></div>
+      <div class="ln pm"><span class="l">    Finished `test` profile</span></div>
+      <div class="ln pm"><span class="l">     Running unittests src/lib.rs</span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln pm"><span class="l">    running 41 tests</span></div>
+      <div class="ln pm"><span class="l">    test api::attach ... ok</span></div>
+      <div class="ln pm"><span class="l">    test api::list ... ok</span></div>
+      <div class="ln pm"><span class="l">    test api::run ... ok</span></div>
+      <div class="ln pm"><span class="l">    test terminals::keep ... ok</span></div>
+      <div class="ln pm"><span class="l">    test terminals::rm ... ok</span></div>
+      <div class="ln pm"><span class="l">    test wait::blocked ... ok</span></div>
+      <div class="ln pm"><span class="l">    test wait::timeout ... ok</span></div>
+      <div class="ln pm"><span class="l">    test put::chunks ... ok</span></div>
+      <div class="ln pm"><span class="l">    test remote::dial ... ok</span></div>
+      <div class="ln pm"><span class="l">    test machines::add ... ok</span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln"><span class="l">    <span class="ok">test result: ok. 41 passed; 0 failed</span></span></div>
+      <div class="ln"><span class="l"> </span></div>
+      <div class="ln"><span class="l">❯ </span></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="notes">
+  <b>Tradeoff:</b> keeps the muscle memory of today's overlay at the lowest
+  implementation risk, and fills the empty half with information instead of
+  padding. It still covers the terminal while open, so on a phone you cannot
+  watch an agent while you pick the next one.
+  <br><br>
+  <b>Fixes:</b> <span class="fix">P1</span> workspace named once, in the header;
+  <span class="fix">P2</span> tabs carry the agent that lives in them;
+  <span class="fix">P3</span> menu demoted to one dim footer row;
+  <span class="fix">P4</span> every agent row states its condition with glyph and word;
+  <span class="fix">P5</span> the selected agent's tail output replaces the dead rows.
+  <br><br>
+  <b>The collapsed face is the same in all three directions.</b> Only what opening
+  does is a decision, which is why the toggle affordance can be built once.
+</div>
+
+</body>
+</html>

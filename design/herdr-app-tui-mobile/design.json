@@ -1,0 +1,27 @@
+{
+  "title": "herdr-app-tui mobile and desktop layout",
+  "brief": "Mobile-first terminal UI for herdr-app-tui. On a phone the default face is the terminal with the top bar collapsed to one row; opening the panel is the deliberate act, shown in both faces here. On desktop the same panel is a narrow always-visible rail on the left, like an IDE sidebar. No status bar.",
+  "artboards": [
+    {
+      "file": "01-command-sheet.html",
+      "title": "Command sheet",
+      "tradeoff": "Lowest implementation risk and closest to today's overlay, but opening it hides the terminal entirely, so on a phone you cannot watch an agent while you pick the next one.",
+      "width": 1000,
+      "height": 1180
+    },
+    {
+      "file": "02-rising-sheet.html",
+      "title": "Rising sheet",
+      "tradeoff": "One component serves phone and desktop and the terminal keeps nine live rows while the panel is open, but on a phone it competes with the keyboard and the terminal emulator's key bar for the lower half.",
+      "width": 1000,
+      "height": 1180
+    },
+    {
+      "file": "03-peek-header.html",
+      "title": "Peek header",
+      "tradeoff": "Nothing is covered and the terminal stays interactive while the list is open, but expanding reflows and re-wraps the terminal, and the list is capped by the rows taken from the work area.",
+      "width": 1000,
+      "height": 1180
+    }
+  ]
+}

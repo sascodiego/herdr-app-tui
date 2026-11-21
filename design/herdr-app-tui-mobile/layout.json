@@ -1,0 +1,21 @@
+{
+  "arrangement": "free",
+  "positions": {
+    "system": {
+      "x": 0,
+      "y": 15
+    },
+    "01-command-sheet.html": {
+      "x": 1520,
+      "y": 15
+    },
+    "02-rising-sheet.html": {
+      "x": 2563,
+      "y": 0
+    },
+    "03-peek-header.html": {
+      "x": 3680,
+      "y": 15
+    }
+  }
+}
