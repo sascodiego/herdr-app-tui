@@ -27,8 +27,8 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 | --- | --- | --- | --- | --- |
 | T1 | S3,S7 | parent | done | RED missing `apply`, GREEN CAS retry; 202+2 tests, clippy clean; see L6 |
 | T2 | S1,S2 | parent | done | RED missing `Mutation`, GREEN CRUD and close-address tests; see L7 |
-| T3 | S3 | parent | in_progress | RED kill-tree test then GREEN run/kill delegation through `hc` |
-| T4 | S2,S5,S6 | parent | pending | RED input/view test then GREEN sidebar actions, palette and inline prompt |
+| T3 | S3 | parent | done | RED missing launch/kill_tree, GREEN core-only lifecycle; 207+2 tests, clippy clean; see L8 |
+| T4 | S2,S5,S6 | parent | in_progress | RED input/view test then GREEN sidebar actions, palette and inline prompt |
 | T5 | S1,S3 | parent | pending | RED wiring test then GREEN refresh/attach after mutations |
 | T6 | S7 | parent | pending | PTY smoke, docs, full suite and clippy |
 | T7 | all | parent | pending | work-unit commit(s) recorded here |
@@ -42,6 +42,8 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 **L3 — 2026-11-21** — "La idea es siempre que hagamos uso seguro del core asi como lo haria herdr app delegando las responsabilidades al core, nosotros le pedimos todo al cire no hacenks nada ditecto. ante la duda vemis como es el comportamiento de herdr app oficial"
 
 **L4 — 2026-11-21** — "sellado"
+
+**L8 — 2026-11-21** — T3 done. Added `launch()` and `kill_tree()` to `workspace.rs`. Launch uses `terminal.run` with `herdr.space`/`herdr.tab` labels, shell argv, cwd and the pane size. Kill walks children through `terminal.list`, spares kept agents with a non-empty `herdr.space` label, calls `terminal.kill` for every doomed address and never calls `terminal.rm`. RED was missing functions; GREEN with two new tests. 207 + 2 tests, clippy clean. Work-unit slice `f7933d1` plus lifecycle changes exceed the 400-line advisory; delivery strategy remains `ask-on-risk` and publishing is not authorized by these local commits.
 
 **L7 — 2026-11-21** — T2 done. Added `workspace::Mutation` with `NewSpace`, `NewTab`, rename, select, move and close variants. `NewSpace` opens with one named tab and terminal; `NewTab` falls back to creating a space when none is active; close returns terminal addresses for the core to end. RED was the missing type; GREEN after implementation, with three new CRUD tests. 205 + 2 tests, clippy clean.
 

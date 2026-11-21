@@ -12,6 +12,14 @@ use serde_json::{Value, json};
 /// The subset of `hc::Core` this module needs, kept small for deterministic tests.
 pub trait CoreCalls {
     fn call(&self, method: &str, params: Value) -> Result<Value>;
+
+    fn run(&self, params: Value) -> Result<Value> {
+        self.call("terminal.run", params)
+    }
+
+    fn list(&self) -> Result<Value> {
+        self.call("terminal.list", json!({}))
+    }
 }
 
 impl CoreCalls for std::sync::Arc<crate::hc::Core> {
@@ -97,6 +105,74 @@ impl Mutation {
             Self::CloseTab { id } => model.remove_tab(id).0,
             Self::CloseSpace { id } => model.remove_space(id),
         }
+    }
+}
+
+/// Ask the core to start a shell for a new space or tab.
+pub fn launch<C: CoreCalls + ?Sized>(
+    core: &C,
+    folder: Option<&str>,
+    cols: u16,
+    rows: u16,
+    space: &str,
+    tab: &str,
+) -> Result<String> {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    let reply = core.run(json!({
+        "argv": [shell],
+        "cwd": folder,
+        "env": { "TERM": "xterm-256color", "COLORTERM": "truecolor", "TERM_PROGRAM": "herdr" },
+        "labels": { "herdr.space": space, "herdr.tab": tab },
+        "on": null,
+        "keep": true,
+        "display": {},
+        "size": { "cols": cols, "rows": rows },
+    }))?;
+    reply
+        .get("address")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .context("terminal.run returned no address")
+}
+
+/// End a terminal and its child tree through the core, sparing kept agents.
+pub fn kill_tree<C: CoreCalls + ?Sized>(core: &C, addresses: &[String]) -> Result<()> {
+    let list = core.list()?;
+    let terminals = list.get("terminals").and_then(Value::as_array);
+    let mut doomed = addresses.to_vec();
+    let mut index = 0;
+    while index < doomed.len() {
+        if let Some(terminals) = terminals {
+            for terminal in terminals {
+                let Some(address) = terminal.get("address").and_then(Value::as_str) else { continue };
+                let kept = terminal
+                    .get("labels")
+                    .and_then(|labels| labels.get("herdr.space"))
+                    .and_then(Value::as_str)
+                    .is_some_and(|space| !space.is_empty());
+                let child = terminal
+                    .get("parent")
+                    .and_then(Value::as_str)
+                    .is_some_and(|parent| doomed.iter().any(|doomed| doomed == parent));
+                if child && !kept && !doomed.iter().any(|doomed| doomed == address) {
+                    doomed.push(address.to_string());
+                }
+            }
+        }
+        index += 1;
+    }
+
+    let mut first_error = None;
+    for address in doomed {
+        if let Err(error) = core.call("terminal.kill", json!({ "terminal": address }))
+            && first_error.is_none()
+        {
+            first_error = Some(error);
+        }
+    }
+    match first_error {
+        Some(error) => Err(error.context("cannot end a terminal tree")),
+        None => Ok(()),
     }
 }
 
@@ -273,6 +349,39 @@ mod tests {
         assert_eq!(model.spaces[0].name, "renamed");
         assert_eq!(model.spaces[0].tabs[0].name, "work");
         assert_eq!(model.active.as_deref(), Some(space.as_str()));
+    }
+
+    #[test]
+    fn launch_asks_the_core_for_a_terminal() {
+        let core = Fake::new(vec![Ok(json!({ "address": "t9" }))]);
+        let address = launch(&core, Some("/src"), 40, 11, "sp1", "tb1")
+            .expect("the core starts the terminal");
+        assert_eq!(address, "t9");
+        let calls = core.calls.borrow();
+        assert_eq!(calls[0].0, "terminal.run");
+        assert_eq!(calls[0].1["cwd"], "/src");
+        assert_eq!(calls[0].1["size"]["cols"], 40);
+        assert_eq!(calls[0].1["size"]["rows"], 11);
+        assert_eq!(calls[0].1["labels"]["herdr.space"], "sp1");
+        assert_eq!(calls[0].1["labels"]["herdr.tab"], "tb1");
+    }
+
+    #[test]
+    fn kill_tree_follows_children_and_spares_kept_agents() {
+        let core = Fake::new(vec![
+            Ok(json!({ "terminals": [
+                { "address": "t1" },
+                { "address": "t2", "parent": "t1" },
+                { "address": "t3", "parent": "t1", "labels": { "herdr.space": "kept" } },
+                { "address": "t4", "parent": "t2" },
+            ] })),
+            Ok(json!({})), Ok(json!({})), Ok(json!({})),
+        ]);
+        kill_tree(&core, &["t1".to_string()]).expect("kill asks the core");
+        let calls = core.calls.borrow();
+        assert_eq!(calls[0].0, "terminal.list");
+        let killed: Vec<&str> = calls[1..].iter().map(|call| call.1["terminal"].as_str().unwrap_or_default()).collect();
+        assert_eq!(killed, ["t1", "t2", "t4"]);
     }
 
     #[test]
