@@ -5,9 +5,9 @@
 <title>02 — Stacked deck</title>
 <style>
   :root {
-    --bg:#11111b; --panel:#181825; --surface:#313244; --text:#cdd6f4;
-    --muted:#7f849c; --dim:#585b70; --accent:#b4befe;
-    --green:#a6e3a1; --yellow:#f9e2af; --red:#f38ba8; --rule:#262626;
+    --bg:#0c1014; --panel:#111820; --surface:#0a3749; --text:#99d1ce;
+    --muted:#99d1ce; --dim:#99d1ce; --accent:#33859e;
+    --green:#2aa889; --yellow:#edb443; --red:#c23127; --rule:#195466;
   }
   * { box-sizing:border-box; }
   html, body { margin:0; padding:0; }
@@ -26,7 +26,10 @@
   .ln { display:flex; min-height:1.42em; white-space:pre; }
   .ln > .l { flex:0 0 auto; }
   .ln > .r { margin-left:auto; flex:0 0 auto; }
-  .tap { min-height:4.26em; background:var(--panel); }
+  .band { display:flex; min-height:4.26em; background:var(--panel); }
+  .band-left { flex:1 1 auto; min-width:0; padding-left:1ch; }
+  .toggle { flex:0 0 8ch; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .sidebar { padding:0 1ch; }
   .sel { background:var(--surface); }
   .sec { color:var(--muted); font-weight:700; }
   .cnt, .pm { color:var(--muted); }
@@ -60,10 +63,13 @@
   <section aria-label="Phone, bar collapsed">
     <div class="label">phone · collapsed · 40 × 18</div>
     <div class="device"><div class="screen">
-      <div class="ln tap" role="button" tabindex="0" aria-label="Open the sidebar">
-        <div class="ln"></div>
-        <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span>  switch</span></div>
-        <div class="ln"></div>
+      <div class="band" role="button" tabindex="0" aria-label="Open the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">○</span> researchs · 4 tabs</span></div>
+          <div class="ln pm"><span class="l">~/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">switch</div>
       </div>
       <div class="ln"><span class="l">❯ cargo test --lib</span></div>
       <div class="ln pm"><span class="l">  <span class="wr">◐</span> running 41 tests</span></div>
@@ -82,10 +88,13 @@
   <section aria-label="Phone, bar open">
     <div class="label">phone · sheet open · 40 × 18</div>
     <div class="device"><div class="screen">
-      <div class="ln tap" role="button" tabindex="0" aria-label="Close the sidebar">
-        <div class="ln"></div>
-        <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span>  close ×</span></div>
-        <div class="ln"></div>
+      <div class="band" role="button" tabindex="0" aria-label="Close the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">○</span> researchs · 4 tabs</span></div>
+          <div class="ln pm"><span class="l">~/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">x</div>
       </div>
       <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
       <div class="ln sel" role="button" tabindex="0" aria-label="Attach pi 4">

@@ -28,7 +28,8 @@
   .ln > .r { margin-left:auto; flex:0 0 auto; }
   .band { display:flex; min-height:4.26em; background:var(--panel); }
   .band-left { flex:1 1 auto; min-width:0; }
-  .toggle { flex:0 0 10ch; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .sidebar { padding:0 1ch; }
+  .toggle { flex:0 0 8ch; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; }
   .sel { background:var(--surface); }
   .actions { background:var(--surface); }
   .act { color:var(--text); }
@@ -64,13 +65,13 @@
 
 <div class="row">
   <section aria-label="Phone, bar collapsed">
-    <div class="label">phone · collapsed · 40 × 18</div>
+    <div class="label">phone · collapsed · 40 × 20</div>
     <div class="device"><div class="screen">
       <div class="band" role="button" tabindex="0" aria-label="Open the sidebar">
         <div class="band-left">
-          <div class="ln hdr"><span class="l"><span class="ac">○</span> research</span><span class="r pm">tab 1 · 1/2</span></div>
-          <div class="ln pm"><span class="l">~/herdr · all idle</span></div>
-          <div class="ln"></div>
+          <div class="ln hdr"><span class="l"><span class="ac">○</span> researchs · 4 tabs</span></div>
+          <div class="ln pm"><span class="l">~/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
         </div>
         <div class="toggle">switch</div>
       </div>
@@ -90,17 +91,19 @@
   </section>
 
   <section aria-label="Phone, bar open">
-    <div class="label">phone · sheet open · 40 × 18</div>
+    <div class="label">phone · sheet open · 40 × 20</div>
     <div class="device"><div class="screen">
       <div class="band" role="button" tabindex="0" aria-label="Close the sidebar">
         <div class="band-left">
-          <div class="ln hdr"><span class="l"><span class="ac">○</span> research</span><span class="r pm">tab 1 · 1/2</span></div>
-          <div class="ln pm"><span class="l">~/herdr · all idle</span></div>
-          <div class="ln"></div>
+          <div class="ln hdr"><span class="l"><span class="ac">○</span> researchs · 4 tabs</span></div>
+          <div class="ln pm"><span class="l">~/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
         </div>
         <div class="toggle">x</div>
       </div>
-      <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
+      <div class="sidebar">
+        <div class="ln"></div>
+        <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
       <div class="ln sel" role="button" tabindex="0" aria-label="Attach pi 4">
         <div class="ln"><span class="l">  <span class="b">research</span>  pi 4 <span class="wr">◐ working</span></span></div>
         <div class="ln pm"><span class="l">        attached · 2 helpers</span></div>
@@ -119,8 +122,9 @@
       <div class="ln er" role="button" tabindex="0" aria-label="Go to pi 2, needs you"><span class="l">  <span class="er">▲</span> pi 2 · api-work</span><span class="r er">needs you</span></div>
       <div class="ln wr" role="button" tabindex="0" aria-label="Go to pi 4, working"><span class="l">  <span class="wr">◐</span> pi 4 · research</span><span class="r wr">working</span></div>
       <div class="ln pm" role="button" tabindex="0" aria-label="Go to helper a, idle"><span class="l">  <span class="pm">○</span> helper a</span><span class="r pm">idle</span></div>
-      <div class="ln actions"><span class="l"><span class="act">settings</span>  <span class="act">keys</span>  <span class="act">reload</span>  <span class="act">detach</span></span></div>
-      <div class="ln"></div>
+        <div class="ln actions"><span class="l"><span class="act">settings</span>  <span class="act">keys</span>  <span class="act">reload</span>  <span class="act">detach</span></span></div>
+        <div class="ln"></div>
+      </div>
     </div></div>
   </section>
 </div>
@@ -128,7 +132,9 @@
 <div class="sub">desktop · rail on the left, always visible · 26 + 56 columns × 24 rows</div>
 <div class="device"><div class="cols">
   <div class="rail">
-    <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span></span></div>
+    <div class="sidebar">
+      <div class="ln"></div>
+      <div class="ln hdr"><span class="l">default</span><span class="r"><span class="pm">ubuntu-test</span> <span class="ac">●</span></span></div>
     <div class="ln sec"><span class="l">▾ TABS</span><span class="r cnt">4</span></div>
     <div class="ln sel"><span class="l">  <span class="b">research</span>  pi 4 <span class="wr">◐</span></span></div>
     <div class="ln pm"><span class="l">      ○ helper a</span></div>
@@ -144,8 +150,9 @@
     <div class="ln"><span class="l"> </span></div>
     <div class="ln pd"><span class="l">─ pi 4 · attached ──────────</span></div>
     <div class="ln pm"><span class="l">  test api::attach ... ok</span></div>
-    <div class="ln actions"><span class="l"><span class="act">set</span>  <span class="act">keys</span>  <span class="act">rel</span>  <span class="act">det</span></span></div>
-    <div class="ln"></div>
+      <div class="ln actions"><span class="l"><span class="act">set</span>  <span class="act">keys</span>  <span class="act">rel</span>  <span class="act">det</span></span></div>
+      <div class="ln"></div>
+    </div>
   </div>
   <div class="term">
     <div class="ln"><span class="l">❯ pi 4 · research</span></div>
@@ -172,9 +179,9 @@
   stay familiar. Two-cell tab rows cost vertical space; on a very short phone the
   last rows scroll instead of shrinking.
   <br><br>
-  <b>Fixes:</b> <span class="fix">P1</span> the tap target is three rows: two lines
-  of left info and a fixed-width toggle block on `surface` spanning all three,
-  always hard-right; <span class="fix">P2</span> every tab target is two rows;
+  <b>Fixes:</b> <span class="fix">P1</span> the tap target stays three rows, now
+  carrying workspace + tabs, path and the agent total grouped by state, with a
+  fixed 8ch toggle block on `surface` spanning all three, always hard-right; <span class="fix">P2</span> every tab target is two rows;
   <span class="fix">P3</span> the selected band covers both rows;
   <span class="fix">P4</span> the action row is plain aligned text on a distinct
   surface band, not buttons, and stays last as the keyboard changes the height;
@@ -185,7 +192,9 @@
   <span class="fix">P7</span> secondary text uses the Gotham foreground token
   because Gotham's midtones measure under 4.5:1 on this background;
   <span class="fix">P8</span> AGENTS is a navigable list of detected agents, ordered
-  by attention, with glyph and word state instead of a statistic.
+  by attention, with glyph and word state instead of a statistic;
+  <span class="fix">P9</span> the sidebar has one cell of margin on top, bottom,
+  left and right — the minimum gutter the grid allows.
   <br><br>
   <b>Data source:</b> the separator row reads the selected tab's terminal name and
   attach state from the shared document plus `terminal.list`. There is no command

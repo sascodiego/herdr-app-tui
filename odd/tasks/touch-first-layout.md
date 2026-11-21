@@ -8,7 +8,7 @@ Branch: `touch-first-layout` (from `main`). Delivery strategy: ask-on-risk. Test
 Yank remains out of scope.
 
 **S2** — Problem, verbatim: "Dijimos que sin footer. Lo que necesito es que haya mejor ux de la tui. En el caso mobile la barra eta muy chica es dificil de accionarla debe tener un poquoto de margen sobre el borde. Es decir toda la view mobile esta muy mal optimozada para los toques touch"
-Acceptance: at phone widths the top control is a three-row band with a blank margin row above it and the whole band tappable. The toggle is a fixed-width block spanning all three rows, always hard-right, with two lines of information on the left. Tab rows have touch-sized hit areas. There is no global bottom bar.
+Acceptance: at phone widths the top control is a three-row band with the whole band tappable. Row 1 carries workspace and tab count, row 2 the path, row 3 the aggregate agent total grouped by state. An 8ch toggle block spans all three rows, always hard-right. The sidebar has a one-cell gutter on top, bottom, left and right. Tab rows have touch-sized hit areas. There is no global bottom bar.
 
 **S3** — Correction, verbatim: "La linea de settings keys y reload es valida, porque esta denreo del sidebar. Igjal deberiamos rediseñar el layout oensando en algo mas mobile first UX sin descuidar la cersio desktop"
 Acceptance: `settings keys reload detach` stays inside the sidebar; the desktop rail remains left, compact and unchanged in substance.
@@ -24,14 +24,27 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 
 | ID | S# | Route | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| T1 | S1-S5 | parent, gentle-design | done | 3 artboards + manifest + canvas open; toggle-block correction applied; see L6-L14 |
+| T1 | S1-S5, S7, S8 | parent, gentle-design | done | three-row band with distributed info, four-sided gutter; see L16-L18 |
 | T2 | S4 | human choice | blocked | waiting for the user to pick a direction on the canvas; unblocks when the chosen artboard is named |
 | T3 | S2,S3,S5 | parent | pending | RED geometry test then GREEN shared geometry and touch targets |
 | T4 | S2,S5 | parent | pending | RED state test then GREEN attached/preview/scrolled and panel scroll |
 | T5 | S6 | parent | pending | captures, PTY smoke, tests, clippy, docs |
 | T6 | all | parent | pending | work-unit commit(s) recorded here |
+| T7 | S7, S8 | parent | done | `design/system.md` and `design/system.html` synced to Gotham and the new layout rules |
+
+## Specs tail
+
+**S7** — Design system update, verbatim: "Debemos actualizar ese design/system.md si". `design/system.md` (and its system board) describe the Gotham palette, the three-row header band with a fixed toggle block, the four-sided sidebar gutter, the navigable AGENTS list and the plain action row.
+
+**S8** — Band information, verbatim: "A lo que tenemos mas filas podemos distribuir merjor la informacion de la barra. yo pondria en la primera el workspace y las tabs, en la segunda el path y en la tercera el estado de los agentes agregados. Es decir, el total de agentes agrupado por estado". The band rows carry workspace + tabs, path, and grouped agent totals; the sidebar `AGENTS` section remains a navigable list.
 
 ## Log
+
+**L17 — 2026-11-21** — Immediate correction, verbatim: "Perdon, dejamos las 3 filas en la banda lo demas todo lo que te dije". The three-row band is restored; the one-row text placement, four-sided sidebar gutter and system sync remain in force. S2 was rewritten again before any artboard edit.
+
+**L18 — 2026-11-21** — User addition, verbatim: "A lo que tenemos mas filas podemos distribuir merjor la informacion de la barra. yo pondria en la primera el workspace y las tabs, en la segunda el path y en la tercera el estado de los agentes agregados. Es decir, el total de agentes agrupado por estado". Applied to all three artboards and to the system board: row 1 `○ researchs · 4 tabs`, row 2 `~/src/herdr/herdr-app-tui`, row 3 `○ idle 1 · ◐ work 1 · ▲ needs 1`, with the toggle narrowed to 8ch so row 3 fits the 32ch left column. `design/system.md` and `design/system.html` were rewritten to Gotham and the new rules; the earlier design slug's three artboards were also retokenized. No old Catppuccin values remain under `design/`. Canvas refreshed.
+
+**L16 — 2026-11-21** — User correction, verbatim: "Bien, ahora entiendo que 3 filas es mucho, lo que dejaste con el boton es lo que queria. Al ser dos filas la alineacion centrada del texto no lo vas a poder hacer pero no importa dejalo todo en una fila, preferiblemente en la superior. Por otra parte Neceito margen en el sidebar tanto arriba, abajo a la izquierda y la derecha. una columna en cada costado de margen del minimo ancho posible. Debemos actualizar ese design/system.md si". Interpreted and applied: the header band becomes two rows with all text in the upper row and the fixed toggle block spanning both; the sidebar gets one-cell gutters on all four sides; S2 was rewritten, S7 added, T1 reopened and T7 created.
 
 **L1 — 2026-11-21** — "Bien, seguimos, el yank no me es tan importante como empezar a hacer que sea funcional, mejorar la UI, darle forma"
 
