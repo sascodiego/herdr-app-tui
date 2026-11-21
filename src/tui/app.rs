@@ -295,6 +295,17 @@ impl App {
         if self.panel { Focus::Panel } else { Focus::Terminal }
     }
 
+    /// What the mobile band says about the pane: live, history or preview.
+    pub fn pane_state(&self) -> &'static str {
+        if self.copy {
+            "scrolled"
+        } else if self.screen.is_some() {
+            "attached"
+        } else {
+            "preview"
+        }
+    }
+
     /// `(working, needs you, idle)` for the agents rollup.
     pub fn counts(&self) -> (usize, usize, usize) {
         let count = |state: State| self.terminals.iter().filter(|terminal| terminal.state == state).count();

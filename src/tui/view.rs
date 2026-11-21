@@ -158,8 +158,8 @@ pub fn panel_row_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Option
         return None;
     }
     let local = y - inner.y;
-    let (_, rows) = panel_content(app, inner.width, wide);
-    rows.get(local as usize).copied().flatten()
+    let (_, rows, offset) = panel_view(app, inner.width, wide, inner.height);
+    rows.get((local as usize).saturating_add(offset)).copied().flatten()
 }
 
 /// The three-row phone band: workspace and tabs, path, agent totals, toggle.
@@ -175,15 +175,18 @@ fn draw_header(app: &App, area: Rect, frame: &mut Frame) {
     };
     let (working, needs_you, idle) = app.counts();
     let (mark, color) = connection(app);
-    let copy = if app.copy { "  copy" } else { "" };
     let lines = vec![
         Line::from(vec![
             Span::styled(mark.to_string(), Style::default().fg(color)),
             Span::styled(
-                format!(" {} · {} tabs", app.workspace(), app.rows().len()),
+                format!(
+                    " {} · {} tabs · {}",
+                    app.workspace(),
+                    app.rows().len(),
+                    app.pane_state()
+                ),
                 Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
             ),
-            Span::styled(copy.to_string(), Style::default().fg(theme::DIM)),
         ]),
         Line::from(Span::styled(fit(&app.path, left_width as usize), Style::default().fg(theme::MUTED))),
         Line::from(Span::styled(
@@ -250,8 +253,24 @@ fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
     if inner.width == 0 || inner.height == 0 {
         return;
     }
-    let (lines, _) = panel_content(app, inner.width, wide);
-    frame.render_widget(Paragraph::new(lines).style(Style::default().fg(theme::TEXT)), inner);
+    let (lines, _, offset) = panel_view(app, inner.width, wide, inner.height);
+    let visible = lines.into_iter().skip(offset).take(inner.height as usize).collect::<Vec<_>>();
+    frame.render_widget(Paragraph::new(visible).style(Style::default().fg(theme::TEXT)), inner);
+}
+
+/// All panel lines plus the scroll offset that keeps the selected target visible.
+fn panel_view(app: &App, width: u16, wide: bool, height: u16) -> (Vec<Line<'static>>, Vec<Option<usize>>, usize) {
+    let (lines, rows) = panel_content(app, width, wide);
+    let height = height as usize;
+    if height == 0 || lines.len() <= height {
+        return (lines, rows, 0);
+    }
+    let selected = rows.iter().position(|row| *row == Some(app.cursor)).unwrap_or(0);
+    let keep = if wide { 1 } else { TAB_CELLS as usize };
+    let room = height.saturating_sub(keep);
+    let max = lines.len() - height;
+    let offset = selected.saturating_sub(room).min(max);
+    (lines, rows, offset)
 }
 
 /// Panel lines plus, for each line, the tab row it shows.
@@ -277,6 +296,11 @@ impl PanelLines {
         for _ in 1..TAB_CELLS {
             self.push_row(detail.clone(), index);
         }
+    }
+
+    fn push_agent(&mut self, line: Line<'static>, index: Option<usize>) {
+        self.lines.push(line);
+        self.rows.push(index);
     }
 }
 
@@ -363,14 +387,16 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
         }
     }
 
-    let (working, needs_you, idle) = app.counts();
-    let agents = working + needs_you + idle;
-    if agents > 0 {
-        lines.push(section(&format!("{} AGENTS", glyph::EXPANDED), agents, width));
-        for (state, count) in [(State::Working, working), (State::NeedsYou, needs_you), (State::Idle, idle)] {
-            if count > 0 {
-                lines.push(counted_line(state, count, width));
-            }
+    let mut agents: Vec<&super::app::Terminal> = app.terminals.iter().collect();
+    agents.sort_by_key(|agent| (agent.state.priority(), agent.name.clone()));
+    if !agents.is_empty() {
+        lines.push(section(&format!("{} AGENTS", glyph::EXPANDED), agents.len(), width));
+        for agent in agents {
+            let target = app.rows.iter().position(|row| {
+                row.address.as_deref() == Some(agent.address.as_str())
+                    || row.address.as_deref() == agent.parent.as_deref()
+            });
+            lines.push_agent(agent_line(agent, width), target);
         }
     }
 
@@ -459,13 +485,15 @@ fn child_line(terminal: &super::app::Terminal) -> Line<'static> {
     ])
 }
 
-fn counted_line(state: State, count: usize, width: u16) -> Line<'static> {
-    let left = format!("  {} {}", state.glyph(), state.word());
-    let gap = (width as usize).saturating_sub(left.chars().count() + count.to_string().chars().count());
+/// One detected agent, ordered by attention and selectable from its tab.
+fn agent_line(agent: &super::app::Terminal, width: u16) -> Line<'static> {
+    let left = format!("  {} {} · {}", agent.state.glyph(), agent.name, agent.state.word());
+    let address = fit(&agent.address, width.saturating_sub(left.chars().count() as u16) as usize);
+    let gap = (width as usize).saturating_sub(left.chars().count() + address.chars().count());
     Line::from(vec![
-        Span::styled(left, Style::default().fg(state.color())),
+        Span::styled(left, Style::default().fg(agent.state.color())),
         Span::raw(" ".repeat(gap)),
-        Span::styled(count.to_string(), Style::default().fg(theme::MUTED)),
+        Span::styled(address, Style::default().fg(theme::MUTED)),
     ])
 }
 
@@ -575,7 +603,7 @@ mod tests {
         assert_eq!(cell.bg, ratatui::style::Color::Blue);
         assert!(cell.modifier.contains(Modifier::BOLD));
         let rows = screen(&app, 40, 22);
-        assert!(rows[0].contains("copy"), "the band states the mode: {:?}", &rows[..3]);
+        assert!(rows[0].contains("scrolled"), "the band states the mode: {:?}", &rows[..3]);
     }
 
     #[test]
@@ -688,5 +716,50 @@ mod tests {
         let header = rows.get(1).expect("the first rail row");
         assert_eq!(header.chars().next(), Some(' '), "left gutter: {header:?}");
         assert_ne!(header.chars().nth(1), Some(' '), "content starts at column 1: {header:?}");
+    }
+
+    #[test]
+    fn the_band_names_the_pane_state() {
+        let plain = screen(&app(false), 40, 20);
+        assert!(plain[0].contains("preview"), "{:?}", plain[0]);
+
+        let mut attached = app(false);
+        attached.screen = Some(ScreenState { rows: Vec::new(), cursor: None });
+        let live = screen(&attached, 40, 20);
+        assert!(live[0].contains("attached"), "{:?}", live[0]);
+
+        attached.enter_copy();
+        let scrolled = screen(&attached, 40, 20);
+        assert!(scrolled[0].contains("scrolled"), "{:?}", scrolled[0]);
+    }
+
+    #[test]
+    fn the_agents_section_lists_navigable_agents() {
+        let rows = screen(&app(true), 40, 20);
+        let start = rows.iter().position(|row| row.contains("▾ AGENTS")).expect("the agents section");
+        let section = &rows[start + 1..];
+        assert!(section.iter().any(|row| row.contains("pi 2") && row.contains("needs you")), "{section:?}");
+        assert!(section.iter().any(|row| row.contains("pi 3") && row.contains("working")), "{section:?}");
+        assert!(!section.iter().any(|row| row.trim() == "◐ working 1"), "no statistic row: {section:?}");
+    }
+
+    #[test]
+    fn the_selected_tab_stays_visible_when_the_panel_scrolls() {
+        let terminals: Vec<serde_json::Value> = (1..=8)
+            .map(|index| {
+                json!({
+                    "address": format!("t{index}"),
+                    "name": format!("pi {index}"),
+                    "status": { "state": "idle" },
+                })
+            })
+            .collect();
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({ "terminals": terminals, "hidden_finished": 0, "machines": [] }));
+        app.toggle_panel();
+        app.cursor = 7;
+        let rows = screen(&app, 40, 10);
+        let sheet = &rows[(BAND_ROWS + GUTTER) as usize..];
+        assert!(sheet.iter().any(|row| row.contains("pi 8")), "selection left the viewport: {sheet:?}");
     }
 }

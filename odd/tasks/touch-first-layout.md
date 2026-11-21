@@ -27,8 +27,8 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 | T1 | S1-S5, S7, S8 | parent, gentle-design | done | three-row band with distributed info, four-sided gutter; see L16-L18 |
 | T2 | S4 | human choice | done | `01-safe-area-sheet.html` chosen; handoff taken; see L20 |
 | T3 | S2,S3,S5 | parent | done | RED compile failure then GREEN: 194+2 tests, clippy clean; see L21 |
-| T4 | S2,S5 | parent | in_progress | RED state/agent test then GREEN attached/preview/scrolled, navigable AGENTS and visible selection |
-| T5 | S6 | parent | pending | captures, PTY smoke, tests, clippy, docs |
+| T4 | S2,S5 | parent | done | RED: 3 failing tests; GREEN: 197+2 tests, clippy clean; see L22 |
+| T5 | S6 | parent | in_progress | captures, PTY smoke, tests, clippy, docs |
 | T6 | all | parent | pending | work-unit commit(s) recorded here |
 | T7 | S7, S8 | parent | done | `design/system.md` and `design/system.html` synced to Gotham and the new layout rules |
 
@@ -41,6 +41,8 @@ Scope: shape brief, three artboards under `design/herdr-app-tui-touch/`, one cho
 ## Log
 
 **L17 — 2026-11-21** — Immediate correction, verbatim: "Perdon, dejamos las 3 filas en la banda lo demas todo lo que te dije". The three-row band is restored; the one-row text placement, four-sided sidebar gutter and system sync remain in force. S2 was rewritten again before any artboard edit.
+
+**L22 — 2026-11-21** — T4 done. RED had three failing tests: the band did not name `preview`/`attached`/`scrolled`, the AGENTS section still showed counts, and the last tab left a short viewport. GREEN after adding `App::pane_state`, an attention-ordered navigable agent list, `panel_view` with a derived scroll offset shared by drawing and hit-testing, and tap targets mapping agent rows to their tab. `cargo test --all-targets`: 197 passed + 2 bin tests, 1 ignored, 0 failed; clippy clean.
 
 **L21 — 2026-11-21** — T3 done. RED was a compile failure on the new geometry constants and `App::path`; GREEN after implementing `BAND_ROWS = 3`, `TOGGLE_COLS = 8`, `GUTTER = 1`, `panel_inner`, `panel_row_at(app, area, x, y, wide)`, a three-row band with workspace/tabs, path and grouped agent totals, and two-cell phone tab targets. `cargo test --all-targets`: 194 passed + 2 bin tests, 1 ignored, 0 failed. `cargo clippy --all-targets -- -D warnings` clean. The chosen artboard handoff was reported `in_progress`.
 
