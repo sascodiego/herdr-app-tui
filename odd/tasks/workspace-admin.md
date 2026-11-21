@@ -30,8 +30,8 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 | T3 | S3 | parent | done | RED missing launch/kill_tree, GREEN core-only lifecycle; 207+2 tests, clippy clean; see L8 |
 | T4 | S2,S5,S6 | parent | done | RED missing footer actions, GREEN palette key, command parse, prompt state and footer hit-testing; 211+2 tests, clippy clean; see L10 |
 | T5 | S1,S3 | parent | done | GREEN by PTY smoke: new tab, close tab and rename; see L11 |
-| T6 | S7 | parent | in_progress | PTY smoke, docs, full suite and clippy |
-| T7 | all | parent | pending | work-unit commit(s) recorded here |
+| T6 | S7 | parent | done | PTY smoke, README, 211+2 tests and clippy clean; see L12 |
+| T7 | all | parent | done | `bd7165c`, `f7933d1`, `3e296f3`, `2da7b69`, `f8682d5` plus closing commit; see L12 |
 
 ## Log
 
@@ -42,6 +42,8 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 **L3 — 2026-11-21** — "La idea es siempre que hagamos uso seguro del core asi como lo haria herdr app delegando las responsabilidades al core, nosotros le pedimos todo al cire no hacenks nada ditecto. ante la duda vemis como es el comportamiento de herdr app oficial"
 
 **L4 — 2026-11-21** — "sellado"
+
+**L12 — 2026-11-21** — Feature close. Work-unit commits: `bd7165c` (CAS write), `f7933d1` (CRUD mutations), `3e296f3` (core lifecycle), `2da7b69` (palette/footer UI), `f8682d5` (command execution). Re-run at close: 211 + 2 tests passed, 1 ignored, 0 failed; clippy clean. 851 authored changed lines across five work units; delivery strategy `ask-on-risk` still applies and publishing is a user decision.
 
 **L11 — 2026-11-21** — T5 done. `handle_key` captures prompt text only while the panel is open; `:` opens the palette, Enter executes, Esc cancels, Backspace edits and `y`/`n` confirms a close. Commands route through `workspace::apply`, `launch` and `kill_tree`; close removes the model first, asks the core to kill the tree, then writes the document. PTY smoke at 40x14 with isolated core `tui-admin`: `:new tab` created `t2` and the panel showed 2 tabs; `:close tab` + `y` killed `t2`, which appeared as `1 finished hidden`, with no `terminal.rm`; `:rename tab` renamed `base` to `baserenamed`. The colon went to the agent while the panel was closed. README documents the palette, footer actions and core-authoritative lifecycle.
 

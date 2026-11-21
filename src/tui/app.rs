@@ -106,6 +106,8 @@ pub struct App {
     pub copy: bool,
     /// The active text capture, when the panel owns the keyboard.
     pub prompt: Option<Prompt>,
+    /// Last computed core pane size, used when creating a terminal.
+    pub pane: (u16, u16),
 }
 
 impl App {
@@ -129,6 +131,7 @@ impl App {
             screen: None,
             copy: false,
             prompt: None,
+            pane: (40, 11),
         }
     }
 
@@ -198,7 +201,7 @@ impl App {
     /// Rebuild the panel's rows from the active space's tabs. With no
     /// workspace yet, fall back to the core's top-level terminals so a fresh
     /// core is still usable.
-    fn rebuild_rows(&mut self) {
+    pub fn rebuild_rows(&mut self) {
         let from_document = self.doc_available;
         let tabs: Vec<(String, String, Option<String>)> = match self.model.active_space() {
             Some(space) if from_document => space
