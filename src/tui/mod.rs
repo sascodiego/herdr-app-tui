@@ -10,6 +10,7 @@ pub mod glyph;
 pub mod input;
 pub mod theme;
 pub mod view;
+pub mod workspace;
 
 use anyhow::{Context, anyhow};
 use crossterm::event::{
