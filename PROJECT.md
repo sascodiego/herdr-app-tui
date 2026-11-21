@@ -243,6 +243,13 @@ Prueba funcional real: `herdr-app-tui --attach tui-seq` devolvió
 `LINE-ONE / LINE-TWO`, y `--attach tui-cat --send 'roundtrip-ok'` devolvió
 `roundtrip-ok`.
 
+**L22 — 2026-11-21** — El usuario pidió seguir con el repo. Se commiteó
+`.engram/config.json` y se pushearon los commits pendientes. Se agregó
+`build.rs`, que expone el hash corto del commit al compilar, y `--version` ahora
+imprime `herdr-app-tui <versión> (<hash>)`. También se corrigió el `HELP`, que
+todavía decía `q` para salir y `r` para refrescar. 191+2 tests, clippy limpio,
+`cargo build --release` correcto en 44 s. El `README.md` documenta el flag.
+
 **L21 — 2026-11-21** — El usuario planteó que en Termux, bajo mosh, el swipe
 solo funcionaba pasando por el wrapper `mosh-mouse` que reescribe `?1003h` a
 `?1002h`, y pidió una resolución nativa que sirva con o sin wrapper, desde

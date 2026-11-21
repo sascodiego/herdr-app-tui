@@ -3,6 +3,14 @@
 
 use clap::Parser;
 
+/// The version clap prints, including the commit behind the build.
+const VERSION: &str = concat!(
+    env!("CARGO_PKG_VERSION"),
+    " (",
+    env!("HERDR_APP_TUI_GIT_HASH"),
+    ")"
+);
+
 const HELP: &str = "\
 herdr-app-tui — a terminal UI client for herdr-core
 
@@ -11,20 +19,26 @@ Usage:
 
 Options:
   -h, --help              Show this help
-  -V, --version           Show version
+  -V, --version           Show version and commit
       --skill             Print the agent instructions
+      --attach TERMINAL   Attach once, print the screen and exit
+      --send TEXT         Text to send with --attach
 
 Keys:
   tab          open or close the panel
+  enter        attach to the highlighted tab
   j / k        move the highlight
-  r            refresh now
-  q            leave the panel, then quit
+  pageup / pagedown, alt+up / alt+down   scroll; q or esc resumes
+  ctrl+q / ctrl+\\   quit
+
+While attached, q, r, esc and ctrl+c belong to the agent.
+Touch: tap the header or a row; drag or wheel to scroll.
 
 See herdr.dev — the runtime your coding agents live on.
 ";
 
 #[derive(Parser)]
-#[command(name = "herdr-app-tui", version, about = "terminal UI client for herdr-core")]
+#[command(name = "herdr-app-tui", version = VERSION, about = "terminal UI client for herdr-core")]
 struct Cli {
     /// Print the agent instructions and exit.
     #[arg(long, hide = true)]
@@ -67,5 +81,24 @@ fn run() -> i32 {
             eprintln!("{HELP}");
             1
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_version_names_the_crate_and_its_commit() {
+        assert!(VERSION.starts_with(env!("CARGO_PKG_VERSION")));
+        assert_eq!(VERSION.matches(" (").count(), 1);
+        assert!(VERSION.ends_with(')'));
+    }
+
+    #[test]
+    fn the_help_lists_the_current_quit_and_scroll_keys() {
+        assert!(HELP.contains("ctrl+q / ctrl+\\"));
+        assert!(HELP.contains("pageup / pagedown"));
+        assert!(!HELP.contains("r            refresh now"));
     }
 }

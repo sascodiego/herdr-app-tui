@@ -53,6 +53,9 @@ Use `--release`: libghostty's parser is much slower in a debug build. The
 screen reacts to events pushed by herdr-core, so typing does not wait for a
 terminal list or a document read.
 
+`herdr-app-tui --version` prints the crate version and the short commit hash it
+was built from, so you can confirm which code is running.
+
 ## Keys
 
 | Key | What it does |
