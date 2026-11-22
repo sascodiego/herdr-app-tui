@@ -468,13 +468,6 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
         lines.push(task_line(&terminal.name, width));
     }
 
-    if app.hidden_finished > 0 {
-        lines.push(Line::from(Span::styled(
-            format!("{} finished hidden", app.hidden_finished),
-            Style::default().fg(theme::DIM),
-        )));
-    }
-
     // The actions sit at the foot of the panel, not in a status bar.
     lines.push(Line::from(""));
     let actions = action_labels(wide).join("  ");
@@ -877,6 +870,21 @@ mod tests {
         assert_eq!(panel_action_at(&app, panel, inner.x, y, false), Some(Command::NewSpace));
         assert_eq!(panel_action_at(&app, panel, inner.x + 28, y, false), Some(Command::CloseTab));
         assert_eq!(panel_action_at(&app, panel, inner.x, y + 1, false), None);
+    }
+
+    #[test]
+    fn a_live_shell_is_idle_and_hidden_finished_stays_quiet() {
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({
+            "terminals": [{ "address": "t9", "name": "shell", "state": "live" }],
+            "hidden_finished": 11,
+            "machines": [],
+        }));
+        app.toggle_panel();
+        let joined = screen(&app, 40, 20).join("\n");
+        assert!(joined.contains("○ idle"), "{joined}");
+        assert!(!joined.contains("unknown"), "{joined}");
+        assert!(!joined.contains("finished hidden"), "{joined}");
     }
 
     #[test]

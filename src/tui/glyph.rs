@@ -30,6 +30,10 @@ impl State {
             Some("blocked") => State::NeedsYou,
             Some("done") => State::Done,
             Some("error") => State::Failed,
+            // `terminal.list` has no status word for a plain shell: its
+            // top-level lifecycle says live, which is idle at the prompt.
+            Some("live") => State::Idle,
+            Some("finished") => State::Done,
             _ => State::Unknown,
         }
     }
@@ -104,6 +108,8 @@ mod tests {
         assert_eq!(State::from_word(Some("blocked")), State::NeedsYou);
         assert_eq!(State::from_word(Some("done")), State::Done);
         assert_eq!(State::from_word(Some("error")), State::Failed);
+        assert_eq!(State::from_word(Some("live")), State::Idle);
+        assert_eq!(State::from_word(Some("finished")), State::Done);
         assert_eq!(State::from_word(Some("nonsense")), State::Unknown);
         assert_eq!(State::from_word(None), State::Unknown);
     }
