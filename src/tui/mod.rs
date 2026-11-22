@@ -132,21 +132,39 @@ fn event_loop(
         }
         subscription = sub;
 
+        // A tab whose terminal vanished cannot own the pane: follow another
+        // one, or open a fresh shell at home when nothing is left.
+        ensure_live_selection(core, app)?;
+
         // A tab selected in the panel owns the pane. Attach as soon as it is
         // selected, including on the first frame, so there is a live prompt
         // without waiting for another key press.
         sync_attachment(core, app, terminal, &mut attached, &mut attached_address)?;
 
-        // Keep the viewer's grid the same size as the terminal pane.
+        // Keep the viewer's grid the same size as the terminal pane. A closed
+        // stream is a normal event: detach and let the next frame select
+        // another tab, or open a shell at home when none is left.
+        let mut closed = false;
         if let Some(session) = attached.as_mut() {
             let area = terminal.get_frame().area();
             let (cols, rows) = pane_size(app, area.width, area.height);
             app.pane = (cols, rows);
             session.resize(core, cols, rows);
-            session.drain(core)?;
-            // In copy mode this frame is libghostty's scrolled viewport, so
-            // the program's colors and attributes come along with the text.
-            app.screen = Some(view::ScreenState::from_frame(session.frame()));
+            match session.drain(core) {
+                Ok(_) => {
+                    // In copy mode this frame is libghostty's scrolled viewport.
+                    app.screen = Some(view::ScreenState::from_frame(session.frame()));
+                }
+                Err(error) => {
+                    app.doc_error = Some(format!("terminal closed: {error:#}"));
+                    closed = true;
+                }
+            }
+        }
+        if closed {
+            detach(attached.take(), core);
+            attached_address = None;
+            app.screen = None;
         }
 
         terminal.draw(|frame| view::render(app, frame)).context("cannot draw")?;
@@ -293,6 +311,120 @@ fn commit_close(core: &std::sync::Arc<hc::Core>, app: &mut App, mutation: Mutati
     Ok(())
 }
 
+fn remember_terminal(app: &mut App, address: &str, name: &str) {
+    if app.terminals.iter().any(|terminal| terminal.address == address) {
+        return;
+    }
+    app.terminals.push(app::Terminal {
+        address: address.to_string(),
+        name: name.to_string(),
+        state: crate::tui::glyph::State::Unknown,
+        parent: None,
+        preview: Vec::new(),
+    });
+}
+
+fn select_current(app: &mut App) {
+    let Some(id) = app.model.active_tab().map(|tab| tab.id.clone()) else { return };
+    if let Some(index) = app.rows.iter().position(|row| row.id == id) {
+        app.cursor = index;
+    }
+}
+
+fn ensure_open_workspace(core: &std::sync::Arc<hc::Core>, app: &mut App) -> anyhow::Result<()> {
+    let live = |address: &str| app.terminals.iter().any(|terminal| terminal.address == address);
+    if app
+        .rows
+        .iter()
+        .any(|row| row.address.as_deref().is_some_and(live))
+    {
+        return Ok(());
+    }
+
+    // Drop spaces whose terminals the core has already removed, otherwise a
+    // stale tab would keep looking like a live choice in the panel.
+    let stale: Vec<String> = app
+        .model
+        .spaces
+        .iter()
+        .filter(|space| {
+            !space.tabs.iter().any(|tab| {
+                tab.root
+                    .terminals()
+                    .iter()
+                    .filter_map(|node| node.terminal())
+                    .any(live)
+            })
+        })
+        .map(|space| space.id.clone())
+        .collect();
+    for id in &stale {
+        app.model.remove_space(id);
+    }
+
+    let home = crate::mods::home().to_string_lossy().to_string();
+    let mutation = Mutation::new_space(
+        &mut app.model,
+        String::new(),
+        home.clone(),
+        "tab".to_string(),
+        String::new(),
+    );
+    let (space, tab) = match &mutation {
+        Mutation::NewSpace { id, tab_id, .. } => (id.clone(), tab_id.clone()),
+        _ => return Ok(()),
+    };
+    let address = workspace::launch(core, Some(&home), app.pane.0, app.pane.1, &space, &tab)?;
+    remember_terminal(app, &address, "tab");
+    let version = app.doc_version.unwrap_or(0);
+    let version = workspace::apply(
+        core,
+        &mut app.model,
+        version,
+        None,
+        |model| {
+            for id in &stale {
+                model.remove_space(id);
+            }
+            mutation.clone().with_address(address.clone()).apply(model);
+        },
+    )?;
+    app.doc_version = Some(version);
+    app.rebuild_rows();
+    app.cursor = 0;
+    Ok(())
+}
+
+fn ensure_live_selection(core: &std::sync::Arc<hc::Core>, app: &mut App) -> anyhow::Result<()> {
+    let Some(address) = app.selected().and_then(|row| row.address.clone()) else {
+        return ensure_open_workspace(core, app);
+    };
+    if app.terminals.iter().any(|terminal| terminal.address == address) {
+        return Ok(());
+    }
+    let live = app.rows.iter().position(|row| {
+        row.address
+            .as_deref()
+            .is_some_and(|address| app.terminals.iter().any(|terminal| terminal.address == address))
+    });
+    if let Some(index) = live {
+        app.cursor = index;
+        app.rebuild_rows();
+        return Ok(());
+    }
+    ensure_open_workspace(core, app)
+}
+
+fn close_and_fallback(
+    core: &std::sync::Arc<hc::Core>,
+    app: &mut App,
+    mutation: Mutation,
+) -> anyhow::Result<()> {
+    commit_close(core, app, mutation)?;
+    select_current(app);
+    ensure_open_workspace(core, app)
+}
+
 fn current_space(app: &App) -> Option<String> {
     app.model.active.clone()
 }
@@ -300,6 +432,7 @@ fn current_space(app: &App) -> Option<String> {
 fn execute_command(core: &std::sync::Arc<hc::Core>, app: &mut App, command: Command) -> anyhow::Result<()> {
     match command {
         Command::CloseTab | Command::CloseSpace => {
+            app.panel = true;
             let label = if command == Command::CloseTab { "Close tab?" } else { "Close space?" };
             app.prompt = Some(Prompt::ConfirmClose { label: label.to_string(), command });
             Ok(())
@@ -321,7 +454,7 @@ fn run_command(core: &std::sync::Arc<hc::Core>, app: &mut App, command: Command)
             let name = format!("space {}", app.model.spaces.len() + 1);
             let mutation = Mutation::new_space(
                 &mut app.model,
-                name,
+                name.clone(),
                 app.path.clone(),
                 "tab".to_string(),
                 String::new(),
@@ -331,6 +464,7 @@ fn run_command(core: &std::sync::Arc<hc::Core>, app: &mut App, command: Command)
                 _ => return Ok(()),
             };
             let address = workspace::launch(core, Some(&app.path), app.pane.0, app.pane.1, &space, &tab)?;
+            remember_terminal(app, &address, &name);
             commit(core, app, mutation.with_address(address))
         }
         Command::NewTab => {
@@ -352,27 +486,30 @@ fn run_command(core: &std::sync::Arc<hc::Core>, app: &mut App, command: Command)
                 _ => return Ok(()),
             };
             let address = workspace::launch(core, Some(&folder), app.pane.0, app.pane.1, &space, &tab)?;
+            remember_terminal(app, &address, "tab");
             commit(core, app, mutation.with_address(address))
         }
         Command::RenameSpace => {
             let Some(id) = current_space(app) else { return Ok(()) };
+            app.panel = true;
             let buffer = app.model.space(&id).map_or(String::new(), |space| space.name.clone());
             app.prompt = Some(Prompt::RenameSpace { id, buffer });
             Ok(())
         }
         Command::RenameTab => {
             let Some(tab) = app.model.active_tab().map(|tab| tab.id.clone()) else { return Ok(()) };
+            app.panel = true;
             let buffer = app.model.tab(&tab).map_or(String::new(), |tab| tab.name.clone());
             app.prompt = Some(Prompt::RenameTab { id: tab, buffer });
             Ok(())
         }
         Command::CloseTab => {
             let Some(tab) = app.model.active_tab().map(|tab| tab.id.clone()) else { return Ok(()) };
-            commit_close(core, app, Mutation::CloseTab { id: tab })
+            close_and_fallback(core, app, Mutation::CloseTab { id: tab })
         }
         Command::CloseSpace => {
             let Some(space) = current_space(app) else { return Ok(()) };
-            commit_close(core, app, Mutation::CloseSpace { id: space })
+            close_and_fallback(core, app, Mutation::CloseSpace { id: space })
         }
         Command::SelectNextSpace | Command::SelectPrevSpace => {
             let count = app.model.spaces.len();
@@ -713,10 +850,13 @@ fn refresh(core: &std::sync::Arc<hc::Core>, app: &mut App, preview: bool) -> any
     if preview
         && let Some(address) = app.selected().and_then(|row| row.address.clone())
     {
-        let read = core
-            .call("terminal.read", json!({ "terminal": address, "lines": app::PREVIEW_LINES }))
-            .context("terminal.read")?;
-        if let Some(text) = read.get("text").and_then(Value::as_str) {
+        // A terminal can disappear between `terminal.list` and this preview.
+        // That is a normal race, not a reason to leave the screen.
+        if let Ok(read) = core.call(
+            "terminal.read",
+            json!({ "terminal": address, "lines": app::PREVIEW_LINES }),
+        ) && let Some(text) = read.get("text").and_then(Value::as_str)
+        {
             app.set_preview(&address, text);
         }
     }
