@@ -60,7 +60,6 @@ pub fn action(key: KeyEvent) -> Action {
         | (KeyCode::Char('4'), KeyModifiers::CONTROL)
         | (KeyCode::Char('q'), KeyModifiers::CONTROL) => Action::Quit,
         (KeyCode::Char('o'), KeyModifiers::CONTROL) => Action::Prefix,
-        (KeyCode::Tab, _) => Action::TogglePanel,
         (KeyCode::Esc, _) => Action::ClosePanel,
         (KeyCode::Enter, _) => Action::Attach,
         (KeyCode::PageUp, _) => Action::ScrollUp,
@@ -87,8 +86,8 @@ mod tests {
     }
 
     #[test]
-    fn tab_opens_the_panel_and_escape_closes_it() {
-        assert_eq!(action(key(KeyCode::Tab)), Action::TogglePanel);
+    fn tab_belongs_to_the_agent_and_escape_closes_the_panel() {
+        assert_eq!(action(key(KeyCode::Tab)), Action::Ignore);
         assert_eq!(action(key(KeyCode::Esc)), Action::ClosePanel);
     }
 

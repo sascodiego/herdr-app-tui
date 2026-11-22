@@ -63,7 +63,7 @@ was built from, so you can confirm which code is running.
 
 | Key | What it does |
 |---|---|
-| `tab` | Open or close the panel |
+| `ctrl+o` then `o` | Open or close the panel; `tab` stays with the agent |
 | `j` `k` / arrows | Move the highlight; the highlighted tab attaches automatically |
 | `enter` | Attach to the highlighted tab and give it the keyboard |
 | `esc` | Close the panel; quit when nothing is attached |
@@ -84,8 +84,8 @@ Touch and pointer gestures work by zone:
 | Tap the terminal | Resume the live pane |
 
 `ctrl+o` is a reserved tmux-style prefix. It opens a floating binding panel and
-the next key runs the action: `c` new tab, `w` new space, `r` rename tab,
-`R` rename space, `x` close tab, `X` close space. `esc` cancels before the
+the next key runs the action: `o` toggle sidebar, `c` new tab, `w` new space,
+`r` rename tab, `R` rename space, `x` close tab, `X` close space. `esc` cancels before the
 action key. There is no typed command palette: `:` remains an ordinary character
 and reaches the agent. The same create, rename and close actions are tappable in
 the sidebar footer. Rename opens a pre-filled one-line prompt: Enter commits,

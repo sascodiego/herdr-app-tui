@@ -310,6 +310,13 @@ fn execute_command(core: &std::sync::Arc<hc::Core>, app: &mut App, command: Comm
 
 fn run_command(core: &std::sync::Arc<hc::Core>, app: &mut App, command: Command) -> anyhow::Result<()> {
     match command {
+        Command::TogglePanel => {
+            app.panel = !app.panel;
+            if app.panel {
+                app.exit_copy();
+            }
+            Ok(())
+        }
         Command::NewSpace => {
             let name = format!("space {}", app.model.spaces.len() + 1);
             let mutation = Mutation::new_space(
@@ -415,6 +422,7 @@ fn handle_prefix_key(core: &std::sync::Arc<hc::Core>, app: &mut App, key: KeyEve
     }
     app.prefix = false;
     let command = match (key.code, key.modifiers) {
+        (KeyCode::Char('o'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Command::TogglePanel),
         (KeyCode::Char('c'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Command::NewTab),
         (KeyCode::Char('w'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Command::NewSpace),
         (KeyCode::Char('r'), KeyModifiers::NONE) => Some(Command::RenameTab),

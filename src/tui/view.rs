@@ -169,7 +169,7 @@ pub fn agent_targets(app: &App) -> Vec<usize> {
 fn draw_prefix(frame: &mut Frame) {
     let screen = frame.area();
     let width = 34.min(screen.width.saturating_sub(2));
-    let height = 7.min(screen.height.saturating_sub(1));
+    let height = 8.min(screen.height.saturating_sub(1));
     if width == 0 || height == 0 {
         return;
     }
@@ -188,6 +188,7 @@ fn draw_prefix(frame: &mut Frame) {
         Line::from("c  new tab      w  new space"),
         Line::from("r  rename tab   R  rename space"),
         Line::from("x  close tab    X  close space"),
+        Line::from("o  toggle sidebar"),
         Line::from(Span::styled("esc cancels", Style::default().fg(theme::DIM))),
     ];
     let inner = Rect::new(area.x + 1, area.y + 1, area.width.saturating_sub(2), area.height.saturating_sub(2));

@@ -31,6 +31,7 @@ impl CoreCalls for std::sync::Arc<crate::hc::Core> {
 /// Commands available from the sidebar action row and the `:` palette.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Command {
+    TogglePanel,
     NewSpace,
     NewTab,
     RenameSpace,
