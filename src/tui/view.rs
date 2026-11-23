@@ -204,8 +204,23 @@ pub fn panel_row_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Option
         return None;
     }
     let local = y - inner.y;
-    let (_, rows, offset) = panel_view(app, inner.width, wide, inner.height);
+    let (_, rows, _, offset) = panel_view(app, inner.width, wide, inner.height);
     rows.get((local as usize).saturating_add(offset)).copied().flatten()
+}
+
+/// Which space row, if any, is drawn at this screen coordinate.
+pub fn panel_space_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Option<String> {
+    let inner = panel_inner(area);
+    if x < inner.x
+        || x >= inner.x.saturating_add(inner.width)
+        || y < inner.y
+        || y >= inner.y.saturating_add(inner.height)
+    {
+        return None;
+    }
+    let local = y - inner.y;
+    let (_, _, spaces, offset) = panel_view(app, inner.width, wide, inner.height);
+    spaces.get((local as usize).saturating_add(offset)).cloned().flatten()
 }
 
 /// The three-row phone band: workspace and tabs, path, agent totals, toggle.
@@ -305,24 +320,27 @@ fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
     if inner.width == 0 || inner.height == 0 {
         return;
     }
-    let (lines, _, offset) = panel_view(app, inner.width, wide, inner.height);
+    let (lines, _, _, offset) = panel_view(app, inner.width, wide, inner.height);
     let visible = lines.into_iter().skip(offset).take(inner.height as usize).collect::<Vec<_>>();
     frame.render_widget(Paragraph::new(visible).style(Style::default().fg(theme::TEXT)), inner);
 }
 
+/// Panel lines, tab targets, space targets and the scroll offset.
+type PanelView = (Vec<Line<'static>>, Vec<Option<usize>>, Vec<Option<String>>, usize);
+
 /// All panel lines plus the scroll offset that keeps the selected target visible.
-fn panel_view(app: &App, width: u16, wide: bool, height: u16) -> (Vec<Line<'static>>, Vec<Option<usize>>, usize) {
-    let (lines, rows) = panel_content(app, width, wide);
+fn panel_view(app: &App, width: u16, wide: bool, height: u16) -> PanelView {
+    let (lines, rows, spaces) = panel_content(app, width, wide);
     let height = height as usize;
     if height == 0 || lines.len() <= height {
-        return (lines, rows, 0);
+        return (lines, rows, spaces, 0);
     }
     let selected = rows.iter().position(|row| *row == Some(app.cursor)).unwrap_or(0);
     let keep = if wide { 1 } else { TAB_CELLS as usize };
     let room = height.saturating_sub(keep);
     let max = lines.len() - height;
     let offset = selected.saturating_sub(room).min(max);
-    (lines, rows, offset)
+    (lines, rows, spaces, offset)
 }
 
 /// Panel lines plus, for each line, the tab row it shows.
@@ -330,17 +348,26 @@ fn panel_view(app: &App, width: u16, wide: bool, height: u16) -> (Vec<Line<'stat
 struct PanelLines {
     lines: Vec<Line<'static>>,
     rows: Vec<Option<usize>>,
+    spaces: Vec<Option<String>>,
 }
 
 impl PanelLines {
     fn push(&mut self, line: Line<'static>) {
         self.lines.push(line);
         self.rows.push(None);
+        self.spaces.push(None);
+    }
+
+    fn push_space(&mut self, line: Line<'static>, id: String) {
+        self.lines.push(line);
+        self.rows.push(None);
+        self.spaces.push(Some(id));
     }
 
     fn push_row(&mut self, line: Line<'static>, index: usize) {
         self.lines.push(line);
         self.rows.push(Some(index));
+        self.spaces.push(None);
     }
 
     fn push_row_cells(&mut self, top: Line<'static>, detail: Line<'static>, index: usize) {
@@ -353,6 +380,7 @@ impl PanelLines {
     fn push_agent(&mut self, line: Line<'static>, index: Option<usize>) {
         self.lines.push(line);
         self.rows.push(index);
+        self.spaces.push(None);
     }
 }
 
@@ -416,7 +444,7 @@ fn draw_screen(screen: &ScreenState, area: Rect, frame: &mut Frame) {
 }
 
 /// The panel's rows, paired with the tab index each line belongs to.
-fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<Option<usize>>) {
+fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<Option<usize>>, Vec<Option<String>>) {
     let mut lines = PanelLines::default();
 
     if wide {
@@ -429,6 +457,14 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
             super::app::Prompt::ConfirmClose { label, .. } => format!("{label} [y/N]"),
         };
         lines.push(Line::from(Span::styled(fit(&text, width as usize), Style::default().fg(theme::ACCENT))));
+    }
+
+    let home = crate::mods::home().display().to_string();
+    lines.push(section(&format!("{} SPACES", glyph::EXPANDED), app.model.spaces.len(), width));
+    for space in &app.model.spaces {
+        let name = app.model.space_name(space, &home);
+        let active = app.model.active.as_deref() == Some(space.id.as_str());
+        lines.push_space(space_line(&name, space.tabs.len(), active, width), space.id.clone());
     }
 
     let rows = app.rows();
@@ -469,7 +505,7 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
     lines.push(Line::from(""));
     let actions = action_labels(wide).join("  ");
     lines.push(Line::from(Span::styled(actions, Style::default().fg(theme::DIM))));
-    (lines.lines, lines.rows)
+    (lines.lines, lines.rows, lines.spaces)
 }
 
 /// The four workspace actions rendered inside the sidebar's footer.
@@ -483,7 +519,7 @@ pub fn panel_action_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Opt
     if x < inner.x || x >= inner.x.saturating_add(inner.width) || y < inner.y || y >= inner.y.saturating_add(inner.height) {
         return None;
     }
-    let (lines, _, offset) = panel_view(app, inner.width, wide, inner.height);
+    let (lines, _, _, offset) = panel_view(app, inner.width, wide, inner.height);
     let local = (y - inner.y) as usize + offset;
     let labels = action_labels(wide);
     let joined = labels.join("  ");
@@ -528,6 +564,22 @@ fn header_line(app: &App, width: u16) -> Line<'static> {
 fn section(label: &str, count: usize, width: u16) -> Line<'static> {
     let text = two_columns(label, &count.to_string(), width);
     Line::from(Span::styled(text, Style::default().fg(theme::MUTED).add_modifier(Modifier::BOLD)))
+}
+
+/// One workspace: its name on the left, its tab count on the right.
+fn space_line(name: &str, tabs: usize, active: bool, width: u16) -> Line<'static> {
+    let left = format!("  {}", fit(name, width.saturating_sub(8) as usize));
+    let right = format!("{} {}", tabs, tab_word(tabs));
+    let used = left.chars().count() + right.chars().count();
+    let gap = " ".repeat((width as usize).saturating_sub(used));
+    let band = active.then_some(Style::default().bg(theme::SURFACE));
+    let label = band.unwrap_or_default().fg(theme::TEXT);
+    let label = if active { label.add_modifier(Modifier::BOLD) } else { label };
+    Line::from(vec![
+        Span::styled(left, label),
+        Span::styled(gap, band.unwrap_or_default()),
+        Span::styled(right, band.unwrap_or_default().fg(theme::MUTED)),
+    ])
 }
 
 fn row_line(row: &super::app::Row, selected: bool, width: u16) -> Line<'static> {
@@ -660,7 +712,7 @@ mod tests {
         let app = app(true);
         let panel = zones(Rect::new(0, 0, 40, 22), true).panel.expect("the phone sheet");
         let inner = panel_inner(panel);
-        let (_, rows) = panel_content(&app, inner.width, false);
+        let (_, rows, _) = panel_content(&app, inner.width, false);
         let line = rows.iter().position(|row| *row == Some(0)).expect("first tab row");
         let x = inner.x + 2;
         let y = inner.y + line as u16;
@@ -792,7 +844,7 @@ mod tests {
             panel.width.saturating_sub(2 * GUTTER),
             panel.height.saturating_sub(2 * GUTTER),
         );
-        let (_, lines) = panel_content(&app, inner.width, false);
+        let (_, lines, _) = panel_content(&app, inner.width, false);
         let first = lines.iter().position(|line| *line == Some(0)).expect("the first tab");
         assert_eq!(lines[first], lines[first + 1], "both cells belong to one target");
         let y = inner.y + first as u16;
@@ -865,6 +917,46 @@ mod tests {
     }
 
     #[test]
+    fn the_sidebar_lists_spaces_then_tabs_then_global_agents() {
+        let mut app = App::new("default", "local");
+        app.set_workspace(&json!({
+            "version": 7,
+            "value": { "spaces": [
+                { "id": "s1", "name": "alpha", "folder": "", "tabs": [
+                    { "id": "tb1", "name": "one", "root": { "id": "tb1", "type": "row", "children": [] } }
+                ] },
+                { "id": "s2", "name": "beta", "folder": "", "tabs": [
+                    { "id": "tb2", "name": "two", "root": { "id": "tb2", "type": "row", "children": [] } },
+                    { "id": "tb3", "name": "three", "root": { "id": "tb3", "type": "row", "children": [] } }
+                ] }
+            ] }
+        }));
+        app.set_terminals(&json!({
+            "hidden_finished": 0, "machines": [],
+            "terminals": [{ "address": "t9", "name": "pi", "status": { "state": "working" } }]
+        }));
+        app.toggle_panel();
+        let rows = screen(&app, 40, 24);
+        let spaces = rows.iter().position(|row| row.contains("▾ SPACES")).expect("the spaces section");
+        let tabs = rows.iter().position(|row| row.contains("▾ TABS")).expect("the tabs section");
+        let agents = rows.iter().position(|row| row.contains("▾ AGENTS")).expect("the agents section");
+        assert!(spaces < tabs && tabs < agents, "SPACES, TABS, AGENTS in that order: {rows:?}");
+        let section = &rows[spaces + 1..tabs];
+        assert!(section.iter().any(|row| row.contains("alpha") && row.contains("1 tab")), "{section:?}");
+        assert!(section.iter().any(|row| row.contains("beta") && row.contains("2 tabs")), "{section:?}");
+        let tab_section = &rows[tabs + 1..agents];
+        assert!(tab_section.iter().any(|row| row.contains("one")));
+        assert!(!tab_section.iter().any(|row| row.contains("two")), "only the active space's tabs");
+
+        let panel = zones(Rect::new(0, 0, 40, 24), true).panel.expect("the phone sheet");
+        let inner = panel_inner(panel);
+        let (_, _, targets, offset) = panel_view(&app, inner.width, false, inner.height);
+        let beta = targets.iter().position(|target| target.as_deref() == Some("s2")).expect("the beta row");
+        let y = inner.y + (beta - offset) as u16;
+        assert_eq!(panel_space_at(&app, panel, inner.x + 2, y, false), Some("s2".to_string()));
+    }
+
+    #[test]
     fn one_tab_is_singular_in_the_band() {
         let mut app = app(false);
         app.cursor = 0;
@@ -892,7 +984,7 @@ mod tests {
         let app = app(true);
         let panel = zones(Rect::new(0, 0, 40, 20), true).panel.expect("the phone sheet");
         let inner = panel_inner(panel);
-        let (lines, _, _) = panel_view(&app, inner.width, false, inner.height);
+        let (lines, _, _, _) = panel_view(&app, inner.width, false, inner.height);
         let row = lines.iter().position(|line| rendered(line) == "new space  new tab  rename  close").expect("the action row");
         let y = inner.y + row as u16;
         assert_eq!(panel_action_at(&app, panel, inner.x, y, false), Some(Command::NewSpace));

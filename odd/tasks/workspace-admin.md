@@ -21,6 +21,8 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 
 **S7** — Verification: RED test per rule before GREEN; one differential check for any shared helper; PTY smoke using an isolated core; full suite and clippy clean. Do not claim a visual or CI check that did not happen.
 
+**S9** — Sidebar organization, verbatim: "Bien, ahora no aparecn los spaces/sgents/tabs bien organizados en el sidebar, los spaces no aparecen directamente, es decir los workspaces que sera cada grupo de tabs. Solo aparecen tabs y agentes a veces". The sidebar shows a `SPACES` section with every space and its tab count; `TABS` keeps listing only the active space; `AGENTS` remains global and keeps OSC 7501 detection. Tapping a space row selects it in memory only: the core document has no `active` field, so this selection must not be written through `doc.set` or stored in a new file.
+
 **S8** — Agent list, verbatim: "Ahora veo un agent idle en la lista oero yo no tengo ningun agente activo… Creo que nuestra app esta consumiendo los recursos". A plain shell is not an agent, even when the core reports it live. The AGENTS section, its rollup counts and Alt+Up/Down navigation list only terminals with a real OSC 7501 status report, matching herdr-app's published agent list (`window.rs:1957-1964`: `let Some(status) = m.status(addr) else { continue }`; `model.rs:596-605`: no status word means not an agent).
 
 ## Tasks
@@ -35,6 +37,7 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 | T6 | S7 | parent | done | PTY smoke, README, 211+2 tests and clippy clean; see L12 |
 | T7 | all | parent | done | `bd7165c`, `f7933d1`, `3e296f3`, `2da7b69`, `f8682d5` plus closing commit; see L12 |
 | T8 | S8,S7 | parent | done | `0902d55`; RED missing `is_agent`/`agents`; GREEN agent-only list, counts and navigation; 214+2 tests, clippy clean, PTY smoke; see L20 |
+| T9 | S9,S3,S7 | parent | done | RED missing `SPACES` section and `panel_space_at`; GREEN rendered spaces, in-memory active selection, global agents unchanged; 216+2 tests, clippy clean, PTY smoke, independent review; see L25 |
 
 ## Log
 
@@ -45,6 +48,14 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 **L3 — 2026-11-21** — "La idea es siempre que hagamos uso seguro del core asi como lo haria herdr app delegando las responsabilidades al core, nosotros le pedimos todo al cire no hacenks nada ditecto. ante la duda vemis como es el comportamiento de herdr app oficial"
 
 **L4 — 2026-11-21** — "sellado"
+
+**L25 — 2026-11-23** — T9 done. `panel_content` now emits `SPACES` before `TABS`, one row per space with a singular/plural tab count; the active row uses the surface band and bold label. `panel_space_at` hit-tests those rows and `select_space` changes `model.active` in memory only, then rebuilds tabs. No `doc.set` and no new persistence file. RED was the missing section/hit-test; GREEN after implementation. 216 + 2 tests passed, 1 ignored, 0 failed; clippy clean. PTY smoke with isolated core `tui-spaces`: before any document, `▾ SPACES 0`; after creating one space, `▾ SPACES 1` with `space 1  1 tab`; after a second, `▾ SPACES 2` with `space 1` and `space 2`. Independent gentle-ai-verify found no defects. The core and tmux session were stopped.
+
+**L24 — 2026-11-23** — Material deviation and reseal. The first sealed plan said a tapped space would be written through `doc.get`/`doc.set` CAS. Evidence contradicted it: `src/mirror.rs:14-17` and herdr-app `src/mirror.rs:10-13` define a document with only `spaces`; the active space lives in `View` and herdr-app persists it to a local `view.json` (`src/window.rs:1201-1211`), not to the core document. User accepted the recommended option, verbatim: "ok aceoto la sugerencia reconendada", then sealed with "sellado". Space selection is in-memory only; no schema change and no new persistence file. T9's CAS expectation is replaced.
+
+**L23 — 2026-11-23** — Seal: user chose "1. ok esta bien la recomendacion" and "2. Global", then "si sellado". Scope: `SPACES` with all spaces and tab counts, `TABS` of the active space, global `AGENTS`, tap-to-select through CAS; no change to core CRUD or agent detection.
+
+**L22 — 2026-11-23** — User correction, verbatim: "Bien, ahora no aparecn los spaces/sgents/tabs bien organizados en el sidebar, los spaces no aparecen directamente, es decir los workspaces que sera cada grupo de tabs. Solo aparecen tabs y agentes a veces". Opened T9 under S9 after confirming the design in `design/system.md:101-107` and artboard 01 already require a `SPACES` section.
 
 **L21 — 2026-11-23** — Work-unit slice boundary: `0902d55` holds T8 (88 inserted, 12 deleted) and brings `workspace-admin` to 1291 authored changed lines in 12 commits since `main`. Independent gentle-ai-verify review found no defects: `App::agents()`, `counts()`, `panel_content()` and `agent_targets()` all use the status-report signal, plain shells stay idle tabs, 214+2 tests pass and clippy is clean. Delivery strategy remains `ask-on-risk`; publishing is a user decision.
 

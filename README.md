@@ -118,8 +118,11 @@ sent to the program inside the terminal.
 On a phone the top band has three rows: workspace and tab count, current path,
 and the agent total grouped by state. A fixed-width toggle block spans all
 three rows on the right. The band also names the pane state: `preview`,
-`attached` or `scrolled`. The sidebar has a one-cell gutter on every side, and
-the `AGENTS` section is a navigable list ordered by who needs attention.
+`attached` or `scrolled`. The sidebar has a one-cell gutter on every side. It
+starts with `SPACES`, one row per workspace with its tab count; tapping a row
+selects that space in memory, like herdr's local view state. `TABS` then lists
+the active space, and `AGENTS` stays a global navigable list ordered by who
+needs attention.
 
 The panel lists the tabs of the active space in the shared `herdr-app`
 document — the same data the desktop app reads — and uses `terminal.list` only

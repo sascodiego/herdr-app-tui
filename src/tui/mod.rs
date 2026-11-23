@@ -299,6 +299,16 @@ fn commit(core: &std::sync::Arc<hc::Core>, app: &mut App, mutation: Mutation) ->
     Ok(())
 }
 
+/// Select a space from the sidebar. The shared document has no `active`
+/// field, so this choice stays in this screen's model, like herdr's view state.
+fn select_space(app: &mut App, id: &str) {
+    if app.model.active.as_deref() == Some(id) {
+        return;
+    }
+    Mutation::SelectSpace { id: id.to_string() }.apply(&mut app.model);
+    app.rebuild_rows();
+}
+
 fn commit_close(core: &std::sync::Arc<hc::Core>, app: &mut App, mutation: Mutation) -> anyhow::Result<()> {
     let doomed = mutation.apply(&mut app.model);
     workspace::kill_tree(core, &doomed)?;
@@ -726,6 +736,10 @@ fn handle_pointer(
                         app.panel = !app.panel;
                     }
                     Some(Zone::Panel) => {
+                        if let Some(space) = z.panel.and_then(|p| view::panel_space_at(app, p, x, y, z.wide)) {
+                            select_space(app, &space);
+                            return Ok(());
+                        }
                         if let Some(index) = z.panel.and_then(|p| view::panel_row_at(app, p, x, y, z.wide)) {
                             app.cursor = index;
                             if !z.wide {
@@ -947,6 +961,32 @@ mod tests {
             .replace("\x1b[?1003h", "\x1b[?1002h")
             .replace("\x1b[?1003l", "\x1b[?1002l");
         assert_eq!(rewritten, original, "a wrapper must be a no-op");
+    }
+
+    #[test]
+    fn selecting_a_space_is_local_and_rebuilds_the_tabs() {
+        let mut app = App::new("default", "local");
+        app.set_workspace(&json!({
+            "version": 7,
+            "value": { "spaces": [
+                { "id": "s1", "name": "alpha", "folder": "", "tabs": [
+                    { "id": "tb1", "name": "one", "root": { "id": "tb1", "type": "row", "children": [] } }
+                ] },
+                { "id": "s2", "name": "beta", "folder": "", "tabs": [
+                    { "id": "tb2", "name": "two", "root": { "id": "tb2", "type": "row", "children": [] } },
+                    { "id": "tb3", "name": "three", "root": { "id": "tb3", "type": "row", "children": [] } }
+                ] }
+            ] }
+        }));
+        assert_eq!(app.doc_version, Some(7));
+        assert_eq!(app.model.active.as_deref(), Some("s1"));
+
+        select_space(&mut app, "s2");
+
+        assert_eq!(app.model.active.as_deref(), Some("s2"));
+        assert_eq!(app.doc_version, Some(7), "no core write for a view choice");
+        let tabs: Vec<&str> = app.rows.iter().map(|row| row.name.as_str()).collect();
+        assert_eq!(tabs, ["two", "three"]);
     }
 
     #[test]
