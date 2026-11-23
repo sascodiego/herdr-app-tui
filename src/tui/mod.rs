@@ -319,6 +319,7 @@ fn remember_terminal(app: &mut App, address: &str, name: &str) {
         address: address.to_string(),
         name: name.to_string(),
         state: crate::tui::glyph::State::Unknown,
+        is_agent: false,
         parent: None,
         preview: Vec::new(),
     });

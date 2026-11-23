@@ -96,7 +96,9 @@ Spaces and tabs are written to the shared `herdr-app` document through
 replays the change once. Terminals are created with `terminal.run` and closed
 with `terminal.kill` through the core, including their child tree while sparing
 kept sub-agents. Agents themselves are detected by herdr-core and are not
-managed here. Terminals are never removed directly by the TUI.
+managed here: only terminals with an OSC 7501 status report appear in `AGENTS`
+or its totals. A plain shell is still shown as a tab, but it is not an agent.
+Terminals are never removed directly by the TUI.
 
 Copy mode scrolls libghostty's own scrollback, so colors, bold and background
 attributes are preserved; no plain-text dump is used.

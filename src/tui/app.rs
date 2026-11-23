@@ -17,6 +17,8 @@ pub struct Terminal {
     pub address: String,
     pub name: String,
     pub state: State,
+    /// Whether the program reported a 7501 status word: herdr's agent signal.
+    pub is_agent: bool,
     /// The terminal that started it, when there is one: it nests under that row.
     pub parent: Option<String>,
     /// The tail of its output, for the preview under the list.
@@ -29,13 +31,16 @@ impl Terminal {
         let text = |key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
         let address = text("address").or_else(|| text("id")).unwrap_or_else(|| "?".to_string());
         let name = text("name").unwrap_or_else(|| address.clone());
-        let word = value
-            .get("status")
-            .and_then(|status| status.get("state"))
-            .or_else(|| value.get("state"))
-            .and_then(Value::as_str);
+        let report_word = value.get("status").and_then(|status| {
+            status
+                .get("state")
+                .and_then(Value::as_str)
+                .or_else(|| status.as_str())
+        });
+        let word = report_word.or_else(|| value.get("state").and_then(Value::as_str));
         Terminal {
             state: State::from_word(word),
+            is_agent: report_word.is_some(),
             parent: text("parent"),
             preview: Vec::new(),
             address,
@@ -331,9 +336,23 @@ impl App {
         }
     }
 
+    /// The detected agents, ordered by attention. A plain shell has a tab state
+    /// but no status report, so it is not an agent.
+    pub fn agents(&self) -> Vec<&Terminal> {
+        let mut agents: Vec<&Terminal> = self.terminals.iter().filter(|terminal| terminal.is_agent).collect();
+        agents.sort_by(|a, b| {
+            a.state
+                .priority()
+                .cmp(&b.state.priority())
+                .then_with(|| a.name.cmp(&b.name))
+        });
+        agents
+    }
+
     /// `(working, needs you, idle)` for the agents rollup.
     pub fn counts(&self) -> (usize, usize, usize) {
-        let count = |state: State| self.terminals.iter().filter(|terminal| terminal.state == state).count();
+        let agents = self.agents();
+        let count = |state: State| agents.iter().filter(|agent| agent.state == state).count();
         (count(State::Working), count(State::NeedsYou) + count(State::Failed), count(State::Idle))
     }
 
@@ -426,6 +445,21 @@ mod tests {
     #[test]
     fn the_rollup_counts_working_needs_you_and_idle() {
         assert_eq!(app().counts(), (1, 1, 2), "t3 working, t2 blocked, t1 and t4 idle");
+    }
+
+    #[test]
+    fn a_plain_shell_is_not_an_agent() {
+        let mut app = App::new("default", "local");
+        app.set_terminals(&list(json!([
+            { "address": "t1", "name": "bash", "state": "live" },
+            { "address": "t2", "name": "pi", "status": { "state": "idle" } }
+        ])));
+        assert_eq!(app.terminals[0].state, State::Idle, "the shell still has a tab state");
+        assert!(!app.terminals[0].is_agent, "a shell without a status report is not an agent");
+        assert!(app.terminals[1].is_agent, "a status word is herdr's agent signal");
+        let agents: Vec<&str> = app.agents().iter().map(|agent| agent.address.as_str()).collect();
+        assert_eq!(agents, ["t2"]);
+        assert_eq!(app.counts(), (0, 0, 1), "the shell's idle tab is not an agent rollup");
     }
 
     #[test]

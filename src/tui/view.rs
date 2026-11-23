@@ -152,9 +152,7 @@ pub fn render(app: &App, frame: &mut Frame) {
 
 /// Tab indices reachable from the detected agent list, in attention order.
 pub fn agent_targets(app: &App) -> Vec<usize> {
-    let mut agents: Vec<&super::app::Terminal> = app.terminals.iter().collect();
-    agents.sort_by_key(|agent| (agent.state.priority(), agent.name.clone()));
-    agents
+    app.agents()
         .iter()
         .filter_map(|agent| {
             app.rows.iter().position(|row| {
@@ -449,8 +447,7 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
         }
     }
 
-    let mut agents: Vec<&super::app::Terminal> = app.terminals.iter().collect();
-    agents.sort_by_key(|agent| (agent.state.priority(), agent.name.clone()));
+    let agents = app.agents();
     if !agents.is_empty() {
         lines.push(section(&format!("{} AGENTS", glyph::EXPANDED), agents.len(), width));
         for agent in agents {
@@ -834,6 +831,37 @@ mod tests {
         assert!(section.iter().any(|row| row.contains("pi 2") && row.contains("needs you")), "{section:?}");
         assert!(section.iter().any(|row| row.contains("pi 3") && row.contains("working")), "{section:?}");
         assert!(!section.iter().any(|row| row.trim() == "◐ working 1"), "no statistic row: {section:?}");
+    }
+
+    #[test]
+    fn a_plain_shell_does_not_appear_as_an_agent() {
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({
+            "hidden_finished": 0,
+            "machines": [],
+            "terminals": [
+                { "address": "t1", "name": "bash", "state": "live" },
+                { "address": "t2", "name": "pi", "status": { "state": "working" } }
+            ]
+        }));
+        app.toggle_panel();
+        let rows = screen(&app, 40, 20);
+        let start = rows.iter().position(|row| row.contains("▾ AGENTS")).expect("the agents section");
+        let section = &rows[start + 1..];
+        assert!(!section.iter().any(|row| row.contains("bash")), "no plain shell: {section:?}");
+        assert!(section.iter().any(|row| row.contains("pi") && row.contains("working")), "the real agent stays: {section:?}");
+        let targets = agent_targets(&app);
+        assert_eq!(targets, vec![0], "Alt+Up/Down skips the shell");
+        assert_eq!(app.rows()[targets[0]].address.as_deref(), Some("t2"));
+
+        let mut shell_only = App::new("default", "local");
+        shell_only.set_terminals(&json!({
+            "hidden_finished": 0, "machines": [],
+            "terminals": [{ "address": "t1", "name": "bash", "state": "live" }]
+        }));
+        shell_only.toggle_panel();
+        let rows = screen(&shell_only, 40, 20);
+        assert!(!rows.iter().any(|row| row.contains("▾ AGENTS")), "no phantom section: {rows:?}");
     }
 
     #[test]
