@@ -34,7 +34,7 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 | T5 | S1,S3 | parent | done | GREEN by PTY smoke: new tab, close tab and rename; see L11 |
 | T6 | S7 | parent | done | PTY smoke, README, 211+2 tests and clippy clean; see L12 |
 | T7 | all | parent | done | `bd7165c`, `f7933d1`, `3e296f3`, `2da7b69`, `f8682d5` plus closing commit; see L12 |
-| T8 | S8,S7 | parent | done | `8997ad0`; RED missing `is_agent`/`agents`; GREEN agent-only list, counts and navigation; 214+2 tests, clippy clean, PTY smoke; see L20 |
+| T8 | S8,S7 | parent | done | `0902d55`; RED missing `is_agent`/`agents`; GREEN agent-only list, counts and navigation; 214+2 tests, clippy clean, PTY smoke; see L20 |
 
 ## Log
 
@@ -46,7 +46,7 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 
 **L4 — 2026-11-21** — "sellado"
 
-**L21 — 2026-11-23** — Work-unit slice boundary: `8997ad0` holds T8 (86 inserted, 12 deleted) and brings `workspace-admin` to 1289 authored changed lines in 12 commits since `main`. Independent gentle-ai-verify review found no defects: `App::agents()`, `counts()`, `panel_content()` and `agent_targets()` all use the status-report signal, plain shells stay idle tabs, 214+2 tests pass and clippy is clean. Delivery strategy remains `ask-on-risk`; publishing is a user decision.
+**L21 — 2026-11-23** — Work-unit slice boundary: `0902d55` holds T8 (88 inserted, 12 deleted) and brings `workspace-admin` to 1291 authored changed lines in 12 commits since `main`. Independent gentle-ai-verify review found no defects: `App::agents()`, `counts()`, `panel_content()` and `agent_targets()` all use the status-report signal, plain shells stay idle tabs, 214+2 tests pass and clippy is clean. Delivery strategy remains `ask-on-risk`; publishing is a user decision.
 
 **L20 — 2026-11-23** — T8 done. `Terminal::from_value` now keeps the reported status word separate from the lifecycle state: `state: "live"` still renders a shell tab as `○ idle`, but only a status report (`status.state` or a normalized string) sets `is_agent`. `App::agents()` drives `counts`, `panel_view` and `agent_targets`, so the phone band, the sidebar section and Alt+Up/Down agree. RED was the missing field/method; GREEN after implementation. PTY smoke with isolated core `tui-agents2`: one plain shell showed `1 tab`, `○ idle 0 · ◐ work 0 · ▲ needs 0` and no AGENTS section; after starting a fake agent with `state=working:app=pi`, the panel showed `▾ AGENTS 1`, `◐ fakeagent · working`, and the band showed `◐ work 1`. 214 + 2 tests passed, 1 ignored, 0 failed; clippy clean. README updated.
 
