@@ -37,7 +37,7 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 | T6 | S7 | parent | done | PTY smoke, README, 211+2 tests and clippy clean; see L12 |
 | T7 | all | parent | done | `bd7165c`, `f7933d1`, `3e296f3`, `2da7b69`, `f8682d5` plus closing commit; see L12 |
 | T8 | S8,S7 | parent | done | `0902d55`; RED missing `is_agent`/`agents`; GREEN agent-only list, counts and navigation; 214+2 tests, clippy clean, PTY smoke; see L20 |
-| T9 | S9,S3,S7 | parent | done | RED missing `SPACES` section and `panel_space_at`; GREEN rendered spaces, in-memory active selection, global agents unchanged; 216+2 tests, clippy clean, PTY smoke, independent review; see L25 |
+| T9 | S9,S3,S7 | parent | done | `01d7151`; RED missing `SPACES` section and `panel_space_at`; GREEN rendered spaces, in-memory active selection, global agents unchanged; 216+2 tests, clippy clean, PTY smoke, independent review; see L25 |
 
 ## Log
 
@@ -48,6 +48,8 @@ No direct signals, filesystem writes or terminal manipulation. Only `hc` RPC cal
 **L3 — 2026-11-21** — "La idea es siempre que hagamos uso seguro del core asi como lo haria herdr app delegando las responsabilidades al core, nosotros le pedimos todo al cire no hacenks nada ditecto. ante la duda vemis como es el comportamiento de herdr app oficial"
 
 **L4 — 2026-11-21** — "sellado"
+
+**L26 — 2026-11-23** — Work-unit slice boundary: `01d7151` holds T9 (160 inserted, 14 deleted) and brings `workspace-admin` to 1461 authored changed lines in 14 commits since `main`. Delivery strategy remains `ask-on-risk`; publishing is a user decision.
 
 **L25 — 2026-11-23** — T9 done. `panel_content` now emits `SPACES` before `TABS`, one row per space with a singular/plural tab count; the active row uses the surface band and bold label. `panel_space_at` hit-tests those rows and `select_space` changes `model.active` in memory only, then rebuilds tabs. No `doc.set` and no new persistence file. RED was the missing section/hit-test; GREEN after implementation. 216 + 2 tests passed, 1 ignored, 0 failed; clippy clean. PTY smoke with isolated core `tui-spaces`: before any document, `▾ SPACES 0`; after creating one space, `▾ SPACES 1` with `space 1  1 tab`; after a second, `▾ SPACES 2` with `space 1` and `space 2`. Independent gentle-ai-verify found no defects. The core and tmux session were stopped.
 
