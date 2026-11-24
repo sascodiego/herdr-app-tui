@@ -681,17 +681,20 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
     // Agents lead: they stay visible while the other two sections scroll.
     blocks.push(section_block("01", "AGENTS", app.agents().len(), width));
     for agent in app.agents() {
-        let target = app.rows.iter().position(|row| {
-            row.address.as_deref() == Some(agent.address.as_str())
-                || row.address.as_deref() == agent.parent.as_deref()
-        });
+        let is_selected = |row: &super::app::Row| {
+            row.address.as_deref().is_some_and(|address| {
+                address == agent.address.as_str() || agent.parent.as_deref() == Some(address)
+            })
+        };
+        let target = app.rows.iter().position(is_selected);
+        let active = app.selected().is_some_and(is_selected);
         spaced_item(&mut blocks, PanelBlock::item(
-            agent_line(agent, width),
+            agent_line(agent, width, active),
             agent_detail(app, agent, width),
             target,
             None,
             Some(agent.address.clone()),
-            false,
+            active,
         ));
     }
 
@@ -930,11 +933,13 @@ fn fit_path(path: &str, width: usize) -> String {
 
 /// One detected agent's name row: state glyph in its colour, then the name
 /// in TEXT. The word is on the detail row, so state is never colour alone.
-fn agent_line(agent: &super::app::Terminal, width: u16) -> Line<'static> {
+fn agent_line(agent: &super::app::Terminal, width: u16, active: bool) -> Line<'static> {
+    let name = Style::default().fg(theme::TEXT);
+    let name = if active { name.add_modifier(Modifier::BOLD) } else { name };
     Line::from(vec![
         Span::styled(agent.state.glyph().to_string(), Style::default().fg(agent.state.color())),
         Span::raw(" "),
-        Span::styled(fit(&agent.name, width.saturating_sub(2) as usize), Style::default().fg(theme::TEXT)),
+        Span::styled(fit(&agent.name, width.saturating_sub(2) as usize), name),
     ])
 }
 
@@ -1627,7 +1632,7 @@ mod tests {
             .enumerate()
             .filter_map(|(line, band)| matches!(band, Band::Item { selected: true }).then_some(line))
             .collect();
-        assert_eq!(selected.len(), 2, "one two-row item is selected: {selected:?}");
+        assert_eq!(selected.len(), 4, "the selected agent and tab each own two rows: {selected:?}");
         for line in selected {
             assert_eq!(view.rows[line], Some(0), "the selected item is the current tab");
             let y = (inner.y + line as u16) as usize;
@@ -1938,6 +1943,24 @@ mod tests {
         assert_eq!(app.model.active.as_deref(), Some("s2"), "its space becomes active");
         assert_eq!(app.selected().map(|row| row.name.as_str()), Some("beta-tab"), "its tab becomes selected");
         assert!(!app.activate_agent("missing"), "an unknown address is not activated");
+    }
+
+    #[test]
+    fn the_selected_agent_uses_the_active_band_and_a_bold_name() {
+        let app = app(true);
+        let agent_name = app.selected().expect("a selected tab").name.clone();
+        let flat = flatten(&panel_blocks(&app, 38, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let selected = texts.iter().position(|line| line.contains(&agent_name)).expect("the selected tab's agent");
+        let other = texts.iter().position(|line| line.contains("pi 3") && !line.contains(&agent_name)).expect("another agent");
+        assert!(matches!(flat.bands[selected], Band::Item { selected: true }), "the active agent is highlighted: {texts:?}");
+        assert!(matches!(flat.bands[other], Band::Item { selected: false }), "the rest stay plain: {texts:?}");
+        let name = flat.lines[selected]
+            .spans
+            .iter()
+            .find(|span| span.content.as_ref().contains(agent_name.as_str()))
+            .unwrap_or_else(|| panic!("the agent name: {:?}", flat.lines[selected]));
+        assert!(name.style.add_modifier.contains(Modifier::BOLD), "the active name is bold");
     }
 
     #[test]

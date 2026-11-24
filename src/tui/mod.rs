@@ -179,7 +179,7 @@ fn event_loop(
                 }
                 Event::Mouse(mouse) => {
                     handle_pointer(
-                        app, terminal, mouse, &mut attached, &mut pointer_down, &mut drag_anchor,
+                        core, app, terminal, mouse, &mut attached, &mut pointer_down, &mut drag_anchor,
                     )?;
                 }
                 _ => {}
@@ -712,6 +712,7 @@ fn move_panel_block(app: &mut App, down: bool) {
 /// Route a touch or pointer event by zone. A tap keeps its old meaning: open
 /// the sheet, select a row, or resume the live pane. Movement becomes scroll.
 fn handle_pointer(
+    core: &std::sync::Arc<hc::Core>,
     app: &mut App,
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     mouse: MouseEvent,
@@ -775,7 +776,16 @@ fn handle_pointer(
             let up = gesture == input::Pointer::ScrollUp;
             match zone {
                 Some(Zone::Panel) => move_panel_block(app, !up),
-                Some(Zone::Terminal) => scroll_history(app, attached, up),
+                Some(Zone::Terminal) => {
+                    // A program that tracks the mouse owns the wheel: forward the
+                    // notch instead of stealing it for herdr's copy mode.
+                    let forwarded = attached.as_mut().is_some_and(|session| {
+                        session.wheel(core, up, x.saturating_sub(z.terminal.x), y.saturating_sub(z.terminal.y))
+                    });
+                    if !forwarded {
+                        scroll_history(app, attached, up);
+                    }
+                }
                 None | Some(Zone::Header) => {}
             }
         }
