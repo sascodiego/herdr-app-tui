@@ -79,8 +79,6 @@ pub const BAND_ROWS: u16 = 3;
 pub const TOGGLE_COLS: u16 = 8;
 /// Minimum gutter around sidebar content, in cells.
 pub const GUTTER: u16 = 1;
-/// Cells a phone tab target occupies: label plus detail.
-const TAB_CELLS: u16 = 2;
 
 /// Where a pointer can land. The same zones drive the render and the input
 /// routing, so a tap always hits what the screen shows.
@@ -204,7 +202,9 @@ pub fn panel_row_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Option
         return None;
     }
     let local = y - inner.y;
-    let (_, rows, _, offset) = panel_view(app, inner.width, wide, inner.height);
+    let view = panel_view(app, inner.width, wide, inner.height);
+    let rows = &view.rows;
+    let offset = view.offset;
     rows.get((local as usize).saturating_add(offset)).copied().flatten()
 }
 
@@ -219,7 +219,9 @@ pub fn panel_space_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Opti
         return None;
     }
     let local = y - inner.y;
-    let (_, _, spaces, offset) = panel_view(app, inner.width, wide, inner.height);
+    let view = panel_view(app, inner.width, wide, inner.height);
+    let spaces = &view.spaces;
+    let offset = view.offset;
     spaces.get((local as usize).saturating_add(offset)).cloned().flatten()
 }
 
@@ -313,75 +315,244 @@ fn draw_rule(area: Rect, frame: &mut Frame) {
     frame.render_widget(rule, area);
 }
 
-/// The panel: counted sections, the selected row banded, actions at the foot.
+/// The background band painted under one panel line. Chrome sits on BG;
+/// an item block paints PANEL, or SURFACE when it is the current item.
+/// A child block leaves its two-cell nesting step on BG: the step is empty
+/// canvas, never a drawn connector.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Band {
+    None,
+    Item { selected: bool, child: bool },
+}
+
+impl Band {
+    fn color(self) -> Option<ratatui::style::Color> {
+        match self {
+            Band::None => None,
+            Band::Item { selected: true, .. } => Some(theme::SURFACE),
+            Band::Item { selected: false, .. } => Some(theme::PANEL),
+        }
+    }
+
+    fn step(self) -> u16 {
+        match self {
+            Band::Item { child: true, .. } => 2,
+            Band::None | Band::Item { child: false, .. } => 0,
+        }
+    }
+}
+
+/// One renderable unit. Item blocks own two lines and are the only clip and
+/// scroll unit; chrome owns one line and is never clipped on its own.
+#[derive(Clone)]
+struct PanelBlock {
+    lines: Vec<Line<'static>>,
+    rows: Vec<Option<usize>>,
+    spaces: Vec<Option<String>>,
+    bands: Vec<Band>,
+    item: bool,
+}
+
+impl PanelBlock {
+    fn chrome(line: Line<'static>) -> PanelBlock {
+        PanelBlock {
+            lines: vec![line],
+            rows: vec![None],
+            spaces: vec![None],
+            bands: vec![Band::None],
+            item: false,
+        }
+    }
+
+    fn item(
+        top: Line<'static>,
+        detail: Line<'static>,
+        row: Option<usize>,
+        space: Option<String>,
+        selected: bool,
+        child: bool,
+    ) -> PanelBlock {
+        let band = Band::Item { selected, child };
+        PanelBlock {
+            lines: vec![top, detail],
+            rows: vec![row, row],
+            spaces: vec![space.clone(), space],
+            bands: vec![band, band],
+            item: true,
+        }
+    }
+}
+
+/// The panel: counted sections, item blocks and actions at the foot.
 fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
-    frame.buffer_mut().set_style(area, Style::default().bg(theme::PANEL));
+    // BG is the canvas: only item bands cover it, so a gap between blocks is
+    // visible without drawing a box or a connector.
+    frame.buffer_mut().set_style(area, Style::default().bg(theme::BG));
     let inner = panel_inner(area);
     if inner.width == 0 || inner.height == 0 {
         return;
     }
-    let (lines, _, _, offset) = panel_view(app, inner.width, wide, inner.height);
-    let visible = lines.into_iter().skip(offset).take(inner.height as usize).collect::<Vec<_>>();
+    let view = panel_view(app, inner.width, wide, inner.height);
+    let take = view.len.min(inner.height as usize);
+    let visible = view.lines.iter().skip(view.offset).take(take).cloned().collect::<Vec<_>>();
     frame.render_widget(Paragraph::new(visible).style(Style::default().fg(theme::TEXT)), inner);
-}
 
-/// Panel lines, tab targets, space targets and the scroll offset.
-type PanelView = (Vec<Line<'static>>, Vec<Option<usize>>, Vec<Option<String>>, usize);
-
-/// All panel lines plus the scroll offset that keeps the selected target visible.
-fn panel_view(app: &App, width: u16, wide: bool, height: u16) -> PanelView {
-    let (lines, rows, spaces) = panel_content(app, width, wide);
-    let height = height as usize;
-    if height == 0 || lines.len() <= height {
-        return (lines, rows, spaces, 0);
+    // Paint after the text: Buffer::set_style patches only the fields a Style
+    // sets, so a background here never erases the glyphs or their foreground.
+    let bands = view.bands.into_iter().skip(view.offset).take(take);
+    let buffer = frame.buffer_mut();
+    for (line, band) in bands.enumerate() {
+        let Some(color) = band.color() else { continue };
+        let y = inner.y + line as u16;
+        if y >= inner.y.saturating_add(inner.height) {
+            break;
+        }
+        let step = band.step().min(inner.width);
+        buffer.set_style(
+            Rect::new(inner.x + step, y, inner.width.saturating_sub(step), 1),
+            Style::default().bg(color),
+        );
     }
-    let selected = rows.iter().position(|row| *row == Some(app.cursor)).unwrap_or(0);
-    let keep = if wide { 1 } else { TAB_CELLS as usize };
-    let room = height.saturating_sub(keep);
-    let max = lines.len() - height;
-    let offset = selected.saturating_sub(room).min(max);
-    (lines, rows, spaces, offset)
 }
 
-/// Panel lines plus, for each line, the tab row it shows.
-#[derive(Default)]
-struct PanelLines {
+/// Panel lines, tab targets, space targets, their bands and the scroll offset.
+struct PanelView {
     lines: Vec<Line<'static>>,
     rows: Vec<Option<usize>>,
     spaces: Vec<Option<String>>,
+    bands: Vec<Band>,
+    offset: usize,
+    /// Exact number of lines the viewport paints, indicators included.
+    len: usize,
 }
 
-impl PanelLines {
-    fn push(&mut self, line: Line<'static>) {
+/// Flatten blocks into parallel line arrays, remembering each block's range.
+fn flatten(blocks: &[PanelBlock]) -> Flattened {
+    let mut flat = Flattened::default();
+    for block in blocks {
+        let start = flat.lines.len();
+        flat.lines.extend(block.lines.iter().cloned());
+        flat.rows.extend(block.rows.iter().copied());
+        flat.spaces.extend(block.spaces.iter().cloned());
+        flat.bands.extend(block.bands.iter().copied());
+        flat.ranges.push(start..flat.lines.len());
+    }
+    flat
+}
+
+#[derive(Default)]
+struct Flattened {
+    lines: Vec<Line<'static>>,
+    rows: Vec<Option<usize>>,
+    spaces: Vec<Option<String>>,
+    bands: Vec<Band>,
+    ranges: Vec<std::ops::Range<usize>>,
+}
+
+impl Flattened {
+    fn push_indicator(&mut self, line: Line<'static>) {
         self.lines.push(line);
         self.rows.push(None);
         self.spaces.push(None);
+        self.bands.push(Band::None);
+    }
+}
+
+fn more_line(up: bool, count: usize) -> Line<'static> {
+    let mark = if up { '↑' } else { '↓' };
+    Line::from(Span::styled(format!("{mark} {count} more"), Style::default().fg(theme::DIM)))
+}
+
+/// Build the parallel line arrays for one consecutive range of blocks.
+fn append_blocks(target: &mut Flattened, source: &Flattened, from: usize, to: usize) {
+    if from >= to {
+        return;
+    }
+    let start = source.ranges[from].start;
+    let end = source.ranges[to - 1].end;
+    target.lines.extend(source.lines[start..end].iter().cloned());
+    target.rows.extend(source.rows[start..end].iter().copied());
+    target.spaces.extend(source.spaces[start..end].iter().cloned());
+    target.bands.extend(source.bands[start..end].iter().copied());
+}
+
+/// All panel lines that fit, plus an offset that is always zero: the returned
+/// arrays are the viewport itself. Clipping happens only at block edges, and
+/// each clipped edge becomes one dim `↑ N more` / `↓ N more` line. The blank
+/// row and the action row stay pinned at the foot.
+fn panel_view(app: &App, width: u16, wide: bool, height: u16) -> PanelView {
+    let blocks = panel_blocks(app, width, wide);
+    let flat = flatten(&blocks);
+    let height = height as usize;
+    if height == 0 || flat.lines.len() <= height {
+        let len = flat.lines.len();
+        return PanelView { lines: flat.lines, rows: flat.rows, spaces: flat.spaces, bands: flat.bands, offset: 0, len };
     }
 
-    fn push_space(&mut self, line: Line<'static>, id: String) {
-        self.lines.push(line);
-        self.rows.push(None);
-        self.spaces.push(Some(id));
+    // The last two blocks are the separator and the actions: chrome that must
+    // stay on screen even when the list above it is clipped.
+    let foot = blocks.len().saturating_sub(2);
+    let foot_lines = blocks[foot..].iter().map(|block| block.lines.len()).sum::<usize>();
+    let room = height.saturating_sub(foot_lines).min(flat.ranges[foot].start);
+    let selected = blocks[..foot]
+        .iter()
+        .position(|block| block.rows.contains(&Some(app.cursor)))
+        .or_else(|| blocks[..foot].iter().position(|block| block.item))
+        .unwrap_or(0);
+
+    let mut lo = selected;
+    let mut hi = selected;
+    let mut used = flat.ranges[selected].end - flat.ranges[selected].start;
+    loop {
+        let spare = room.saturating_sub(usize::from(lo > 0) + usize::from(hi + 1 < foot));
+        let above = lo.checked_sub(1).map(|at| flat.ranges[at].end - flat.ranges[at].start);
+        let below = blocks.get(hi + 1).filter(|_| hi + 1 < foot).map(|block| block.lines.len());
+        if let Some(size) = above
+            && used + size <= spare
+        {
+            lo -= 1;
+            used += size;
+            continue;
+        }
+        if let Some(size) = below
+            && used + size <= spare
+        {
+            hi += 1;
+            used += size;
+            continue;
+        }
+        break;
     }
 
-    fn push_row(&mut self, line: Line<'static>, index: usize) {
-        self.lines.push(line);
-        self.rows.push(Some(index));
-        self.spaces.push(None);
+    // Clipping a lone section header is not worth an indicator: keep those
+    // chrome lines on screen instead of claiming "0 more".
+    if lo > 0 && !blocks[..lo].iter().any(|block| block.item) {
+        let extra = flat.ranges[lo - 1].end - flat.ranges[0].start;
+        if used + extra <= room.saturating_sub(usize::from(hi + 1 < foot)) {
+            used += extra;
+            lo = 0;
+        }
     }
-
-    fn push_row_cells(&mut self, top: Line<'static>, detail: Line<'static>, index: usize) {
-        self.push_row(top, index);
-        for _ in 1..TAB_CELLS {
-            self.push_row(detail.clone(), index);
+    if hi + 1 < foot && !blocks[hi + 1..foot].iter().any(|block| block.item) {
+        let extra = flat.ranges[foot - 1].end - flat.ranges[hi + 1].start;
+        if used + extra <= room.saturating_sub(usize::from(lo > 0)) {
+            hi = foot - 1;
         }
     }
 
-    fn push_agent(&mut self, line: Line<'static>, index: Option<usize>) {
-        self.lines.push(line);
-        self.rows.push(index);
-        self.spaces.push(None);
+    let above = blocks[..lo].iter().filter(|block| block.item).count();
+    let below = blocks[hi + 1..foot].iter().filter(|block| block.item).count();
+    let mut view = Flattened::default();
+    if lo > 0 {
+        view.push_indicator(more_line(true, above));
     }
+    append_blocks(&mut view, &flat, lo, hi + 1);
+    if hi + 1 < foot {
+        view.push_indicator(more_line(false, below));
+    }
+    append_blocks(&mut view, &flat, foot, blocks.len());
+    let len = view.lines.len();
+    PanelView { lines: view.lines, rows: view.rows, spaces: view.spaces, bands: view.bands, offset: 0, len }
 }
 
 /// The terminal area: the attached screen when there is one, the preview otherwise.
@@ -443,12 +614,12 @@ fn draw_screen(screen: &ScreenState, area: Rect, frame: &mut Frame) {
     }
 }
 
-/// The panel's rows, paired with the tab index each line belongs to.
-fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<Option<usize>>, Vec<Option<String>>) {
-    let mut lines = PanelLines::default();
+/// The panel's content as chrome lines and two-row item blocks.
+fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
+    let mut blocks = Vec::new();
 
     if wide {
-        lines.push(header_line(app, width));
+        blocks.push(PanelBlock::chrome(header_line(app, width)));
     }
     if let Some(prompt) = &app.prompt {
         let text = match prompt {
@@ -456,56 +627,78 @@ fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<
             super::app::Prompt::RenameTab { buffer, .. } => format!("tab name: {buffer}"),
             super::app::Prompt::ConfirmClose { label, .. } => format!("{label} [y/N]"),
         };
-        lines.push(Line::from(Span::styled(fit(&text, width as usize), Style::default().fg(theme::ACCENT))));
+        blocks.push(PanelBlock::chrome(Line::from(Span::styled(
+            fit(&text, width as usize),
+            Style::default().fg(theme::ACCENT),
+        ))));
     }
 
     let home = crate::mods::home().display().to_string();
-    lines.push(section(&format!("{} SPACES", glyph::EXPANDED), app.model.spaces.len(), width));
+    blocks.push(PanelBlock::chrome(section(&format!("{} SPACES", glyph::EXPANDED), app.model.spaces.len(), width)));
     for space in &app.model.spaces {
         let name = app.model.space_name(space, &home);
         let active = app.model.active.as_deref() == Some(space.id.as_str());
-        lines.push_space(space_line(&name, space.tabs.len(), active, width), space.id.clone());
+        blocks.push(PanelBlock::item(
+            space_line(&name, space.tabs.len(), active, width),
+            space_detail(&space.folder, width),
+            None,
+            Some(space.id.clone()),
+            active,
+            false,
+        ));
     }
 
     let rows = app.rows();
-    lines.push(section(&format!("{} TABS", glyph::EXPANDED), rows.len(), width));
+    blocks.push(PanelBlock::chrome(section(&format!("{} TABS", glyph::EXPANDED), rows.len(), width)));
     for (index, row) in rows.iter().enumerate() {
-        let top = row_line(row, index == app.cursor, width);
-        if wide {
-            lines.push_row(top, index);
-        } else {
-            lines.push_row_cells(top, row_detail(app, row, width), index);
-        }
+        let selected = index == app.cursor;
+        blocks.push(PanelBlock::item(
+            row_line(row, selected, width),
+            row_detail(app, row, width),
+            Some(index),
+            None,
+            selected,
+            false,
+        ));
         if let Some(address) = &row.address {
             for child in app.children_of(address) {
-                lines.push(child_line(child));
+                // A child is its own block, keyed to its parent tab so a tap
+                // selects that tab. Its band alone states the relationship.
+                blocks.push(PanelBlock::item(
+                    child_line_top(child, width),
+                    child_line_detail(child, width),
+                    Some(index),
+                    None,
+                    false,
+                    true,
+                ));
             }
         }
     }
 
     let agents = app.agents();
     if !agents.is_empty() {
-        lines.push(section(&format!("{} AGENTS", glyph::EXPANDED), agents.len(), width));
+        blocks.push(PanelBlock::chrome(section(&format!("{} AGENTS", glyph::EXPANDED), agents.len(), width)));
         for agent in agents {
             let target = app.rows.iter().position(|row| {
                 row.address.as_deref() == Some(agent.address.as_str())
                     || row.address.as_deref() == agent.parent.as_deref()
             });
-            lines.push_agent(agent_line(agent, width), target);
+            blocks.push(PanelBlock::item(agent_line(agent, width), agent_detail(agent, width), target, None, false, false));
         }
     }
 
     if let Some(terminal) = app.selected()
         && !terminal.preview.is_empty()
     {
-        lines.push(task_line(&terminal.name, width));
+        blocks.push(PanelBlock::chrome(task_line(&terminal.name, width)));
     }
 
     // The actions sit at the foot of the panel, not in a status bar.
-    lines.push(Line::from(""));
+    blocks.push(PanelBlock::chrome(Line::from("")));
     let actions = action_labels(wide).join("  ");
-    lines.push(Line::from(Span::styled(actions, Style::default().fg(theme::DIM))));
-    (lines.lines, lines.rows, lines.spaces)
+    blocks.push(PanelBlock::chrome(Line::from(Span::styled(actions, Style::default().fg(theme::DIM)))));
+    blocks
 }
 
 /// The four workspace actions rendered inside the sidebar's footer.
@@ -519,8 +712,9 @@ pub fn panel_action_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Opt
     if x < inner.x || x >= inner.x.saturating_add(inner.width) || y < inner.y || y >= inner.y.saturating_add(inner.height) {
         return None;
     }
-    let (lines, _, _, offset) = panel_view(app, inner.width, wide, inner.height);
-    let local = (y - inner.y) as usize + offset;
+    let view = panel_view(app, inner.width, wide, inner.height);
+    let local = (y - inner.y) as usize + view.offset;
+    let lines = &view.lines;
     let labels = action_labels(wide);
     let joined = labels.join("  ");
     if rendered(lines.get(local)?) != joined {
@@ -566,76 +760,124 @@ fn section(label: &str, count: usize, width: u16) -> Line<'static> {
     Line::from(Span::styled(text, Style::default().fg(theme::MUTED).add_modifier(Modifier::BOLD)))
 }
 
-/// One workspace: its name on the left, its tab count on the right.
+/// One workspace: its expanded glyph, name and tab count. No state word;
+/// the folder lives on the block's second row.
 fn space_line(name: &str, tabs: usize, active: bool, width: u16) -> Line<'static> {
-    let left = format!("  {}", fit(name, width.saturating_sub(8) as usize));
+    let left = format!("  {} {}", glyph::EXPANDED, fit(name, width.saturating_sub(10) as usize));
     let right = format!("{} {}", tabs, tab_word(tabs));
-    let used = left.chars().count() + right.chars().count();
-    let gap = " ".repeat((width as usize).saturating_sub(used));
-    let band = active.then_some(Style::default().bg(theme::SURFACE));
-    let label = band.unwrap_or_default().fg(theme::TEXT);
+    let gap = " ".repeat((width as usize).saturating_sub(left.chars().count() + right.chars().count()));
+    let label = Style::default().fg(theme::TEXT);
     let label = if active { label.add_modifier(Modifier::BOLD) } else { label };
     Line::from(vec![
         Span::styled(left, label),
-        Span::styled(gap, band.unwrap_or_default()),
-        Span::styled(right, band.unwrap_or_default().fg(theme::MUTED)),
+        Span::raw(gap),
+        Span::styled(right, Style::default().fg(theme::MUTED)),
     ])
 }
 
+/// The first row of a tab block: state glyph plus name, nothing else.
 fn row_line(row: &super::app::Row, selected: bool, width: u16) -> Line<'static> {
-    let left = format!("  {}", row.name);
-    let state = format!("{} {}", row.state.glyph(), row.state.word());
-    let gap = (width as usize).saturating_sub(left.chars().count() + state.chars().count());
-    let band = selected.then(|| Style::default().bg(theme::SURFACE));
-    let label = band.unwrap_or_default().fg(theme::TEXT).add_modifier(Modifier::BOLD);
-    let padding = band.unwrap_or_default();
-    let value = band.unwrap_or_else(|| Style::default().fg(row.state.color()));
-    Line::from(vec![
-        Span::styled(left, label),
-        Span::styled(" ".repeat(gap), padding),
-        Span::styled(state, value),
-    ])
+    let left = format!("  {} {}", row.state.glyph(), row.name);
+    let label = Style::default().fg(theme::TEXT);
+    let label = if selected { label.add_modifier(Modifier::BOLD) } else { label };
+    Line::from(Span::styled(fit(&left, width as usize), label))
 }
 
-/// The lower touch cell of a phone tab: deeper than its label, never repeated.
+/// The pane count of a document tab, when the workspace is available.
+fn pane_count(app: &App, row: &super::app::Row) -> Option<usize> {
+    let space = app.model.active_space()?;
+    let tab = space.tabs.iter().find(|tab| tab.id == row.id)?;
+    Some(tab.root.panes().len())
+}
+
+/// The second row of a tab block: `state · app`, then panes and helpers when
+/// present. Two cells deeper than its name, on the same continuous band.
 fn row_detail(app: &App, row: &super::app::Row, width: u16) -> Line<'static> {
+    let terminal = row.address.as_ref().and_then(|addr| app.terminals.iter().find(|t| t.address == *addr));
+    let app_name = terminal.and_then(|t| t.app.as_deref()).filter(|name| !name.is_empty());
     let helpers = row.address.as_ref().map_or(0, |address| app.children_of(address).len());
-    let attached = app.selected().is_some_and(|selected| selected.address == row.address) && app.screen.is_some();
-    let text = match (attached, helpers) {
-        (true, 0) => "attached".to_string(),
-        (true, count) => format!("attached · {count} helpers"),
-        (false, count) if count > 0 => format!("{count} helpers"),
-        (false, _) => row.preview.last().cloned().unwrap_or_default(),
+    let mut parts = vec![row.state.word().to_string()];
+    if let Some(name) = app_name {
+        parts.push(name.to_string());
+    }
+    if let Some(panes) = pane_count(app, row)
+        && panes > 0
+    {
+        parts.push(format!("{panes} {}", if panes == 1 { "pane" } else { "panes" }));
+    }
+    if helpers > 0 {
+        parts.push(format!("{helpers} {}", if helpers == 1 { "helper" } else { "helpers" }));
+    }
+    detail_line(&parts.join(" · "), 4, width)
+}
+
+/// A space's folder path detail, with its tail preserved when it must truncate.
+fn space_detail(folder: &str, width: u16) -> Line<'static> {
+    detail_line(&fit_path(folder, width.saturating_sub(6) as usize), 4, width)
+}
+
+/// Tail-preserving path truncation, safe for multi-byte path components.
+fn fit_path(path: &str, width: usize) -> String {
+    let chars: Vec<char> = path.chars().collect();
+    if chars.len() <= width {
+        return path.to_string();
+    }
+    if width == 0 {
+        return String::new();
+    }
+    let separator = chars.iter().rposition(|c| *c == '/' || *c == '\\');
+    let tail: Vec<char> = match separator {
+        Some(at) => chars[at + 1..].to_vec(),
+        None => chars.clone(),
     };
+    if tail.len() >= width {
+        let head: String = tail.into_iter().take(width - 1).collect();
+        return format!("{head}…");
+    }
+    let head: String = chars.iter().take(width - tail.len() - 1).collect();
+    let tail: String = tail.into_iter().collect();
+    format!("{head}…{tail}")
+}
+
+/// Child tab name: two cells deeper than its parent, state glyph included.
+fn child_line_top(terminal: &super::app::Terminal, width: u16) -> Line<'static> {
+    let left = format!("    {} {}", terminal.state.glyph(), terminal.name);
+    Line::from(Span::styled(fit(&left, width as usize), Style::default().fg(theme::TEXT)))
+}
+
+/// Child tab detail: two cells deeper than the child name, `state · app`.
+fn child_line_detail(terminal: &super::app::Terminal, width: u16) -> Line<'static> {
+    let app_name = terminal.app.as_deref().filter(|name| !name.is_empty());
+    let mut parts = vec![terminal.state.word().to_string()];
+    if let Some(name) = app_name {
+        parts.push(name.to_string());
+    }
+    detail_line(&parts.join(" · "), 6, width)
+}
+
+/// One detected agent's name row: glyph plus name, state kept for its detail.
+fn agent_line(agent: &super::app::Terminal, width: u16) -> Line<'static> {
+    let left = format!("  {} {}", agent.state.glyph(), agent.name);
+    Line::from(Span::styled(fit(&left, width as usize), Style::default().fg(agent.state.color())))
+}
+
+/// Agent detail row: `state · app`, aligned two cells deeper than its name.
+fn agent_detail(agent: &super::app::Terminal, width: u16) -> Line<'static> {
+    let app_name = agent.app.as_deref().filter(|name| !name.is_empty());
+    let mut parts = vec![agent.state.word().to_string()];
+    if let Some(name) = app_name {
+        parts.push(name.to_string());
+    }
+    detail_line(&parts.join(" · "), 4, width)
+}
+
+/// One detail row, indented `indent` cells and truncated with `…`.
+fn detail_line(text: &str, indent: usize, width: u16) -> Line<'static> {
+    let available = (width as usize).saturating_sub(indent);
     Line::from(Span::styled(
-        fit(&format!("        {text}"), width as usize),
+        format!("{}{}", " ".repeat(indent), fit(text, available)),
         Style::default().fg(theme::MUTED),
     ))
-}
-
-fn child_line(terminal: &super::app::Terminal) -> Line<'static> {
-    Line::from(vec![
-        Span::styled(
-            format!("      {} {}", terminal.state.glyph(), terminal.name),
-            Style::default().fg(theme::MUTED),
-        ),
-        Span::styled(
-            format!(" {} {}", glyph::SEPARATOR, terminal.state.word()),
-            Style::default().fg(theme::DIM),
-        ),
-    ])
-}
-
-/// One detected agent, ordered by attention and selectable from its tab.
-fn agent_line(agent: &super::app::Terminal, width: u16) -> Line<'static> {
-    let left = format!("  {} {} · {}", agent.state.glyph(), agent.name, agent.state.word());
-    let address = fit(&agent.address, width.saturating_sub(left.chars().count() as u16) as usize);
-    let gap = (width as usize).saturating_sub(left.chars().count() + address.chars().count());
-    Line::from(vec![
-        Span::styled(left, Style::default().fg(agent.state.color())),
-        Span::raw(" ".repeat(gap)),
-        Span::styled(address, Style::default().fg(theme::MUTED)),
-    ])
 }
 
 fn task_line(name: &str, width: u16) -> Line<'static> {
@@ -677,6 +919,23 @@ mod tests {
             app.toggle_panel();
         }
         app
+    }
+
+    /// The panel's rows, paired with the tab index and space each line belongs to.
+    fn panel_content(app: &App, width: u16, wide: bool) -> (Vec<Line<'static>>, Vec<Option<usize>>, Vec<Option<String>>) {
+        let flat = flatten(&panel_blocks(app, width, wide));
+        (flat.lines, flat.rows, flat.spaces)
+    }
+
+    /// The real buffer's backgrounds, for band assertions that cannot be
+    /// fooled by a line's own spans.
+    fn backgrounds(app: &App, width: u16, height: u16) -> Vec<Vec<ratatui::style::Color>> {
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).expect("test terminal");
+        terminal.draw(|frame| render(app, frame)).expect("draw");
+        let buffer = terminal.backend().buffer();
+        (0..height)
+            .map(|y| (0..width).map(|x| buffer[(x, y)].bg).collect())
+            .collect()
     }
 
     /// Every row of the screen as text.
@@ -798,13 +1057,8 @@ mod tests {
     #[test]
     fn whoever_needs_you_is_the_first_row() {
         let rows = screen(&app(true), 40, 22);
-        let first_row = rows
-            .iter()
-            .skip((BAND_ROWS + GUTTER) as usize)
-            .find(|row| row.contains("pi "))
-            .expect("a terminal row");
-        assert!(first_row.contains("pi 2"), "blocked comes first: {first_row:?}");
-        assert!(first_row.contains("needs you"), "{first_row:?}");
+        let first = rows.iter().position(|row| row.contains("▲ pi 2")).expect("blocked tab");
+        assert!(rows[first + 1].contains("needs you"), "state is on the detail row: {rows:?}");
     }
 
     #[test]
@@ -877,11 +1131,13 @@ mod tests {
 
     #[test]
     fn the_agents_section_lists_navigable_agents() {
-        let rows = screen(&app(true), 40, 20);
+        let rows = screen(&app(true), 40, 24);
         let start = rows.iter().position(|row| row.contains("▾ AGENTS")).expect("the agents section");
         let section = &rows[start + 1..];
-        assert!(section.iter().any(|row| row.contains("pi 2") && row.contains("needs you")), "{section:?}");
-        assert!(section.iter().any(|row| row.contains("pi 3") && row.contains("working")), "{section:?}");
+        let blocked = section.iter().position(|row| row.contains("▲ pi 2")).expect("blocked agent");
+        assert!(section[blocked + 1].contains("needs you"), "{section:?}");
+        let working = section.iter().position(|row| row.contains("◐ pi 3")).expect("working agent");
+        assert!(section[working + 1].contains("working"), "{section:?}");
         assert!(!section.iter().any(|row| row.trim() == "◐ working 1"), "no statistic row: {section:?}");
     }
 
@@ -901,7 +1157,8 @@ mod tests {
         let start = rows.iter().position(|row| row.contains("▾ AGENTS")).expect("the agents section");
         let section = &rows[start + 1..];
         assert!(!section.iter().any(|row| row.contains("bash")), "no plain shell: {section:?}");
-        assert!(section.iter().any(|row| row.contains("pi") && row.contains("working")), "the real agent stays: {section:?}");
+        let agent = section.iter().position(|row| row.contains("◐ pi")).expect("the real agent");
+        assert!(section[agent + 1].contains("working"), "its state is on the detail row: {section:?}");
         let targets = agent_targets(&app);
         assert_eq!(targets, vec![0], "Alt+Up/Down skips the shell");
         assert_eq!(app.rows()[targets[0]].address.as_deref(), Some("t2"));
@@ -950,7 +1207,9 @@ mod tests {
 
         let panel = zones(Rect::new(0, 0, 40, 24), true).panel.expect("the phone sheet");
         let inner = panel_inner(panel);
-        let (_, _, targets, offset) = panel_view(&app, inner.width, false, inner.height);
+        let view = panel_view(&app, inner.width, false, inner.height);
+        let targets = &view.spaces;
+        let offset = view.offset;
         let beta = targets.iter().position(|target| target.as_deref() == Some("s2")).expect("the beta row");
         let y = inner.y + (beta - offset) as u16;
         assert_eq!(panel_space_at(&app, panel, inner.x + 2, y, false), Some("s2".to_string()));
@@ -984,9 +1243,10 @@ mod tests {
         let app = app(true);
         let panel = zones(Rect::new(0, 0, 40, 20), true).panel.expect("the phone sheet");
         let inner = panel_inner(panel);
-        let (lines, _, _, _) = panel_view(&app, inner.width, false, inner.height);
+        let view = panel_view(&app, inner.width, false, inner.height);
+        let lines = &view.lines;
         let row = lines.iter().position(|line| rendered(line) == "new space  new tab  rename  close").expect("the action row");
-        let y = inner.y + row as u16;
+        let y = inner.y + (row as u16).saturating_sub(view.offset as u16);
         assert_eq!(panel_action_at(&app, panel, inner.x, y, false), Some(Command::NewSpace));
         assert_eq!(panel_action_at(&app, panel, inner.x + 28, y, false), Some(Command::CloseTab));
         assert_eq!(panel_action_at(&app, panel, inner.x, y + 1, false), None);
@@ -1036,5 +1296,310 @@ mod tests {
         let rows = screen(&app, 40, 10);
         let sheet = &rows[(BAND_ROWS + GUTTER) as usize..];
         assert!(sheet.iter().any(|row| row.contains("pi 8")), "selection left the viewport: {sheet:?}");
+    }
+
+    // ---- RED tests for 04 item blocks ----
+
+    /// T1: a space owns two consecutive rows; the detail shows the folder
+    /// path with a tail-preserving ellipsis.
+    #[test]
+    fn a_space_detail_shows_the_folder_path_with_a_tail_ellipsis() {
+        let mut app = App::new("default", "local");
+        app.set_workspace(&json!({
+            "version": 7,
+            "value": { "spaces": [
+                { "id": "s1", "name": "work", "folder": "/home/user/src/herdr/herdr-app-tui/with/a/very/long/name", "tabs": [] }
+            ] }
+        }));
+        app.toggle_panel();
+        let rows = screen(&app, 40, 20);
+        let name = rows.iter().position(|row| row.contains("▾ work")).expect("space name");
+        let detail = &rows[name + 1];
+        assert!(detail.contains('…'), "one ellipsis, not three dots: {detail:?}");
+        assert!(!detail.contains("..."), "no ASCII triple dot: {detail:?}");
+        assert!(detail.trim_end().ends_with("name"), "path tail preserved: {detail:?}");
+        assert!(detail.starts_with("     /home/"), "path head kept before the ellipsis: {detail:?}");
+    }
+
+    #[test]
+    fn a_multibyte_path_truncates_without_cutting_a_character() {
+        assert_eq!(fit_path("α/βγδεζη", 5), "βγδε…");
+        let path = "/home/ünïcøde/herdr/tui";
+        let fitted = fit_path(path, 8);
+        assert!(fitted.contains('…'), "{fitted:?}");
+        assert!(fitted.ends_with("tui"), "tail survives: {fitted:?}");
+        assert!(fitted.chars().count() <= 8, "at most the width: {fitted:?}");
+    }
+
+    /// T2: a child tab's band starts two cells to the right of its parent.
+    #[test]
+    fn a_child_tab_band_starts_two_cells_to_the_right() {
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({
+            "terminals": [
+                { "address": "t1", "name": "parent-tab", "status": { "state": "idle" } },
+                { "address": "t2", "name": "child-tab", "status": { "state": "idle" }, "parent": "t1" }
+            ],
+            "hidden_finished": 0,
+            "machines": [],
+        }));
+        app.toggle_panel();
+        let rows = screen(&app, 40, 20);
+        let body = &rows[(BAND_ROWS + GUTTER) as usize..];
+        let parent = body.iter().find(|row| row.contains("parent-tab")).expect("parent row");
+        let child = body.iter().find(|row| row.contains("child-tab")).expect("child row");
+        let parent_glyph = parent.chars().position(|c| c == '○').expect("parent glyph");
+        let child_glyph = child.chars().position(|c| c == '○').expect("child glyph");
+        assert_eq!(child_glyph - parent_glyph, 2, "hierarchy is a two-cell step: {parent:?} / {child:?}");
+
+        // The step is empty canvas: the first two cells of the child band stay
+        // BG while the rest of the band is PANEL.
+        let z = zones(Rect::new(0, 0, 40, 20), true);
+        let inner = panel_inner(z.panel.expect("sheet"));
+        let bg = backgrounds(&app, 40, 20);
+        let view = panel_view(&app, inner.width, false, inner.height);
+        for (line, band) in view.bands.iter().enumerate().take(view.len) {
+            if matches!(*band, Band::Item { child: true, .. }) {
+                let y = (inner.y + line as u16) as usize;
+                for x in inner.x..inner.x + 2 {
+                    assert_eq!(bg[y][x as usize], theme::BG, "step cell is BG: {child:?}");
+                }
+                for x in inner.x + 2..inner.x + inner.width {
+                    assert_eq!(bg[y][x as usize], theme::PANEL, "band is PANEL: {child:?}");
+                }
+            }
+        }
+    }
+
+    /// T2: no connector glyphs anywhere in the sidebar.
+    #[test]
+    fn no_connector_glyphs_in_the_sidebar() {
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({
+            "terminals": [
+                { "address": "t1", "name": "pi", "status": { "state": "idle" } },
+                { "address": "t2", "name": "claude", "status": { "state": "idle" }, "parent": "t1" }
+            ],
+            "hidden_finished": 0,
+            "machines": [],
+        }));
+        app.toggle_panel();
+        let rows = screen(&app, 40, 20);
+        for row in &rows {
+            assert!(!row.contains('│'), "no │ connector: {row:?}");
+            assert!(!row.contains('└'), "no └ connector: {row:?}");
+        }
+    }
+
+    /// T1: each item has a PANEL band on its two rows.
+    #[test]
+    fn each_item_has_a_panel_band() {
+        let app = app(true);
+        let z = zones(Rect::new(0, 0, 40, 22), true);
+        let inner = panel_inner(z.panel.expect("the phone sheet"));
+        let bg = backgrounds(&app, 40, 22);
+        let view = panel_view(&app, inner.width, false, inner.height);
+        let mut bands = 0;
+        for (line, band) in view.bands.iter().enumerate().take(view.len) {
+            let Band::Item { selected, child } = *band else { continue };
+            bands += 1;
+            let y = (inner.y + line as u16) as usize;
+            let from = inner.x + if child { 2 } else { 0 };
+            let color = if selected { theme::SURFACE } else { theme::PANEL };
+            for x in from..inner.x + inner.width {
+                assert_eq!(bg[y][x as usize], color, "band line {line}");
+            }
+        }
+        assert!(bands >= 12, "spaces, tabs and agents own two banded rows each: {bands}");
+        // Chrome sits on BG, not on a band.
+        let header = view.bands.iter().position(|band| *band == Band::None).expect("chrome");
+        let y = (inner.y + header as u16) as usize;
+        assert_eq!(bg[y][inner.x as usize], theme::BG);
+    }
+
+    /// T1: the selected item's two rows have a SURFACE band.
+    #[test]
+    fn the_selected_item_has_a_surface_band_on_both_rows() {
+        let mut app = app(true);
+        app.cursor = 0;
+        let z = zones(Rect::new(0, 0, 40, 22), true);
+        let inner = panel_inner(z.panel.expect("the phone sheet"));
+        let bg = backgrounds(&app, 40, 22);
+        let view = panel_view(&app, inner.width, false, inner.height);
+        let selected: Vec<usize> = view
+            .bands
+            .iter()
+            .enumerate()
+            .filter_map(|(line, band)| matches!(band, Band::Item { selected: true, .. }).then_some(line))
+            .collect();
+        assert_eq!(selected.len(), 2, "one two-row item is selected: {selected:?}");
+        for line in selected {
+            assert_eq!(view.rows[line], Some(0), "the selected item is the current tab");
+            let y = (inner.y + line as u16) as usize;
+            for x in inner.x..inner.x + inner.width {
+                assert_eq!(bg[y][x as usize], theme::SURFACE, "row {line}");
+            }
+        }
+    }
+
+    /// T3: overflow indicators appear when content exceeds the viewport.
+    #[test]
+    fn overflow_indicators_appear_when_content_is_too_long() {
+        let terminals: Vec<serde_json::Value> = (1..=10)
+            .map(|index| {
+                json!({
+                    "address": format!("t{index}"),
+                    "name": format!("pi {index}"),
+                    "status": { "state": "idle" },
+                })
+            })
+            .collect();
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({ "terminals": terminals, "hidden_finished": 0, "machines": [] }));
+        app.toggle_panel();
+        let rows = screen(&app, 40, 10);
+        let joined = rows.join("\n");
+        assert!(joined.contains("↑"), "should show ↑ indicator: {joined}");
+        assert!(joined.contains("↓"), "should show ↓ indicator: {joined}");
+    }
+
+    /// T4: both rows of a tab map to the same target for hit-testing.
+    #[test]
+    fn both_rows_of_a_tab_map_to_the_same_target() {
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({
+            "terminals": [
+                { "address": "t1", "name": "pi", "status": { "state": "idle" } }
+            ],
+            "hidden_finished": 0,
+            "machines": [],
+        }));
+        app.toggle_panel();
+        let panel = zones(Rect::new(0, 0, 40, 22), true).panel.expect("the phone sheet");
+        let inner = panel_inner(panel);
+        let (_, rows, _) = panel_content(&app, inner.width, false);
+        let first = rows.iter().position(|row| *row == Some(0)).expect("tab 0");
+        assert_eq!(rows[first + 1], Some(0), "both rows of a block hit the same tab");
+    }
+
+    /// T4: both rows of a space map to the same target.
+    #[test]
+    fn both_rows_of_a_space_map_to_the_same_target() {
+        let mut app = App::new("default", "local");
+        app.set_workspace(&json!({
+            "version": 7,
+            "value": { "spaces": [
+                { "id": "s1", "name": "work", "folder": "/home/user", "tabs": [] }
+            ] }
+        }));
+        app.toggle_panel();
+        let panel = zones(Rect::new(0, 0, 40, 22), true).panel.expect("the phone sheet");
+        let inner = panel_inner(panel);
+        let (_, _, spaces) = panel_content(&app, inner.width, false);
+        let count = spaces.iter().filter(|s| s.as_deref() == Some("s1")).count();
+        assert_eq!(count, 2, "space should have 2 rows in the mapping");
+    }
+
+    /// T4: scroll keeps selected block with one block of context.
+    #[test]
+    fn child_blocks_are_not_space_targets() {
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({
+            "terminals": [
+                { "address": "t1", "name": "parent", "status": { "state": "idle" } },
+                { "address": "t2", "name": "child", "status": { "state": "idle" }, "parent": "t1" }
+            ],
+            "hidden_finished": 0,
+            "machines": [],
+        }));
+        app.toggle_panel();
+        let panel = zones(Rect::new(0, 0, 40, 20), true).panel.expect("sheet");
+        let inner = panel_inner(panel);
+        let (_, _rows, spaces) = panel_content(&app, inner.width, false);
+        assert!(spaces.iter().all(|space| space.is_none()), "terminals never select a space");
+        // Every banded row is either a tab target or a space target, never both.
+        let flat = flatten(&panel_blocks(&app, inner.width, false));
+        for (row, space) in flat.rows.iter().zip(flat.spaces.iter()) {
+            assert!(row.is_none() || space.is_none(), "a block has one target kind");
+        }
+    }
+
+    #[test]
+    fn indicator_rows_have_no_targets() {
+        let terminals: Vec<serde_json::Value> = (1..=10)
+            .map(|index| json!({
+                "address": format!("t{index}"),
+                "name": format!("pi {index}"),
+                "status": { "state": "idle" },
+            }))
+            .collect();
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({ "terminals": terminals, "hidden_finished": 0, "machines": [] }));
+        app.toggle_panel();
+        app.cursor = 5;
+        let inner = panel_inner(zones(Rect::new(0, 0, 40, 10), true).panel.expect("sheet"));
+        let view = panel_view(&app, inner.width, false, inner.height);
+        let up = view.lines.iter().position(|line| rendered(line).starts_with('↑')).expect("top indicator");
+        let down = view.lines.iter().position(|line| rendered(line).starts_with('↓')).expect("bottom indicator");
+        assert_eq!(view.rows[up], None);
+        assert_eq!(view.spaces[up], None);
+        assert_eq!(view.rows[down], None);
+        assert_eq!(view.spaces[down], None);
+        assert_eq!(view.bands[up], Band::None);
+        assert_eq!(view.bands[down], Band::None);
+        assert!(up < down, "top indicator comes first");
+    }
+
+    #[test]
+    fn detail_rows_show_state_app_and_panes() {
+        let mut app = App::new("default", "local");
+        app.set_workspace(&json!({
+            "version": 7,
+            "value": { "spaces": [{ "id": "s1", "name": "work", "folder": "", "tabs": [
+                { "id": "tb1", "name": "claude", "root": { "id": "tb1", "type": "row", "children": [
+                    { "id": "p1", "type": "block", "content": { "terminal": "t1" } },
+                    { "id": "p2", "type": "block", "content": { "terminal": "t2" } }
+                ] } }
+            ] }] }
+        }));
+        app.set_terminals(&json!({
+            "terminals": [
+                { "address": "t1", "name": "claude", "status": { "state": "working", "app": "pi" } },
+                { "address": "t2", "name": "helper", "status": { "state": "idle", "app": "bash" }, "parent": "t1" }
+            ],
+            "hidden_finished": 0,
+            "machines": [],
+        }));
+        app.toggle_panel();
+        let rows = screen(&app, 40, 24);
+        let tab = rows.iter().position(|row| row.contains("◐ claude")).expect("tab name row");
+        let detail = &rows[tab + 1];
+        assert!(detail.contains("working"), "{detail:?}");
+        assert!(detail.contains("pi"), "{detail:?}");
+        assert!(detail.contains("2 panes"), "pane count from the layout: {detail:?}");
+        let agents = rows.iter().position(|row| row.contains("▾ AGENTS")).expect("agents section");
+        let agent = rows[agents + 1..].iter().position(|row| row.contains("◐ claude")).expect("agent row") + agents + 1;
+        assert!(rows[agent + 1].contains("working · pi"), "agent detail: {:?}", rows[agent + 1]);
+    }
+
+    #[test]
+    fn scroll_keeps_selected_block_with_context() {
+        let terminals: Vec<serde_json::Value> = (1..=8)
+            .map(|index| {
+                json!({
+                    "address": format!("t{index}"),
+                    "name": format!("pi {index}"),
+                    "status": { "state": "idle" },
+                })
+            })
+            .collect();
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({ "terminals": terminals, "hidden_finished": 0, "machines": [] }));
+        app.toggle_panel();
+        app.cursor = 6;
+        let rows = screen(&app, 40, 10);
+        let sheet = &rows[(BAND_ROWS + GUTTER) as usize..];
+        // The selected item must be fully visible (both rows).
+        assert!(sheet.iter().any(|row| row.contains("pi 7")), "selected tab pi 7 must be visible: {sheet:?}");
     }
 }

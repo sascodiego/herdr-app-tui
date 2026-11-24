@@ -17,6 +17,8 @@ pub struct Terminal {
     pub address: String,
     pub name: String,
     pub state: State,
+    /// The app name from OSC 7501, when reported.
+    pub app: Option<String>,
     /// Whether the program reported a 7501 status word: herdr's agent signal.
     pub is_agent: bool,
     /// The terminal that started it, when there is one: it nests under that row.
@@ -38,6 +40,9 @@ impl Terminal {
                 .or_else(|| status.as_str())
         });
         let word = report_word.or_else(|| value.get("state").and_then(Value::as_str));
+        let app = value.get("status").and_then(|status| {
+            status.get("app").and_then(Value::as_str).map(str::to_string)
+        });
         Terminal {
             state: State::from_word(word),
             is_agent: report_word.is_some(),
@@ -45,6 +50,7 @@ impl Terminal {
             preview: Vec::new(),
             address,
             name,
+            app,
         }
     }
 }
@@ -391,6 +397,24 @@ mod tests {
         }));
         assert_eq!((terminal.address.as_str(), terminal.name.as_str()), ("t7", "pi"));
         assert_eq!(terminal.state, State::Working);
+    }
+
+    #[test]
+    fn a_terminal_reads_the_app_from_its_status() {
+        let terminal = Terminal::from_value(&json!({
+            "address": "t7",
+            "name": "pi",
+            "status": { "state": "working", "app": "pi" }
+        }));
+        assert_eq!(terminal.app.as_deref(), Some("pi"));
+    }
+
+    #[test]
+    fn a_terminal_without_an_app_stays_tolerant() {
+        let terminal = Terminal::from_value(&json!({
+            "address": "t8", "name": "bash", "status": { "state": "idle" }
+        }));
+        assert_eq!(terminal.app, None);
     }
 
     #[test]

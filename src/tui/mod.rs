@@ -251,8 +251,8 @@ fn handle_key(
     if app.panel {
         match action {
             Action::ClosePanel | Action::TogglePanel | Action::Attach => app.panel = false,
-            Action::Up | Action::ScrollUp => app.move_cursor(-1),
-            Action::Down | Action::ScrollDown => app.move_cursor(1),
+            Action::Up | Action::ScrollUp => move_panel_block(app, false),
+            Action::Down | Action::ScrollDown => move_panel_block(app, true),
             Action::Refresh
             | Action::Ignore
             | Action::Prefix
@@ -332,6 +332,7 @@ fn remember_terminal(app: &mut App, address: &str, name: &str) {
         is_agent: false,
         parent: None,
         preview: Vec::new(),
+        app: None,
     });
 }
 
@@ -699,6 +700,13 @@ fn zone_at(z: view::Zones, x: u16, y: u16) -> Option<Zone> {
     }
 }
 
+/// Move the panel highlight by one whole two-row item block. A block is the
+/// unit of both selection and clipping, so a wheel notch or an arrow key can
+/// never stop halfway through an item.
+fn move_panel_block(app: &mut App, down: bool) {
+    app.move_cursor(if down { 1 } else { -1 });
+}
+
 /// Route a touch or pointer event by zone. A tap keeps its old meaning: open
 /// the sheet, select a row, or resume the live pane. Movement becomes scroll.
 fn handle_pointer(
@@ -756,7 +764,7 @@ fn handle_pointer(
         input::Pointer::ScrollUp | input::Pointer::ScrollDown => {
             let up = gesture == input::Pointer::ScrollUp;
             match zone {
-                Some(Zone::Panel) => app.move_cursor(if up { -1 } else { 1 }),
+                Some(Zone::Panel) => move_panel_block(app, !up),
                 Some(Zone::Terminal) => scroll_history(app, attached, up),
                 None | Some(Zone::Header) => {}
             }
@@ -772,7 +780,7 @@ fn handle_pointer(
             }
             let up = delta < 0;
             match zone {
-                Some(Zone::Panel) => app.move_cursor(if up { -1 } else { 1 }),
+                Some(Zone::Panel) => move_panel_block(app, !up),
                 Some(Zone::Terminal) => scroll_history(app, attached, up),
                 None | Some(Zone::Header) => {}
             }
@@ -987,6 +995,31 @@ mod tests {
         assert_eq!(app.doc_version, Some(7), "no core write for a view choice");
         let tabs: Vec<&str> = app.rows.iter().map(|row| row.name.as_str()).collect();
         assert_eq!(tabs, ["two", "three"]);
+    }
+
+    #[test]
+    fn panel_movement_steps_one_whole_block_at_a_time() {
+        let mut app = App::new("default", "local");
+        app.set_terminals(&json!({
+            "terminals": [
+                { "address": "t1", "name": "one", "status": { "state": "idle" } },
+                { "address": "t2", "name": "two", "status": { "state": "idle" } },
+                { "address": "t3", "name": "three", "status": { "state": "idle" } }
+            ],
+            "hidden_finished": 0,
+            "machines": [],
+        }));
+        app.toggle_panel();
+        assert_eq!(app.cursor, 0);
+        move_panel_block(&mut app, true);
+        assert_eq!(app.cursor, 1, "one wheel notch or key moves one two-row block");
+        move_panel_block(&mut app, true);
+        assert_eq!(app.cursor, 2);
+        move_panel_block(&mut app, false);
+        assert_eq!(app.cursor, 1);
+        move_panel_block(&mut app, false);
+        move_panel_block(&mut app, false);
+        assert_eq!(app.cursor, 0, "never lands between blocks");
     }
 
     #[test]
