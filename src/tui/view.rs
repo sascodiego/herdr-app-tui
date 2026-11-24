@@ -176,11 +176,11 @@ fn draw_prefix(frame: &mut Frame) {
         height,
     );
     frame.render_widget(
-        Block::new().borders(Borders::ALL).border_style(Style::default().fg(theme::ACCENT)).style(Style::default().bg(theme::PANEL)),
+        Block::new().borders(Borders::ALL).border_style(Style::default().fg(theme::LINE)).style(Style::default().bg(theme::ELEVATED)),
         area,
     );
     let lines = vec![
-        Line::from(Span::styled("WORKSPACE PREFIX", Style::default().fg(theme::ACCENT).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled("WORKSPACE PREFIX", Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD))),
         Line::from("c  new tab      w  new space"),
         Line::from("r  rename tab   R  rename space"),
         Line::from("x  close tab    X  close space"),
@@ -227,7 +227,7 @@ pub fn panel_space_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Opti
 
 /// The three-row phone band: workspace and tabs, path, agent totals, toggle.
 fn draw_header(app: &App, area: Rect, frame: &mut Frame) {
-    frame.buffer_mut().set_style(area, Style::default().bg(theme::PANEL));
+    frame.buffer_mut().set_style(area, Style::default().bg(theme::ELEVATED));
     let left_width = area.width.saturating_sub(TOGGLE_COLS);
     let left = Rect { x: area.x, y: area.y, width: left_width, height: area.height };
     let toggle = Rect {
@@ -266,7 +266,7 @@ fn draw_header(app: &App, area: Rect, frame: &mut Frame) {
                 ),
                 left_width as usize,
             ),
-            Style::default().fg(theme::TEXT),
+            Style::default().fg(theme::BODY),
         )),
     ];
     frame.render_widget(Paragraph::new(lines), left);
@@ -280,7 +280,7 @@ fn draw_header(app: &App, area: Rect, frame: &mut Frame) {
             Style::default().fg(theme::TEXT),
         ));
     }
-    frame.render_widget(Paragraph::new(toggle_lines).style(Style::default().bg(theme::SURFACE)), toggle);
+    frame.render_widget(Paragraph::new(toggle_lines).style(Style::default().bg(theme::PANEL)), toggle);
 }
 
 /// The band reads `1 tab`, not `1 tabs`.
@@ -304,20 +304,20 @@ fn fit(text: &str, width: usize) -> String {
 /// The core's connection marker and the color it takes.
 fn connection(app: &App) -> (char, ratatui::style::Color) {
     if app.connected {
-        (glyph::CONNECTED, theme::ACCENT)
+        (glyph::CONNECTED, theme::GREEN)
     } else {
         (glyph::DISCONNECTED, theme::RED)
     }
 }
 
 fn draw_rule(area: Rect, frame: &mut Frame) {
-    let rule = Block::new().borders(Borders::LEFT).border_style(Style::default().fg(theme::DIM));
+    let rule = Block::new().borders(Borders::LEFT).border_style(Style::default().fg(theme::LINE));
     frame.render_widget(rule, area);
 }
 
-/// The marker painted at the left edge of one panel line. Every row sits on
-/// the canvas; a selected two-row block gets a one-cell accent bar at its own
-/// step. That step is the hierarchy, never a drawn connector or a background.
+/// The marker painted at the left edge of one panel line. An active two-row
+/// block gets a one-cell accent rail at its own step and a warm wash across
+/// the rest of its rows. That step is the hierarchy, never a connector.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Band {
     None,
@@ -325,13 +325,6 @@ enum Band {
 }
 
 impl Band {
-    fn bar(self) -> Option<u16> {
-        match self {
-            Band::Item { selected: true, .. } => Some(self.step()),
-            _ => None,
-        }
-    }
-
     fn step(self) -> u16 {
         match self {
             Band::Item { step, .. } => step,
@@ -394,11 +387,12 @@ fn spaced_item(blocks: &mut Vec<PanelBlock>, mut block: PanelBlock) {
     blocks.push(block);
 }
 
-/// The panel: counted sections, item blocks and actions at the foot.
+/// The panel: labelled sections, item blocks and actions at the foot.
 fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
-    // BG is the canvas: whitespace separates the blocks, so no box, band or
-    // connector is drawn behind them.
-    frame.buffer_mut().set_style(area, Style::default().bg(theme::BG));
+    // The rail is one step above the canvas, the phone sheet two: neither is
+    // a full-bleed colour block, and no connector is drawn behind the items.
+    let surface = if wide { theme::PANEL } else { theme::ELEVATED };
+    frame.buffer_mut().set_style(area, Style::default().bg(surface));
     let inner = panel_inner(area);
     if inner.width == 0 || inner.height == 0 {
         return;
@@ -408,18 +402,20 @@ fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
     let visible = view.lines.iter().skip(view.offset).take(take).cloned().collect::<Vec<_>>();
     frame.render_widget(Paragraph::new(visible).style(Style::default().fg(theme::TEXT)), inner);
 
-    // Paint after the text: a one-cell background patches only the marker,
-    // never the glyphs or the canvas behind the rest of the item.
+    // Paint after the text so only backgrounds change: the active block gets
+    // a one-cell rail and a near-invisible wash across the rest of both rows.
     let bands = view.bands.into_iter().skip(view.offset).take(take);
     let buffer = frame.buffer_mut();
     for (line, band) in bands.enumerate() {
-        let Some(step) = band.bar() else { continue };
+        let Band::Item { selected: true, .. } = band else { continue };
         let y = inner.y + line as u16;
         if y >= inner.y.saturating_add(inner.height) {
             break;
         }
-        let x = inner.x + step.min(inner.width.saturating_sub(1));
-        buffer[(x, y)].set_bg(theme::ACCENT);
+        let rail = inner.x + band.step().min(inner.width.saturating_sub(1));
+        for x in inner.x..inner.x + inner.width {
+            buffer[(x, y)].set_bg(if x == rail { theme::ACCENT } else { theme::WASH });
+        }
     }
 }
 
@@ -642,8 +638,7 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
     }
 
     let home = crate::mods::home().display().to_string();
-    blocks.push(PanelBlock::chrome(section("spaces", width)));
-    let spaces_at = blocks.len() - 1;
+    blocks.push(PanelBlock::chrome(section("SPACES", width)));
     let mut nested = false;
     for space in &app.model.spaces {
         let name = app.model.space_name(space, &home);
@@ -651,7 +646,7 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
         spaced_item(
             &mut blocks,
             PanelBlock::item(
-                space_line(&name, space_dot(app, space, active), width),
+                space_line(&name, space_dot(app, space, active), width, active),
                 space_detail(&space.folder, space.tabs.len(), width),
                 None,
                 Some(space.id.clone()),
@@ -674,10 +669,7 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
 
     let agents = app.agents();
     if !agents.is_empty() {
-        if blocks[spaces_at + 1..].iter().any(|block| block.item) {
-            blocks.push(PanelBlock::chrome(divider_line(width)));
-        }
-        blocks.push(PanelBlock::chrome(section("agents", width)));
+        blocks.push(PanelBlock::chrome(section("AGENTS", width)));
         for agent in agents {
             let target = app.rows.iter().position(|row| {
                 row.address.as_deref() == Some(agent.address.as_str())
@@ -703,7 +695,7 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
     // The actions sit at the foot of the panel, not in a status bar.
     blocks.push(PanelBlock::chrome(Line::from("")));
     let actions = action_labels(wide).join("  ");
-    blocks.push(PanelBlock::chrome(Line::from(Span::styled(actions, Style::default().fg(theme::DIM)))));
+    blocks.push(PanelBlock::chrome(Line::from(Span::styled(actions, Style::default().fg(theme::MUTED)))));
     blocks
 }
 
@@ -713,7 +705,7 @@ fn append_tab_blocks(blocks: &mut Vec<PanelBlock>, app: &App, width: u16) {
     for (index, row) in app.rows().iter().enumerate() {
         let selected = index == app.cursor;
         spaced_item(&mut *blocks, PanelBlock::item(
-            row_line(row, width),
+            row_line(row, width, selected),
             row_detail(app, row, width),
             Some(index),
             None,
@@ -789,19 +781,17 @@ fn header_line(app: &App, width: u16) -> Line<'static> {
     ])
 }
 
+/// An uppercase muted label followed by a hairline rule in `LINE`. The rule
+/// belongs to the label, so sections need no separate divider row.
 fn section(label: &str, width: u16) -> Line<'static> {
-    Line::from(Span::styled(
-        fit(label, width as usize),
-        Style::default().fg(theme::DIM).add_modifier(Modifier::BOLD),
-    ))
-}
-
-/// One tenuous rule between the two sections, with no target and no band.
-fn divider_line(width: u16) -> Line<'static> {
-    Line::from(Span::styled(
-        "─".repeat(width as usize),
-        Style::default().fg(theme::DIM),
-    ))
+    let width = width as usize;
+    let label = fit(&label.to_uppercase(), width);
+    let rule = width.saturating_sub(label.chars().count() + 1);
+    Line::from(vec![
+        Span::styled(label, Style::default().fg(theme::MUTED)),
+        Span::raw(" "),
+        Span::styled("─".repeat(rule), Style::default().fg(theme::LINE)),
+    ])
 }
 
 /// The active space is accented; an inactive one takes the most urgent state
@@ -839,37 +829,40 @@ fn space_dot(app: &App, space: &crate::model::Space, active: bool) -> ratatui::s
     }
 }
 
-/// The name is always bold TEXT: selection is the bar, not the weight.
-fn name_line(prefix: &str, glyph: char, state: State, name: &str, width: u16) -> Line<'static> {
+/// A leading badge glyph, then the name in TEXT. Only the active item is
+/// bold: selection is the rail and wash, never a decoration on every row.
+fn name_line(prefix: &str, glyph: char, state: State, name: &str, width: u16, active: bool) -> Line<'static> {
     let name_width = (width as usize).saturating_sub(prefix.chars().count() + 2);
+    let mut style = Style::default().fg(theme::TEXT);
+    if active {
+        style = style.add_modifier(Modifier::BOLD);
+    }
     Line::from(vec![
         Span::raw(prefix.to_string()),
         Span::styled(glyph.to_string(), Style::default().fg(state.color())),
         Span::raw(" "),
-        Span::styled(
-            fit(name, name_width),
-            Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
-        ),
+        Span::styled(fit(name, name_width), style),
     ])
 }
 
-/// One workspace: a coloured dot, then its name. The tab count moved to the
-/// detail row, next to the folder it belongs to.
-fn space_line(name: &str, dot: ratatui::style::Color, width: u16) -> Line<'static> {
+/// One workspace: a coloured dot badge, then its name. The tab count stays on
+/// the detail row, next to the folder it belongs to.
+fn space_line(name: &str, dot: ratatui::style::Color, width: u16, active: bool) -> Line<'static> {
+    let mut style = Style::default().fg(theme::TEXT);
+    if active {
+        style = style.add_modifier(Modifier::BOLD);
+    }
     Line::from(vec![
         Span::raw("  "),
         Span::styled("●", Style::default().fg(dot)),
         Span::raw(" "),
-        Span::styled(
-            fit(name, width.saturating_sub(4) as usize),
-            Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
-        ),
+        Span::styled(fit(name, width.saturating_sub(4) as usize), style),
     ])
 }
 
-/// The first row of a tab block: state glyph plus name, nothing else.
-fn row_line(row: &super::app::Row, width: u16) -> Line<'static> {
-    name_line("  ", row.state.glyph(), row.state, &row.name, width)
+/// The first row of a tab block: state badge plus name, nothing else.
+fn row_line(row: &super::app::Row, width: u16, active: bool) -> Line<'static> {
+    name_line("  ", row.state.glyph(), row.state, &row.name, width, active)
 }
 
 /// The pane count of a document tab, when the workspace is available.
@@ -897,7 +890,7 @@ fn row_detail(app: &App, row: &super::app::Row, width: u16) -> Line<'static> {
     if helpers > 0 {
         parts.push(format!("{helpers} {}", if helpers == 1 { "helper" } else { "helpers" }));
     }
-    detail_line(&parts.join(" · "), 4, width)
+    state_detail_line(row.state, &parts, 4, width)
 }
 
 /// A space's folder and tab count, with the path's tail preserved when it
@@ -931,9 +924,9 @@ fn fit_path(path: &str, width: usize) -> String {
     format!("{head}…{tail}")
 }
 
-/// Child tab name: two cells deeper than its parent, state glyph included.
+/// Child tab name: two cells deeper than its parent, state badge included.
 fn child_line_top(terminal: &super::app::Terminal, width: u16) -> Line<'static> {
-    name_line("    ", terminal.state.glyph(), terminal.state, &terminal.name, width)
+    name_line("    ", terminal.state.glyph(), terminal.state, &terminal.name, width, false)
 }
 
 /// Child tab detail: two cells deeper than the child name, `state · app`.
@@ -943,13 +936,13 @@ fn child_line_detail(terminal: &super::app::Terminal, width: u16) -> Line<'stati
     if let Some(name) = app_name {
         parts.push(name.to_string());
     }
-    detail_line(&parts.join(" · "), 6, width)
+    state_detail_line(terminal.state, &parts, 6, width)
 }
 
-/// One detected agent's name row: state dot plus bold name; the word is on
-/// the detail row, so the state never rests on colour alone.
+/// One detected agent's name row: state badge plus name; the word is on the
+/// detail row, so the state never rests on colour alone.
 fn agent_line(agent: &super::app::Terminal, width: u16) -> Line<'static> {
-    name_line("  ", agent.state.glyph(), agent.state, &agent.name, width)
+    name_line("  ", agent.state.glyph(), agent.state, &agent.name, width, false)
 }
 
 /// Agent detail row: `state · app`, aligned two cells deeper than its name.
@@ -959,7 +952,7 @@ fn agent_detail(agent: &super::app::Terminal, width: u16) -> Line<'static> {
     if let Some(name) = app_name {
         parts.push(name.to_string());
     }
-    detail_line(&parts.join(" · "), 4, width)
+    state_detail_line(agent.state, &parts, 4, width)
 }
 
 /// One detail row, indented `indent` cells and truncated with `…`.
@@ -967,14 +960,30 @@ fn detail_line(text: &str, indent: usize, width: u16) -> Line<'static> {
     let available = (width as usize).saturating_sub(indent);
     Line::from(Span::styled(
         format!("{}{}", " ".repeat(indent), fit(text, available)),
-        Style::default().fg(theme::TEXT),
+        Style::default().fg(theme::BODY),
     ))
+}
+
+/// A state word leads the detail row in its own token, paired with the badge
+/// above it. Everything after it is ordinary BODY metadata.
+fn state_detail_line(state: State, parts: &[String], indent: usize, width: u16) -> Line<'static> {
+    let available = (width as usize).saturating_sub(indent);
+    let fitted = fit(&parts.join(" · "), available);
+    let mut spans = vec![Span::raw(" ".repeat(indent))];
+    match fitted.strip_prefix(state.word()) {
+        Some(rest) => {
+            spans.push(Span::styled(state.word().to_string(), Style::default().fg(state.color())));
+            spans.push(Span::styled(rest.to_string(), Style::default().fg(theme::BODY)));
+        }
+        None => spans.push(Span::styled(fitted, Style::default().fg(theme::BODY))),
+    }
+    Line::from(spans)
 }
 
 fn task_line(name: &str, width: u16) -> Line<'static> {
     let label = format!("─ {name} ");
     let line = format!("{label}{}", "─".repeat((width as usize).saturating_sub(label.chars().count())));
-    Line::from(Span::styled(line, Style::default().fg(theme::DIM)))
+    Line::from(Span::styled(line, Style::default().fg(theme::LINE)))
 }
 
 #[cfg(test)]
@@ -1067,6 +1076,11 @@ mod tests {
             .collect()
     }
 
+    /// The surface the panel paints before any item fill.
+    fn panel_bg(wide: bool) -> ratatui::style::Color {
+        if wide { theme::PANEL } else { theme::ELEVATED }
+    }
+
     /// Every row of the screen as text.
     fn screen(app: &App, width: u16, height: u16) -> Vec<String> {
         let mut terminal = Terminal::new(TestBackend::new(width, height)).expect("test terminal");
@@ -1141,7 +1155,7 @@ mod tests {
         let rows = screen(&app(true), 100, 24);
         assert!(rows[1].contains("default"), "{:?}", &rows[..3]);
         let rail = rows.iter().map(|row| row.chars().take(RAIL_WIDTH as usize).collect::<String>()).collect::<Vec<_>>();
-        assert!(rail.iter().any(|row| row.trim() == "spaces"), "rail sections start after the gutter: {rail:?}");
+        assert!(rail.iter().any(|row| row.trim_start().starts_with("SPACES ")), "rail sections start after the gutter: {rail:?}");
         // The rule sits where the rail ends; the terminal area is to its right.
         assert!(rows.iter().any(|row| row.chars().nth(RAIL_WIDTH as usize) == Some('│')), "no rule after the rail");
     }
@@ -1151,7 +1165,7 @@ mod tests {
         let rows = screen(&app(false), 40, 22);
         assert!(rows[0].contains("pi 2"), "band row: {:?}", rows[0]);
         assert!(rows[1].contains("switch"), "the toggle is centred in the band: {:?}", rows[1]);
-        assert!(!rows.iter().any(|row| row.trim() == "spaces"), "the panel is closed: {rows:?}");
+        assert!(!rows.iter().any(|row| row.trim_start().starts_with("SPACES ")), "the panel is closed: {rows:?}");
         assert!(!rows.iter().any(|row| row.contains("new space")), "no actions while closed: {rows:?}");
     }
 
@@ -1159,8 +1173,8 @@ mod tests {
     fn opening_the_panel_on_a_narrow_screen_covers_it_with_sections() {
         let rows = screen(&app(true), 40, 22);
         assert!(rows[1].trim_end().ends_with('x'), "the toggle turns into x: {:?}", rows[1]);
-        assert!(rows.iter().any(|row| row.trim() == "spaces"), "{rows:?}");
-        assert!(rows.iter().any(|row| row.trim() == "agents"), "{rows:?}");
+        assert!(rows.iter().any(|row| row.trim_start().starts_with("SPACES ")), "{rows:?}");
+        assert!(rows.iter().any(|row| row.trim_start().starts_with("AGENTS ")), "{rows:?}");
         assert!(rows.iter().any(|row| row.contains("needs you")), "{rows:?}");
         assert!(rows.iter().any(|row| row.contains("new space")), "actions at the foot: {rows:?}");
     }
@@ -1256,7 +1270,7 @@ mod tests {
     #[test]
     fn the_agents_section_lists_navigable_agents() {
         let rows = screen(&app(true), 40, 24);
-        let start = rows.iter().position(|row| row.trim() == "agents").expect("the agents section");
+        let start = rows.iter().position(|row| row.trim_start().starts_with("AGENTS ")).expect("the agents section");
         let section = &rows[start + 1..];
         let blocked = section.iter().position(|row| row.contains("▲ pi 2")).expect("blocked agent");
         assert!(section[blocked + 1].contains("needs you"), "{section:?}");
@@ -1278,7 +1292,7 @@ mod tests {
         }));
         app.toggle_panel();
         let rows = screen(&app, 40, 20);
-        let start = rows.iter().position(|row| row.trim() == "agents").expect("the agents section");
+        let start = rows.iter().position(|row| row.trim_start().starts_with("AGENTS ")).expect("the agents section");
         let section = &rows[start + 1..];
         assert!(!section.iter().any(|row| row.contains("bash")), "no plain shell: {section:?}");
         let agent = section.iter().position(|row| row.contains("◐ pi")).expect("the real agent");
@@ -1294,7 +1308,7 @@ mod tests {
         }));
         shell_only.toggle_panel();
         let rows = screen(&shell_only, 40, 20);
-        assert!(!rows.iter().any(|row| row.trim() == "agents"), "no phantom section: {rows:?}");
+        assert!(!rows.iter().any(|row| row.trim_start().starts_with("AGENTS ")), "no phantom section: {rows:?}");
     }
 
     #[test]
@@ -1306,8 +1320,8 @@ mod tests {
         let texts = lines.iter().map(rendered).collect::<Vec<_>>();
 
         assert!(!texts.iter().any(|line| line.contains("TABS") || line.trim() == "tabs"), "no separate TABS section: {texts:?}");
-        let spaces_label = texts.iter().position(|line| line.trim() == "spaces").expect("the spaces label");
-        let agents_label = texts.iter().position(|line| line.trim() == "agents").expect("the agents label");
+        let spaces_label = texts.iter().position(|line| line.trim_start().starts_with("SPACES ")).expect("the spaces label");
+        let agents_label = texts.iter().position(|line| line.trim_start().starts_with("AGENTS ")).expect("the agents label");
         let alpha = texts.iter().position(|line| line.contains("alpha")).expect("the active space");
         let one = texts.iter().position(|line| line.contains("one")).expect("its tab");
         let beta = texts.iter().position(|line| line.contains("beta")).expect("the inactive space");
@@ -1349,17 +1363,32 @@ mod tests {
     }
 
     #[test]
-    fn sections_are_lowercase_and_carry_no_counts_or_disclosure_glyphs() {
+    fn section_labels_are_uppercase_muted_with_a_line_rule() {
         let app = spaces_app();
         let (lines, _, _) = panel_content(&app, 38, false);
         let texts = lines.iter().map(rendered).collect::<Vec<_>>();
-        assert_eq!(texts.iter().filter(|line| line.trim() == "spaces").count(), 1, "{texts:?}");
-        assert_eq!(texts.iter().filter(|line| line.trim() == "agents").count(), 1, "{texts:?}");
-        assert!(!texts.iter().any(|line| line.contains('▾')), "no disclosure glyph: {texts:?}");
-        assert!(
-            !texts.iter().any(|line| line.contains("SPACES") || line.contains("AGENTS") || line.contains("TABS")),
-            "no uppercase section: {texts:?}"
-        );
+        for label in ["SPACES", "AGENTS"] {
+            let at = texts
+                .iter()
+                .position(|line| line.trim_start().starts_with(label))
+                .unwrap_or_else(|| panic!("the {label} label: {texts:?}"));
+            let line = &lines[at];
+            assert_eq!(rendered(line).chars().count(), 38, "the label fills the row: {:?}", rendered(line));
+            assert_eq!(line.spans.len(), 3, "label, space, rule: {line:?}");
+            assert_eq!(line.spans[0].content.as_ref(), label);
+            assert_eq!(line.spans[0].style.fg, Some(theme::MUTED), "{label} is muted");
+            assert!(!line.spans[0].style.add_modifier.contains(Modifier::BOLD), "{label} is not bold");
+            assert_eq!(line.spans[1].content.as_ref(), " ");
+            assert_eq!(line.spans[2].style.fg, Some(theme::LINE), "the hairline is LINE");
+            assert!(
+                line.spans[2].content.chars().all(|c| c == '─'),
+                "one rule after the label: {:?}",
+                line.spans[2].content
+            );
+            assert_eq!(line.spans[2].content.chars().count(), 38 - label.chars().count() - 1);
+            assert!(!texts.iter().any(|text| !text.is_empty() && text.chars().all(|c| c == '─')), "no separate divider row");
+        }
+        assert!(!texts.iter().any(|line| line.contains('▾') || line.trim() == "spaces" || line.trim() == "agents"), "no old label: {texts:?}");
     }
 
     #[test]
@@ -1521,8 +1550,8 @@ mod tests {
         let child_glyph = child.chars().position(|c| c == '○').expect("child glyph");
         assert_eq!(child_glyph - parent_glyph, 2, "hierarchy is a two-cell step: {parent:?} / {child:?}");
 
-        // The step is empty canvas: no full-row band paints behind an item,
-        // and a selected block marks only one cell at its own step.
+        // The step is a hierarchy cue: only the active block takes the wash,
+        // and its rail sits at that block's own step.
         let z = zones(Rect::new(0, 0, 40, 20), true);
         let inner = panel_inner(z.panel.expect("sheet"));
         let bg = backgrounds(&app, 40, 20);
@@ -1543,7 +1572,13 @@ mod tests {
             let y = (inner.y + line as u16) as usize;
             let bar = inner.x + step;
             for x in inner.x..inner.x + inner.width {
-                let expected = if selected && x == bar { theme::ACCENT } else { theme::BG };
+                let expected = if !selected {
+                    panel_bg(false)
+                } else if x == bar {
+                    theme::ACCENT
+                } else {
+                    theme::WASH
+                };
                 assert_eq!(bg[y][x as usize], expected, "line {line}, cell {x}");
             }
         }
@@ -1569,31 +1604,41 @@ mod tests {
         }
     }
 
-    /// S10: items are separated by whitespace and a one-cell bar, never by a
-    /// full-row background.
+    /// T8: only the active block breaks the sheet surface, and never with a
+    /// hard `SURFACE` band.
     #[test]
-    fn no_item_paints_a_full_row_background() {
+    fn only_the_active_item_takes_a_wash_fill() {
         let app = app(true);
         let z = zones(Rect::new(0, 0, 40, 22), true);
         let inner = panel_inner(z.panel.expect("the phone sheet"));
         let bg = backgrounds(&app, 40, 22);
         let view = panel_view(&app, inner.width, false, inner.height);
         assert!(view.bands.iter().any(|band| matches!(band, Band::Item { .. })), "there are items");
+        let mut washed = 0;
+        let mut plain = 0;
         for y in inner.y..inner.y + inner.height {
             for x in inner.x..inner.x + inner.width {
                 let color = bg[y as usize][x as usize];
-                assert!(color == theme::BG || color == theme::ACCENT, "background {color:?} at ({x},{y})");
+                assert!(
+                    color == theme::ELEVATED || color == theme::WASH || color == theme::ACCENT,
+                    "background {color:?} at ({x},{y})"
+                );
+                washed += usize::from(color == theme::WASH);
+                plain += usize::from(color == theme::ELEVATED);
             }
         }
-        // Chrome sits on the canvas too.
+        assert!(washed > 0, "the active block is washed");
+        assert!(plain > 0, "inactive rows keep the sheet surface");
+        // Chrome sits on the sheet too.
         let header = view.bands.iter().position(|band| *band == Band::None).expect("chrome");
         let y = (inner.y + header as u16) as usize;
-        assert_eq!(bg[y][inner.x as usize], theme::BG);
+        assert_eq!(bg[y][inner.x as usize], theme::ELEVATED);
     }
 
-    /// S10: the active marker is a one-cell bar at the block's own step.
+    /// T8: the active marker is a one-cell rail plus a warm wash across the
+    /// rest of both rows.
     #[test]
-    fn the_selected_item_has_an_accent_bar_on_both_rows() {
+    fn the_selected_item_has_an_accent_rail_and_a_wash_fill() {
         let mut app = app(true);
         app.cursor = 0;
         let z = zones(Rect::new(0, 0, 40, 22), true);
@@ -1612,12 +1657,12 @@ mod tests {
         for line in selected {
             assert_eq!(view.rows[line], Some(0), "the selected item is the current tab");
             let y = (inner.y + line as u16) as usize;
-            assert_eq!(bg[y][bar as usize], theme::ACCENT, "bar at the block's step");
+            assert_eq!(bg[y][bar as usize], theme::ACCENT, "rail at the block's step");
             for x in inner.x..inner.x + inner.width {
                 if x == bar {
                     continue;
                 }
-                assert_eq!(bg[y][x as usize], theme::BG, "clean BG behind the rest of the item");
+                assert_eq!(bg[y][x as usize], theme::WASH, "warm wash behind the rest of the item");
             }
         }
     }
@@ -1757,7 +1802,7 @@ mod tests {
         assert!(detail.contains("working"), "{detail:?}");
         assert!(detail.contains("pi"), "{detail:?}");
         assert!(detail.contains("2 panes"), "pane count from the layout: {detail:?}");
-        let agents = rows.iter().position(|row| row.trim() == "agents").expect("agents section");
+        let agents = rows.iter().position(|row| row.trim_start().starts_with("AGENTS ")).expect("agents section");
         let agent = rows[agents + 1..].iter().position(|row| row.contains("◐ claude")).expect("agent row") + agents + 1;
         assert!(rows[agent + 1].contains("working · pi"), "agent detail: {:?}", rows[agent + 1]);
     }
@@ -1784,10 +1829,10 @@ mod tests {
         let alpha = texts.iter().position(|line| line.contains("alpha")).expect("the active space");
         let one = texts.iter().position(|line| line.contains("one")).expect("its tab");
         let beta = texts.iter().position(|line| line.contains("beta")).expect("the next space");
-        let agents = texts.iter().position(|line| line.trim() == "agents").expect("the agents section");
+        let agents = texts.iter().position(|line| line.trim_start().starts_with("AGENTS ")).expect("the agents section");
         assert_eq!(one, alpha + 3, "one blank row between a space and its tab: {texts:?}");
         assert_eq!(beta, one + 3, "one blank row between two items: {texts:?}");
-        assert_eq!(agents, beta + 3, "divider then section, no trailing blank: {texts:?}");
+        assert_eq!(agents, beta + 2, "the section rule replaces a divider row: {texts:?}");
         for gap in [alpha + 2, one + 2] {
             assert!(texts[gap].trim().is_empty(), "the separator is blank: {:?}", texts[gap]);
             assert_eq!(flat.rows[gap], None, "no hit target on a blank row");
@@ -1807,41 +1852,35 @@ mod tests {
             assert_eq!(panel_row_at(&app, panel, inner.x + 2, y, false), None, "no tab hit");
             assert_eq!(panel_space_at(&app, panel, inner.x + 2, y, false), None, "no space hit");
             for x in inner.x..inner.x + inner.width {
-                assert_eq!(bg[y as usize][x as usize], theme::BG, "clean BG on the blank row");
+                assert_eq!(bg[y as usize][x as usize], panel_bg(false), "clean sheet on the blank row");
             }
         }
     }
 
     #[test]
-    fn a_dim_divider_sits_between_the_spaces_and_agents_sections() {
+    fn the_rail_rule_and_section_hairlines_use_line() {
+        let mut terminal = Terminal::new(TestBackend::new(100, 24)).expect("test terminal");
+        terminal.draw(|frame| render(&app(true), frame)).expect("draw");
+        let buffer = terminal.backend().buffer();
+        for y in 0..24 {
+            assert_eq!(buffer[(RAIL_WIDTH, y)].fg, theme::LINE, "rail rule on row {y}");
+        }
+
         let app = spaces_app();
         let flat = flatten(&panel_blocks(&app, 38, false));
         let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
-        let divider = texts
+        let section = texts
             .iter()
-            .position(|line| !line.is_empty() && line.chars().all(|c| c == '─'))
-            .unwrap_or_else(|| panic!("a divider row: {texts:?}"));
-        let spaces = texts.iter().position(|line| line.trim() == "spaces").expect("spaces");
-        let agents = texts.iter().position(|line| line.trim() == "agents").expect("agents");
-        assert!(spaces < divider && divider < agents, "between the sections: {texts:?}");
-        let line = &flat.lines[divider];
-        assert_eq!(line.spans.len(), 1, "one plain rule");
-        assert_eq!(line.spans[0].style.fg, Some(theme::DIM), "tenuous colour");
-        assert!(!line.spans[0].style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(rendered(line).chars().count(), 38, "one rule across the panel");
-        assert_eq!(flat.rows[divider], None, "no hit target on the divider");
-        assert_eq!(flat.spaces[divider], None);
-        assert_eq!(flat.bands[divider], Band::None, "no band on the divider");
-        let z = zones(Rect::new(0, 0, 40, 24), true);
-        let panel = z.panel.expect("the sheet");
-        let inner = panel_inner(panel);
-        let y = inner.y + divider as u16;
-        assert_eq!(panel_row_at(&app, panel, inner.x + 2, y, false), None);
-        assert_eq!(panel_space_at(&app, panel, inner.x + 2, y, false), None);
+            .position(|line| line.trim_start().starts_with("SPACES "))
+            .expect("the section label");
+        assert_eq!(flat.lines[section].spans[2].style.fg, Some(theme::LINE), "section rule");
+        assert_eq!(flat.rows[section], None, "no hit target on a label");
+        assert_eq!(flat.spaces[section], None);
+        assert_eq!(flat.bands[section], Band::None, "no band on a label");
     }
 
     #[test]
-    fn names_are_bold_text_details_are_plain_text_and_sections_are_bold_dim() {
+    fn names_are_bold_only_when_active_and_details_use_body() {
         let app = spaces_app();
         let flat = flatten(&panel_blocks(&app, 38, false));
         let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
@@ -1854,23 +1893,73 @@ mod tests {
                 .unwrap_or_else(|| panic!("a span for {name}: {:?}", flat.lines[at]))
                 .style
         };
+        let bold = |name: &str| name_style(name).add_modifier.contains(Modifier::BOLD);
         for name in ["alpha", "beta", "one", "pi"] {
-            let style = name_style(name);
-            assert_eq!(style.fg, Some(theme::TEXT), "{name} is TEXT");
-            assert!(style.add_modifier.contains(Modifier::BOLD), "{name} is bold");
+            assert_eq!(name_style(name).fg, Some(theme::TEXT), "{name} is TEXT");
         }
-        for label in ["spaces", "agents"] {
-            let at = texts.iter().position(|line| line.trim() == label).expect(label);
-            let style = flat.lines[at].spans[0].style;
-            assert_eq!(style.fg, Some(theme::DIM), "{label} is DIM");
-            assert!(style.add_modifier.contains(Modifier::BOLD), "{label} is bold");
-        }
-        for name in ["alpha", "one", "beta", "pi"] {
+        assert!(bold("alpha"), "the active space is bold");
+        assert!(!bold("beta"), "the inactive space is not bold");
+        assert!(bold("one"), "the selected tab is bold");
+        assert!(!bold("pi"), "an agent is not the active item");
+
+        let detail_fg = |name: &str| {
             let at = texts.iter().position(|line| line.contains(name)).expect(name);
-            let style = flat.lines[at + 1].spans[0].style;
-            assert_eq!(style.fg, Some(theme::TEXT), "the {name} detail is TEXT");
-            assert!(!style.add_modifier.contains(Modifier::BOLD), "the {name} detail is not bold");
+            flat.lines[at + 1]
+                .spans
+                .iter()
+                .find_map(|span| span.style.fg)
+                .expect("a coloured detail")
+        };
+        assert_eq!(detail_fg("alpha"), theme::BODY, "space metadata is BODY");
+        assert_eq!(detail_fg("beta"), theme::BODY, "space metadata is BODY");
+    }
+
+    #[test]
+    fn items_show_a_badge_then_the_name_on_row_one() {
+        let app = spaces_app();
+        let flat = flatten(&panel_blocks(&app, 38, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let badge = |name: &str, glyph: &str| {
+            let at = texts.iter().position(|line| line.contains(name)).expect(name);
+            let spans = &flat.lines[at].spans;
+            let badge_at = spans.iter().position(|span| span.content.as_ref() == glyph).expect(glyph);
+            let name_at = spans.iter().position(|span| span.content.as_ref() == name).expect(name);
+            assert_eq!(name_at, badge_at + 2, "badge, space, name: {:?}", flat.lines[at]);
+            assert!(spans[badge_at].style.fg.is_some(), "the badge is coloured");
+            assert_eq!(spans[name_at].style.fg, Some(theme::TEXT));
+        };
+        badge("alpha", "●");
+        badge("beta", "●");
+        badge("one", "·");
+        badge("pi", "◐");
+        for line in &texts {
+            assert!(!line.contains("1 tab  ") && !line.ends_with(" idle"), "no state word on row one: {line:?}");
         }
+    }
+
+    #[test]
+    fn the_phone_sheet_and_band_are_elevated_and_the_rail_is_panel() {
+        let sheet = spaces_app();
+        let phone = backgrounds(&sheet, 40, 24);
+        assert_eq!(phone[0][0], theme::ELEVATED, "the header band is ELEVATED");
+        let z = zones(Rect::new(0, 0, 40, 24), true);
+        let inner = panel_inner(z.panel.expect("the sheet"));
+        let flat = flatten(&panel_blocks(&sheet, inner.width, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let section = texts.iter().position(|line| line.trim_start().starts_with("SPACES ")).expect("a label");
+        let y = (inner.y + section as u16) as usize;
+        assert_eq!(phone[y][inner.x as usize], theme::ELEVATED, "the sheet is ELEVATED");
+
+        let rail = backgrounds(&app(true), 100, 24);
+        let inner = panel_inner(zones(Rect::new(0, 0, 100, 24), true).panel.expect("the rail"));
+        let y = (inner.y + section as u16) as usize;
+        assert_eq!(rail[y][inner.x as usize], theme::PANEL, "the rail is PANEL");
+    }
+
+    #[test]
+    fn the_renderer_never_paints_a_surface_band() {
+        let legacy = concat!("theme", "::SURFACE");
+        assert!(!include_str!("view.rs").contains(legacy), "no SURFACE band in the renderer");
     }
 
     #[test]
@@ -1893,13 +1982,20 @@ mod tests {
         ] {
             let at = texts.iter().position(|line| line.contains(name)).expect(name);
             assert!(texts[at].contains(glyph), "{name} keeps its glyph");
-            assert_eq!(state_dot(at), color, "{name} dot keeps its state token");
+            assert_eq!(state_dot(at), color, "{name} badge keeps its state token");
             assert!(texts[at + 1].contains(word), "{name} detail keeps its word");
+            let word_fg = flat.lines[at + 1]
+                .spans
+                .iter()
+                .find(|span| span.content.as_ref() == word)
+                .and_then(|span| span.style.fg)
+                .expect("a coloured state word");
+            assert_eq!(word_fg, color, "{name} word keeps its state token");
         }
     }
 
     #[test]
-    fn the_active_space_marker_is_a_bar_at_the_canvas_edge() {
+    fn the_active_space_has_a_rail_and_a_wash_across_both_rows() {
         let app = spaces_app();
         let z = zones(Rect::new(0, 0, 40, 24), true);
         let inner = panel_inner(z.panel.expect("the sheet"));
@@ -1910,9 +2006,9 @@ mod tests {
         for line in [alpha, alpha + 1] {
             assert_eq!(view.bands[line].step(), 0, "a top-level block sits at the edge");
             let y = (inner.y + line as u16) as usize;
-            assert_eq!(bg[y][inner.x as usize], theme::ACCENT, "bar on row {line}");
+            assert_eq!(bg[y][inner.x as usize], theme::ACCENT, "rail on row {line}");
             for x in inner.x + 1..inner.x + inner.width {
-                assert_eq!(bg[y][x as usize], theme::BG, "clean canvas behind the space");
+                assert_eq!(bg[y][x as usize], theme::WASH, "warm wash behind the space");
             }
         }
     }
