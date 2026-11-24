@@ -5,9 +5,11 @@
 <title>herdr-app-tui — design system</title>
 <style>
   :root {
-    --bg:#0c1014; --panel:#111820; --surface:#0a3749; --text:#99d1ce;
-    --muted:#99d1ce; --dim:#99d1ce; --accent:#33859e;
-    --green:#2aa889; --yellow:#edb443; --red:#c23127; --rule:#195466;
+    --bg:#0d0b0a; --panel:#141210; --elevated:#1a1714; --line:#262220;
+    --text:#ece6e0; --body:#b0a69e; --muted:#9c928a; --dim:#6f665f;
+    --accent:#f74c00; --wash:#1f1610;
+    --green:#4ade80; --yellow:#f0b429; --red:#ff6369;
+    --surface:#1f1610; --rule:#262220;
   }
   * { box-sizing:border-box; }
   html, body { margin:0; padding:0; }
@@ -18,35 +20,38 @@
   }
   h1 { font-size:15px; font-weight:700; margin:0 0 2px; }
   h1 .sub { color:var(--muted); font-weight:400; }
-  p.lede { color:var(--muted); margin:0 0 22px; max-width:100ch; }
-  h2 { font-size:12px; font-weight:700; color:var(--muted); margin:26px 0 8px; padding-bottom:4px; border-bottom:1px solid var(--rule); }
+  p.lede { color:var(--body); margin:0 0 22px; max-width:104ch; }
+  h2 { font-size:12px; font-weight:700; color:var(--muted); margin:26px 0 8px; padding-bottom:4px; border-bottom:1px solid var(--line); }
   .grid { display:flex; gap:26px; align-items:flex-start; flex-wrap:wrap; }
   .col { flex:1 1 380px; min-width:360px; }
   table { border-collapse:collapse; width:100%; }
   th, td { text-align:left; padding:3px 10px 3px 0; vertical-align:middle; }
-  th { color:var(--muted); font-weight:400; font-size:11px; border-bottom:1px solid var(--rule); }
+  th { color:var(--muted); font-weight:400; font-size:11px; border-bottom:1px solid var(--line); }
   td.tok { color:var(--text); white-space:nowrap; }
-  td.val { color:var(--muted); white-space:nowrap; }
-  td.use { color:var(--dim); }
-  .sw { display:inline-block; width:14px; height:14px; margin-right:8px; vertical-align:-2px; border:1px solid var(--rule); }
+  td.val { color:var(--body); white-space:nowrap; }
+  td.use { color:var(--muted); }
+  .sw { display:inline-block; width:14px; height:14px; margin-right:8px; vertical-align:-2px; border:1px solid var(--line); }
   .roles { display:grid; grid-template-columns:repeat(2,1fr); gap:4px 28px; }
   .glyphs { display:grid; grid-template-columns:repeat(4,1fr); gap:6px 24px; }
   .glyphs b { color:var(--accent); font-weight:400; display:inline-block; width:2ch; }
   .glyphs em { color:var(--muted); font-style:normal; }
-  .frame { background:var(--panel); padding:0; border:1px solid var(--rule); display:inline-block; width:44ch; }
-  .band { display:flex; min-height:4.35em; background:var(--panel); }
+  .frame { background:var(--panel); padding:0; border:1px solid var(--line); display:inline-block; width:44ch; }
+  .band { display:flex; min-height:4.35em; background:var(--elevated); }
   .band-left { flex:1 1 auto; min-width:0; padding-left:1ch; }
-  .toggle { flex:0 0 8ch; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .toggle { flex:0 0 8ch; background:var(--elevated); color:var(--body); display:flex; align-items:center; justify-content:center; border-left:1px solid var(--line); }
   .sidebar { padding:0 1ch; }
   .ln { white-space:pre; min-height:1.45em; }
   .m { color:var(--muted); }
+  .bd { color:var(--body); }
   .d { color:var(--dim); }
   .b { font-weight:700; }
-  .sel { background:var(--surface); }
+  .ac { color:var(--accent); }
+  .rail { display:inline-block; width:1ch; }
+  .sel { background:var(--wash); }
   .ok { color:var(--green); }
   .wip { color:var(--yellow); }
   .bad { color:var(--red); }
-  .note { color:var(--dim); margin-top:8px; font-size:11px; }
+  .note { color:var(--muted); margin-top:8px; font-size:11px; }
   [role="button"]:focus-visible { outline:1px solid var(--accent); outline-offset:-1px; }
 </style>
 </head>
@@ -54,49 +59,55 @@
 <main>
 <h1>herdr-app-tui <span class="sub">— terminal design system</span></h1>
 <p class="lede">
-  Gotham Default from terminalcolors.com, kept inside the cell grid. One font size,
-  one glyph family, one-cell sidebar gutters. No sizes, radii or shadows.
+  Warm charcoal ground, bone-white text, one Rust orange accent kept under ~10% of the
+  painted area. Palette from the Aprende Rust design system; label and rule discipline
+  from the Claude Code usage dashboard; two-row badge items from the herdr web UI.
+  Kept inside the cell grid: one font size, one glyph family, one-cell gutters, no
+  sizes, radii or shadows.
 </p>
 
 <h2>Color roles — dark canvas</h2>
 <div class="grid">
   <div class="col"><table>
     <tr><th>token</th><th>value</th><th>usage</th></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--bg)"></span>bg</td><td class="val">#0c1014</td><td class="use">canvas and pane</td></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--panel)"></span>panel</td><td class="val">#111820</td><td class="use">sheet and rail</td></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--surface)"></span>surface</td><td class="val">#0a3749</td><td class="use">selection, toggle, actions</td></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--text)"></span>text</td><td class="val">#99d1ce</td><td class="use">primary text</td></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--muted)"></span>muted</td><td class="val">#99d1ce</td><td class="use">secondary text</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--bg)"></span>bg</td><td class="val">#0d0b0a</td><td class="use">canvas and pane</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--panel)"></span>panel</td><td class="val">#141210</td><td class="use">rail surface</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--elevated)"></span>elevated</td><td class="val">#1a1714</td><td class="use">sheet and band</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--line)"></span>line</td><td class="val">#262220</td><td class="use">hairline rules</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--text)"></span>text</td><td class="val">#ece6e0</td><td class="use">names, values</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--body)"></span>body</td><td class="val">#b0a69e</td><td class="use">second-line detail</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--muted)"></span>muted</td><td class="val">#9c928a</td><td class="use">section labels, counts</td></tr>
   </table></div>
   <div class="col"><table>
     <tr><th>token</th><th>value</th><th>usage</th></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--dim)"></span>dim</td><td class="val">#99d1ce</td><td class="use">discreet text</td></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--accent)"></span>accent</td><td class="val">#33859e</td><td class="use">focus, connection</td></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--green)"></span>green</td><td class="val">#2aa889</td><td class="use">idle, connected</td></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--yellow)"></span>yellow</td><td class="val">#edb443</td><td class="use">working</td></tr>
-    <tr><td class="tok"><span class="sw" style="background:var(--red)"></span>red</td><td class="val">#c23127</td><td class="use">needs you, error</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--dim)"></span>dim</td><td class="val">#6f665f</td><td class="use">overflow notes, resting actions</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--accent)"></span>accent</td><td class="val">#f74c00</td><td class="use">active rail and active name only</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--wash)"></span>wash</td><td class="val">#1f1610</td><td class="use">active item fill</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--green)"></span>green</td><td class="val">#4ade80</td><td class="use">idle, connected</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--yellow)"></span>yellow</td><td class="val">#f0b429</td><td class="use">working</td></tr>
+    <tr><td class="tok"><span class="sw" style="background:var(--red)"></span>red</td><td class="val">#ff6369</td><td class="use">needs you, error</td></tr>
   </table></div>
 </div>
-<div class="note">Secondary roles reuse the foreground token: Gotham's midtones fall below 4.5:1. Text/bg = 11.24:1, text/panel = 10.52:1.</div>
+<div class="note">Contrast: text/bg ≈ 15:1, body/bg ≈ 9:1, muted/bg ≈ 6.5:1 — all above 4.5:1. Orange is a signal, never a state colour and never decoration.</div>
 
-<h2>Roles from weight and placement</h2>
+<h2>Roles from weight, case and placement</h2>
 <div class="grid">
   <div class="col"><div class="roles">
-    <div><span class="m b">▾ SECTION</span> <span class="m">bold header</span></div>
-    <div><span class="b">Selected label</span> <span class="m">bold on surface</span></div>
-    <div><span class="m">Row secondary</span> <span class="d">lower, indented line</span></div>
-    <div><span class="sel">&nbsp;toggle&nbsp;</span> <span class="m">fixed right block</span></div>
-    <div><span class="ok">● connected</span> <span class="d">accent marker</span></div>
-    <div><span class="d">actions</span> <span class="m">plain text on surface</span></div>
+    <div><span class="m">AGENTS ────</span> <span class="m">uppercase label plus rule</span></div>
+    <div><span class="b">Active name</span> <span class="m">bold on wash with accent rail</span></div>
+    <div><span class="bd">detail line</span> <span class="m">second row, same left edge</span></div>
+    <div><span class="ac">▎</span><span class="m">one-cell accent rail</span></div>
+    <div><span class="ok">● connected</span> <span class="m">state colour plus word</span></div>
+    <div><span class="d">actions</span> <span class="m">plain muted text, no boxes</span></div>
   </div></div>
-  <div class="col"><div class="note">Type size never changes. Hierarchy comes from boldness, indentation and band color.</div></div>
+  <div class="col"><div class="note">Type size never changes. Hierarchy comes from weight, the uppercase label, the hairline rule and the accent rail.</div></div>
 </div>
 
 <h2>Glyphs — one geometric family</h2>
 <div class="grid">
   <div class="col"><div class="glyphs">
-    <span><b>●</b><em>connected</em></span>
-    <span><b>○</b><em>idle / offline</em></span>
+    <span><b>●</b><em>space / connected</em></span>
+    <span><b>○</b><em>idle</em></span>
     <span><b>◐</b><em>working</em></span>
     <span><b>▲</b><em>needs you</em></span>
     <span><b>✓</b><em>done</em></span>
@@ -105,6 +116,8 @@
     <span><b>▾</b><em>expanded</em></span>
     <span><b>›</b><em>path separator</em></span>
     <span><b>·</b><em>secondary separator</em></span>
+    <span><b>─</b><em>hairline rule</em></span>
+    <span><b>↑ ↓</b><em>clipped edges</em></span>
   </div></div>
   <div class="col">
     <div class="note">Never emoji in chrome: double-width cells break the grid.</div>
@@ -112,39 +125,41 @@
   </div>
 </div>
 
-<h2>Component rules — three-row band, four-sided gutter, no status bar</h2>
+<h2>Component rules — two-row badge items, active rail plus wash, no status bar</h2>
 <div class="grid">
   <div class="col">
     <div class="frame" role="button" tabindex="0" aria-label="Close the sidebar">
       <div class="band">
         <div class="band-left">
           <div class="ln b">○ researchs · 4 tabs</div>
-          <div class="ln m">~/src/herdr/herdr-app-tui</div>
+          <div class="ln bd">~/src/herdr/herdr-app-tui</div>
           <div class="ln">○ idle 1 · ◐ work 1 · ▲ needs 1</div>
         </div>
         <div class="toggle">x</div>
       </div>
       <div class="sidebar">
-        <div class="ln"></div>
-        <div class="ln m b">▾ TABS                     4</div>
-        <div class="ln sel">  research  pi 4 <span class="wip">◐ working</span></div>
-        <div class="ln m">      attached · 2 helpers</div>
-        <div class="ln m b">▾ AGENTS                   3</div>
-        <div class="ln bad">  ▲ pi 2 · api-work        needs you</div>
-        <div class="ln wip">  ◐ pi 4 · research        working</div>
-        <div class="ln m">  ○ helper a               idle</div>
-        <div class="ln sel">settings  keys  reload  detach</div>
-        <div class="ln"></div>
+        <div class="ln m">SPACES ──────────────────────────</div>
+        <div class="ln sel"><span class="rail ac">▎</span><span class="b">● researchs</span>              <span class="bd">4 tabs</span></div>
+        <div class="ln sel"><span class="rail"></span><span class="bd">  /home/me/src/herdr</span></div>
+        <div class="ln"><span class="rail"></span>  <span class="wip">◐</span> <span class="b">api-work</span></div>
+        <div class="ln bd"><span class="rail"></span>      working · pi · 2 panes</div>
+        <div class="ln"> </div>
+        <div class="ln m">AGENTS ──────────────────────────</div>
+        <div class="ln">  <span class="bad">▲</span> <span class="b">pi 2</span>                 <span class="bad">needs you</span></div>
+        <div class="ln bd">      claude · api-work</div>
+        <div class="ln">  <span class="wip">◐</span> <span class="b">pi 4</span>                     <span class="wip">working</span></div>
+        <div class="ln bd">      pi · research</div>
+        <div class="ln bd">settings  keys  reload  detach</div>
       </div>
     </div>
-    <div class="note">The desktop rail keeps this geometry with a compact one-row header, on the left.</div>
+    <div class="note">The desktop rail keeps this geometry at 34 columns with a compact one-row header, on the left.</div>
   </div>
   <div class="col">
-    <div class="note ok">✓ Band rows carry workspace + tabs, path, then the agent total grouped by state.</div>
-    <div class="note ok">✓ The toggle is a fixed 8ch surface block spanning all three rows, hard-right.</div>
-    <div class="note ok">✓ One-cell gutters on top, bottom, left and right of the sidebar.</div>
-    <div class="note ok">✓ AGENTS is a navigable list ordered by attention, not a statistic.</div>
-    <div class="note ok">✓ Actions are plain text on surface, not boxes.</div>
+    <div class="note ok">✓ Every space, tab and agent owns two contiguous rows: badge plus name, then detail.</div>
+    <div class="note ok">✓ The active item is a one-cell accent rail plus a wash fill across both rows.</div>
+    <div class="note ok">✓ Sections are uppercase muted labels followed by a hairline rule.</div>
+    <div class="note ok">✓ A child tab steps two cells right; no connector lines.</div>
+    <div class="note ok">✓ Overflow clips between whole blocks with dim ↑ N / ↓ N lines.</div>
     <div class="note ok">✓ No bottom status bar: connection is in the band, hints in the emulator key bar.</div>
   </div>
 </div>

@@ -53,6 +53,27 @@ between items, tenuous divider between sections, bold names and readable detail
 contrast using existing tokens, state-coloured dots, and a one-cell accent bar
 as the active marker instead of the full `SURFACE` background band.
 
+**S11** — Verbatim: "No me gusta, le falta color, le falta ux, no esta nada lindo, no se como hacer para que entiendas como lo quiero, lo quiero minimalista, elegante, con colores agradables sin saturar ni chillon, no se que mas darte de ejemplo"
+Minimalist and elegant, with pleasant colour that never saturates or shouts.
+
+**S12** — Verbatim: "Capaz podemos usar @~/dotfiles/designs/aprenderust/DESIGN.md utiliza las skilles de stitch para entender el archivo"
+Adopt the Aprende Rust design system as the palette source: warm charcoal
+ground, bone-white text, one Rust orange accent kept under ~10% of the surface,
+hairline separators, dense chrome.
+
+**S13** — Verbatim: "Quiero ademas elegancia, moderno como claude code moderno... esto no es una tui pero refleja mi estilo y contraste"
+Add the Claude Code dashboard discipline: small uppercase muted section labels,
+hairline rules, right-aligned metadata, subtle fills and no hard borders.
+
+**S14** — Verbatim: "Mira esta referencia tambien, no es tui pero hay una distribucion de paneles con un sctive lindo"
+Adopt the herdr web UI item structure: two-row item with an icon badge, active
+state as a left amber rail plus a subtle warm wash across both rows, ghost
+actions and a footer action row.
+
+**S15** — Verbatim: "sellado"
+Sealed scope for T8: apply the merged warm theme to the whole TUI, not only the
+sidebar.
+
 ## Tasks
 
 | ID | S# | Route | Commit | Status |
@@ -64,6 +85,7 @@ as the active marker instead of the full `SURFACE` background band.
 | T5 | S6,S7,S8 | parent | `8b41381` | done — docs, differential check, PTY capture, clippy, handoff close |
 | T6 | S9 | parent | pending | done — three-round visual polish against the reference |
 | T7 | S10 | parent | pending | done — aesthetic pass: distribution, contrast, accent-bar selection |
+| T8 | S11,S12,S13,S14,S15 | parent | pending | done — warm theme, uppercase sections, badge items, rail+wash active |
 
 ## Log
 
@@ -85,7 +107,7 @@ as the active marker instead of the full `SURFACE` background band.
 
 **L9 — 2026-11-24** — Feature close. RED: 7 failing item-block tests, then 9 deeper failures at the continuation boundary. GREEN after the fixes: `cargo test --all-targets` 232 lib + 2 bin passed, 0 failed, 1 ignored; `cargo clippy --all-targets -- -D warnings` clean. Real TestBackend buffer checks prove the BG step, `PANEL` block band and `SURFACE` selected band on both rows. `fit_path` preserves the tail with a single `…` and passes a multibyte test. Overflow indicators carry no hit target and clipping happens only between blocks. Risk item 3 differential check: pre-change binary from `f09cc5e` and the new binary were captured in tmux at 80×24 with isolated cores; the only differences are the intended two-row space and tab blocks (plus session/clock text). Phone capture at 40×20 with the sheet open showed `▾ SPACES 1`, `▾ ~`, `/home/dsasco`, `○ tab` and `idle · 1 pane`. No HTTP preview URL exists for the TUI, so the gentle-design handoff closes without `previewUrl`. Work-unit commits: `8b41381` design + doc, `153dcb0` palette, `8987095` code.
 
-**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `workspace-admin` to 3720 authored changed lines in 25 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
+**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `workspace-admin` to 4158 authored changed lines in 27 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
 
 **L11 — 2026-11-24** — User correction, verbatim: "Esta aceptable, el theme esta espantoso no se por que lo tocaste pero quedo horrible", then "reverti el theme". The T1 palette sync was an overreach: `design/system.md` records Gotham, so the code was globally retheme without asking. Reverted `src/tui/theme.rs` to the Catppuccin values at `f09cc5e`, including the module doc and palette test. The two-row block layout is unchanged. `design/system.md` and `design/sidebar-panels/` deliberately keep Gotham tokens by the user's choice; the code/docs palette mismatch is known and out of scope until decided. Re-check: 232 + 2 tests pass, 1 ignored; clippy clean. Commits: `c666cc4` theme revert, `b0905f0` doc record. `design/sidebar-panels/handoffs.json` records the artboard as implemented.
 
@@ -98,3 +120,9 @@ as the active marker instead of the full `SURFACE` background band.
 **L15 — 2026-11-24** — User correction, verbatim: "Esta feo, no es la estructura la que tenias que modificar es la estetica", then "Tambien la distribucion y la calidad de los colores, el contraste y si ves nuestro sidebar esta feo con esos fondos en los active quedan feos". Opened T7 under S10. Proposed five aesthetic-only changes and asked which active marker to use; user answered "prefiero la barra de acento. Con eso sellado". Structure and shortcuts are frozen; no global palette change.
 
 **L16 — 2026-11-24** — T7 done. RED: 8 failures for the 26-column rail, missing blank rows and divider, full-row `SURFACE` background, non-bold inactive names and a muted inactive-space dot. GREEN: 241 lib + 2 bin tests pass, 1 ignored; clippy clean. The rail is now 34 columns, items are separated by one blank row, a `dim` divider separates `spaces` from `agents`, names are bold `TEXT`, details are normal `TEXT`, headers are bold `DIM`, and the active item uses a one-cell `ACCENT` bar instead of any full-row background. `design/system.md` was updated to match. Final desktop and phone PNGs were captured with two spaces and a `working · pi` agent and sent by Telegram with HTTP 200.
+
+**L17 — 2026-11-24** — User rejected the T7 result: "No me gusta, le falta color, le falta ux, no esta nada lindo...". Three references were provided after that. `~/dotfiles/designs/aprenderust/DESIGN.md` (read with the Stitch skills) supplies the palette; a Claude Code usage dashboard supplies the section-label/rule discipline; the herdr web UI screenshot supplies the two-row badge item and the rail-plus-wash active state. T8 was opened for the merged direction, scoped to the whole TUI.
+
+**L18 — 2026-11-24** — "sellado" — T8 authorized. Tokens: `bg #0d0b0a`, `panel #141210`, `elevated #1a1714`, `line #262220`, `text #ece6e0`, `body #b0a69e`, `muted #9c928a`, `accent #f74c00`, active wash `#1f1610`, `green #4ade80`, `yellow #f0b429`, `red #ff6369`. Sidebar sections become uppercase muted labels with a hairline rule, items keep two rows with a leading badge glyph, and the active item gains the warm wash plus the rust rail. Palette stays under the accent budget; no new fonts or decoration.
+
+**L19 — 2026-11-24** — T8 done. RED: 18 renderer failures after the tokens landed. GREEN: 244 lib + 2 bin tests pass, 1 ignored; clippy clean. `theme.rs` now carries the warm tokens plus `BODY`, `WASH`, `ELEVATED`, `LINE`, with `SURFACE` kept only as a `WASH` alias and no renderer painting a hard band. Sections are `SPACES` / `AGENTS` uppercase `muted` with a `line` hairline; items are badge plus bold-when-active name and a `body` detail; the active item has the one-cell `accent` rail plus the `wash` fill across both rows. `design/system.md` and `design/system.html` were retokenized to match. Desktop 80x24 and phone 40x20 PNGs were captured with two spaces and a `working · pi` agent and sent by Telegram with HTTP 200. The section label was corrected from `WORKSPACE` to `SPACES` before the capture.
