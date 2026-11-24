@@ -135,7 +135,11 @@ The cell is the unit.
   panels scroll. It shows every open agent herdr-core reports, from every space
   and tab, ordered by attention (`needs you` before `working` before `idle`).
   Tapping an agent selects its space and tab even when neither was active; the
-  same walk works with `Alt+↑/↓`. Never replace it with a count table.
+  same walk works with `Alt+↑/↓`. The selected agent gets the same active
+  treatment as a tab: wash fill, `rust-line` edge and bold name. A wheel notch
+  over a program that tracks the mouse goes to that program as SGR mouse input
+  (buttons 64/65); programs without tracking keep herdr's copy-mode scrollback.
+  Never replace the list with a count table.
 - **Overflow**: horizontal detail truncates with `…`; a path keeps its tail
   (`…/herdr-app-tui`) and a branch keeps its head. Vertical overflow clips only
   between whole blocks: `↑ N more` / `↓ N more` lines in `dim` mark the clipped

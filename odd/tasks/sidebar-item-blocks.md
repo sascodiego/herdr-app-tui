@@ -4,7 +4,7 @@ Objective: implement `design/sidebar-panels/04-item-blocks.html` in the Rust TUI
 each space, tab and agent is one continuous two-row block; a child tab is shown
 by a two-cell band step with no connector lines; overflow clips whole blocks.
 
-Branch: `workspace-admin` (current feature branch). Delivery strategy:
+Branch: `feat/workspace-admin` (current feature branch). Delivery strategy:
 `ask-on-risk`. Test runner: `cargo test --all-targets`,
 `cargo clippy --all-targets -- -D warnings`, PTY capture with an isolated core.
 
@@ -101,6 +101,17 @@ tab is active.
 "Open" means every terminal the core reports live with a status word; idle is
 included. No filtering by `model.active` or by the active tab.
 
+**S23** — Verbatim: "El orden esta bien, el agente ahora se pasa al frente cuando lo toca pero no se pone en estilo activado, esta siempre el mismo estilo este activo o no. El scroll dentro dle agente lo perdi, pasamos al modo copy y no tengo el scroll interno de la tui del agente, nosotros estamos robando esa señal y nos pasamos al modo copy mode"
+The selected agent must carry the active item treatment, and a wheel event over
+a mouse-tracking agent must be forwarded to that agent instead of stealing it
+for herdr's copy mode.
+
+**S24** — Verbatim: "sellado"
+Sealed scope for T12: derive the active agent from the selected tab, pass it to
+the item's band and bold its name; add a wheel helper that uses `mouse_tracking`
+and `encode_mouse`, and route terminal-zone wheel events through it without
+entering copy mode. Plain scrollback stays for programs without mouse tracking.
+
 **S21** — Verbatim: "Reordenamos, agents primero, spaces segundo y tabs terceros se supone que la sidebar sera scrolleable. Los agentes deben verse siemore y ser accionables yo si estoy en otro workspace o tab y toco el agente en la sidebar no lo activa"
 The panel order becomes `01 AGENTS`, `02 WORKSPACES`, `03 TABS`. Agents stay
 visible while the other two sections scroll, and an agent row activates its
@@ -128,6 +139,7 @@ field (issue #2), push and PR.
 | T9 | S16,S17 | parent | `86c5b91` | done — three panels, numbered headers, no rail, wash+border active |
 | T10 | S19,S20 | parent | `b9dd985` | done — section hierarchy and all open agents |
 | T11 | S21,S22 | parent | `b9dd985` | done — agents first, pinned, and actionable across spaces |
+| T12 | S23,S24 | parent | `ca9959f` | done — active agent style and wheel forwarding |
 
 ## Log
 
@@ -141,7 +153,7 @@ field (issue #2), push and PR.
 
 **L5** — Plan proposed in chat: five tasks, files `src/tui/view.rs`, `src/tui/mod.rs`, `src/tui/app.rs`/`model.rs`, tests in `view.rs`; risk item 3 because shared render/hit-testing code is touched, so a differential check against `main` is included. Verification with tests, clippy and PTY captures; no HTTP preview URL exists for the TUI.
 
-**L6** — "sellado" — plan sealed; implementation and local work-unit commits authorized on `workspace-admin`.
+**L6** — "sellado" — plan sealed; implementation and local work-unit commits authorized on `feat/workspace-admin`.
 
 **L7** — Implementation discovery: `src/tui/theme.rs` still held the old Catppuccin palette while `design/system.md` records Gotham Default. Since the handoff names `design/system.md` as the token source, token values and the theme test are synced inside T1. Risk item 3 still applies: the panel render and hit-testing helpers are shared, so the T5 differential check compares them against `main`.
 
@@ -149,7 +161,7 @@ field (issue #2), push and PR.
 
 **L9 — 2026-11-24** — Feature close. RED: 7 failing item-block tests, then 9 deeper failures at the continuation boundary. GREEN after the fixes: `cargo test --all-targets` 232 lib + 2 bin passed, 0 failed, 1 ignored; `cargo clippy --all-targets -- -D warnings` clean. Real TestBackend buffer checks prove the BG step, `PANEL` block band and `SURFACE` selected band on both rows. `fit_path` preserves the tail with a single `…` and passes a multibyte test. Overflow indicators carry no hit target and clipping happens only between blocks. Risk item 3 differential check: pre-change binary from `f09cc5e` and the new binary were captured in tmux at 80×24 with isolated cores; the only differences are the intended two-row space and tab blocks (plus session/clock text). Phone capture at 40×20 with the sheet open showed `▾ SPACES 1`, `▾ ~`, `/home/dsasco`, `○ tab` and `idle · 1 pane`. No HTTP preview URL exists for the TUI, so the gentle-design handoff closes without `previewUrl`. Work-unit commits: `8b41381` design + doc, `153dcb0` palette, `8987095` code.
 
-**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `workspace-admin` to 4746 authored changed lines in 31 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
+**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `feat/workspace-admin` to 4840 authored changed lines in 33 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
 
 **L11 — 2026-11-24** — User correction, verbatim: "Esta aceptable, el theme esta espantoso no se por que lo tocaste pero quedo horrible", then "reverti el theme". The T1 palette sync was an overreach: `design/system.md` records Gotham, so the code was globally retheme without asking. Reverted `src/tui/theme.rs` to the Catppuccin values at `f09cc5e`, including the module doc and palette test. The two-row block layout is unchanged. `design/system.md` and `design/sidebar-panels/` deliberately keep Gotham tokens by the user's choice; the code/docs palette mismatch is known and out of scope until decided. Re-check: 232 + 2 tests pass, 1 ignored; clippy clean. Commits: `c666cc4` theme revert, `b0905f0` doc record. `design/sidebar-panels/handoffs.json` records the artboard as implemented.
 
@@ -168,6 +180,8 @@ field (issue #2), push and PR.
 **L18 — 2026-11-24** — "sellado" — T8 authorized. Tokens: `bg #0d0b0a`, `panel #141210`, `elevated #1a1714`, `line #262220`, `text #ece6e0`, `body #b0a69e`, `muted #9c928a`, `accent #f74c00`, active wash `#1f1610`, `green #4ade80`, `yellow #f0b429`, `red #ff6369`. Sidebar sections become uppercase muted labels with a hairline rule, items keep two rows with a leading badge glyph, and the active item gains the warm wash plus the rust rail. Palette stays under the accent budget; no new fonts or decoration.
 
 **L20 — 2026-11-24** — T9 done. RED: 9 failures for the wash value, the three numbered headers, tab digit/glyph, tab and space details, the rust edge/wash, agent elapsed and flat tap routing. GREEN: 253 lib + 2 bin tests pass, 1 ignored; clippy clean. Sidebar is now `01 WORKSPACES` / `02 TABS` / `03 AGENTS`, each a numbered header with a `line` rule and right-aligned count; items keep two rows with a blank row between them; the active space and the active tab are highlighted in different panels with `wash` plus a one-cell `rust_line` edge and no accent rail. Headers verified in the raw ANSI: numeral `#f74c00`, title and count `#9c928a`, rule `#262220`. Desktop and phone PNGs sent by Telegram with HTTP 200.
+
+**L24 — 2026-11-24** — T12 done. RED: 4 failures for the always-plain agent band, the extra selected block count and the empty wheel report. GREEN: 262 lib + 2 bin tests pass, 1 ignored. The selected agent now receives `Band::Item { selected: true }`, the wash fill, the one-cell `rust-line` edge and a bold name; a null tab address no longer matches a null agent parent. `Vt::wheel_bytes` returns an SGR wheel report (buttons 64/65) only when `mouse_tracking()` is true, and `Session::wheel` sends it as DATA, because a wheel notch is a person acting rather than a terminal reply. `handle_pointer` forwards wheel events in `Zone::Terminal` before considering copy mode, so a tracking agent keeps its own scroll; a non-tracking program still uses herdr's scrollback. Limitation: the FFI mouse encoder only accepts named buttons, so the wheel report is written directly in the SGR format (1006), which is what mouse-tracking TUIs enable. Desktop and phone PNGs were sent by Telegram with HTTP 200. Commits: `ca9959f` code, `51e454e` docs.
 
 **L23 — 2026-11-24** — T11 done. RED: new-API compile failures for `Agent.activate` and `PanelView.agents`, then 12 runtime failures for the old section order, old offsets, a spurious `↑ 0 more` indicator and the missing cross-space target. GREEN: 260 lib + 2 bin tests pass, 1 ignored. The panel order is `01 AGENTS` / `02 WORKSPACES` / `03 TABS`. The agents section is pinned: `panel_view` clips only the workspaces and tabs between the pinned head and the pinned actions, and falls back to whole-panel clipping if too many agents are open to pin without losing the footer. Each agent row carries its terminal address as a first-class target; `panel_agent_at` resolves taps and `App::activate_agent` selects the agent's space and tab from the workspace tree, so an agent from a non-active space is reachable by tap and by Alt+Up/Down. `agent_targets` returns addresses instead of active-tab indices. T10 also closed: one blank row before each section header, numeral `accent-bright`, title bold `text`, count `dim`. Desktop and phone PNGs were sent by Telegram with HTTP 200. Commits: `b9dd985` code, `2092fa8` docs.
 
