@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>01 — Nested panels</title>
+<style>
+  :root {
+    --bg:#0c1014; --panel:#111820; --surface:#0a3749; --text:#99d1ce;
+    --muted:#99d1ce; --dim:#99d1ce; --accent:#33859e;
+    --green:#2aa889; --yellow:#edb443; --red:#c23127; --rule:#195466;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font:12px/1.42 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    padding:24px 28px 32px; width:1080px;
+  }
+  h1 { margin:0 0 4px; font-size:14px; font-weight:700; }
+  h1 .n { color:var(--accent); }
+  .brief { margin:0 0 20px; color:var(--muted); max-width:104ch; }
+  .label { margin-bottom:6px; color:var(--dim); font-size:11px; }
+  .row { display:flex; gap:26px; align-items:flex-start; }
+  .device { border:1px solid var(--rule); background:var(--bg); padding:10px; }
+  .screen { width:40ch; }
+  .ln { display:flex; min-height:1.42em; white-space:pre; }
+  .ln > .l { flex:0 0 auto; }
+  .ln > .r { margin-left:auto; flex:0 0 auto; }
+  .band { display:flex; min-height:4.26em; background:var(--panel); }
+  .band-left { flex:1 1 auto; min-width:0; }
+  .toggle { flex:0 0 8ch; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .sidebar { padding:0 1ch; }
+  .item { min-height:2.84em; }
+  .sel { background:var(--surface); }
+  .sec { color:var(--muted); font-weight:700; }
+  .cnt, .pm { color:var(--muted); }
+  .pd { color:var(--dim); }
+  .ac { color:var(--accent); }
+  .ok { color:var(--green); }
+  .wr { color:var(--yellow); }
+  .er { color:var(--red); }
+  .b { font-weight:700; }
+  .gap { min-height:1.42em; }
+  [role="button"]:focus-visible { outline:1px solid var(--accent); outline-offset:-1px; }
+  .cols { display:flex; align-items:flex-start; }
+  .rail { width:32ch; background:var(--panel); border-right:1px solid var(--rule); }
+  .term { width:46ch; padding-left:1ch; }
+  .notes { margin-top:18px; color:var(--dim); font-size:11px; max-width:100ch; }
+  .notes b { color:var(--muted); font-weight:400; }
+  .fix { color:var(--green); }
+  .sub { margin:22px 0 6px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1><span class="n">01</span> — Nested panels</h1>
+<p class="brief">
+  Two panels in the sidebar, not one tree: <b>spaces</b> with their tabs nested
+  inside, and <b>agents</b> below. Every item owns two rows — name on the first,
+  detail on the second — and the selection band covers both. This is the herdr
+  sidebar cadence with terminal-native hierarchy: bold label, indented detail,
+  one rule between groups, no boxes.
+</p>
+
+<div class="row">
+  <section aria-label="Phone, sheet collapsed">
+    <div class="label">phone · collapsed · 40 × 20</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Open the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">●</span> herdr-tui · 3 tabs</span></div>
+          <div class="ln pm"><span class="l">/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">switch</div>
+      </div>
+      <div class="ln"><span class="l">❯ pi · claude</span></div>
+      <div class="ln pm"><span class="l">  <span class="wr">◐</span> cargo test --all-targets</span></div>
+      <div class="ln pm"><span class="l">    running 216 tests</span></div>
+      <div class="ln"><span class="l">    <span class="ok">test result: ok. 216 passed; 0 failed</span></span></div>
+      <div class="ln"></div>
+      <div class="ln"><span class="l">❯ </span></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+    </div></div>
+  </section>
+
+  <section aria-label="Phone, sheet open">
+    <div class="label">phone · sheet open · 40 × 20</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Close the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">●</span> herdr-tui · 3 tabs</span></div>
+          <div class="ln pm"><span class="l">/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">x</div>
+      </div>
+      <div class="sidebar">
+        <div class="ln sec"><span class="l">▾ spaces</span><span class="r cnt">3</span></div>
+        <div class="item sel" role="button" tabindex="0" aria-label="Select space herdr-tui">
+          <div class="ln"><span class="l">  <span class="b">● herdr-tui</span></span><span class="r cnt">2 tabs</span></div>
+          <div class="ln pm"><span class="l">      master</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Attach tab claude">
+          <div class="ln"><span class="l">    <span class="wr">◐</span> claude</span></div>
+          <div class="ln pm"><span class="l">        working · pi · 2 panes</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Attach tab bun">
+          <div class="ln"><span class="l">    <span class="ok">○</span> bun</span></div>
+          <div class="ln pm"><span class="l">        idle · bash</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Select space web-dashboard">
+          <div class="ln"><span class="l">  ▸ web-dashboard</span><span class="r cnt">1</span></div>
+          <div class="ln pm"><span class="l">      feat/usage-charts · ~/src/web-dashboard</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Select space data-pipeline">
+          <div class="ln"><span class="l">  ▸ data-pipeline</span><span class="r cnt">1</span></div>
+          <div class="ln pm"><span class="l">      backfill/events-v2 · ~/src/data-pipeline</span></div>
+        </div>
+        <div class="gap"></div>
+        <div class="ln sec"><span class="l">▾ agents</span><span class="r cnt">2</span></div>
+        <div class="item" role="button" tabindex="0" aria-label="Go to agent herdr-tui, working">
+          <div class="ln"><span class="l">  <span class="wr">◐</span> herdr-tui</span></div>
+          <div class="ln pm"><span class="l">      working · pi</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Go to agent explore, idle">
+          <div class="ln"><span class="l">  <span class="ok">○</span> explore</span></div>
+          <div class="ln pm"><span class="l">      idle · opencode</span></div>
+        </div>
+        <div class="ln sel actions"><span class="l"><span class="b">settings</span>  keys  new tab  close</span></div>
+      </div>
+    </div></div>
+  </section>
+</div>
+
+<div class="sub">desktop · rail on the left, always visible · 32 + 46 columns × 24 rows</div>
+<div class="device"><div class="cols">
+  <div class="rail"><div class="sidebar">
+    <div class="ln sec"><span class="l">▾ spaces</span><span class="r cnt">3</span></div>
+    <div class="item sel" role="button" tabindex="0" aria-label="Select space herdr-tui">
+      <div class="ln"><span class="l"><span class="b">● herdr-tui</span></span><span class="r cnt">2</span></div>
+      <div class="ln pm"><span class="l">    master</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Attach tab claude">
+      <div class="ln"><span class="l">  <span class="wr">◐</span> claude</span></div>
+      <div class="ln pm"><span class="l">      working · pi</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Attach tab bun">
+      <div class="ln"><span class="l">  <span class="ok">○</span> bun</span></div>
+      <div class="ln pm"><span class="l">      idle</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Select space web-dashboard">
+      <div class="ln"><span class="l">▸ web-dashboard</span><span class="r cnt">1</span></div>
+      <div class="ln pm"><span class="l">    ~/…/web-dashboard</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Select space data-pipeline">
+      <div class="ln"><span class="l">▸ data-pipeline</span><span class="r cnt">1</span></div>
+      <div class="ln pm"><span class="l">    ~/…/data-pipeline</span></div>
+    </div>
+    <div class="gap"></div>
+    <div class="ln sec"><span class="l">▾ agents</span><span class="r cnt">2</span></div>
+    <div class="item" role="button" tabindex="0" aria-label="Go to agent herdr-tui, working">
+      <div class="ln"><span class="l"><span class="wr">◐</span> herdr-tui</span></div>
+      <div class="ln pm"><span class="l">    working · pi</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Go to agent explore, idle">
+      <div class="ln"><span class="l"><span class="ok">○</span> explore</span></div>
+      <div class="ln pm"><span class="l">    idle · opencode</span></div>
+    </div>
+    <div class="ln sel actions"><span class="l"><span class="b">set</span>  keys  new  close</span></div>
+  </div></div>
+  <div class="term">
+    <div class="ln"><span class="l">❯ pi · claude</span></div>
+    <div class="ln pm"><span class="l">  <span class="wr">◐</span> cargo clippy --all-targets -- -D warnings</span></div>
+    <div class="ln pm"><span class="l">    Finished `dev` profile in 1.82s</span></div>
+    <div class="ln"><span class="l">    <span class="ok">test result: ok. 216 passed; 0 failed</span></span></div>
+    <div class="ln"></div>
+    <div class="ln"><span class="l">❯ </span></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  </div>
+</div></div>
+
+<div class="notes">
+  <b>Tradeoff:</b> the closest reading of the herdr sidebar and the two-row rule,
+  but every space expanded means a long sheet when there are many tabs.
+  <br><br>
+  <b>Fixes:</b> <span class="fix">P1</span> each space, tab and agent owns two
+  full rows; <span class="fix">P2</span> the selected band covers the pair, with
+  a bold label and no marker glyph; <span class="fix">P3</span> the space is a
+  parent node and its tabs sit below it at a 4-cell indent;
+  <span class="fix">P4</span> the two panels are separated by one blank row,
+  never by a nested box; <span class="fix">P5</span> the active space shows only
+  its branch because the band above already carries its path, while inactive
+  spaces show `branch · path`; <span class="fix">P6</span> state is always glyph
+  plus word, never color alone; <span class="fix">P7</span> keyboard focus has
+  its own accent outline, distinct from selection.
+  <br><br>
+  <b>Data source:</b> branch comes from `folder_info`; `state · app` comes from
+  the core's OSC 7501 status. No field is invented.
+  <br><br>
+  <b>Palette:</b> Gotham Default tokens from `design/system.md` only. No
+  animation, so reduced-motion needs no exception.
+</div>
+</main>
+</body>
+</html>

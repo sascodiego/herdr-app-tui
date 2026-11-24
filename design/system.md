@@ -117,6 +117,20 @@ The cell is the unit.
   replace it with a count table.
 - **Row**: glyph, label, then the state word, right-aligned. A row never repeats
   a fact already in the header.
+- **Item block**: a space, tab or agent owns a contiguous two-row band on
+  `panel`, with the name on row one and the detail on row two at the same left
+  edge. On the sheet and rail the surrounding surface is `bg`, so the band
+  reads as one item without a drawn box. Selection turns the whole band
+  `surface` with a bold name; a selected row carries no marker glyph.
+- **Nesting step**: a child tab's two-row band starts two cells to the right of
+  its parent's band; its name keeps the 2-cell inset and its detail sits at 4.
+  Hierarchy comes from that step and the band edge, not from connector lines.
+  The accent is never used for hierarchy.
+- **Overflow**: horizontal detail truncates with `…`; a path keeps its tail
+  (`…/herdr-app-tui`) and a branch keeps its head. Vertical overflow clips only
+  between whole blocks: `↑ N more` / `↓ N more` lines in `dim` mark the clipped
+  edges. Scrolling moves a whole block and keeps the selected block fully
+  visible with one block of context.
 - **Actions**: one plain text row at the bottom of the sidebar, on `surface`,
   separated by two spaces and re-laid-out when the on-screen keyboard changes
   the available height. No boxes, buttons or glyph markers.

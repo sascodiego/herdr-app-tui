@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "chosen": "04-item-blocks.html",
+  "handoffs": {
+    "04-item-blocks.html": {
+      "status": "in_progress",
+      "queued": false,
+      "sentAt": "2026-11-24T02:58:20.589Z",
+      "startedAt": "2026-11-24T02:58:41.636Z",
+      "implementedAt": null,
+      "note": "Accepted the handoff; mapping the Rust TUI panel code and test surfaces before the first write."
+    }
+  }
+}

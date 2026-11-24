@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>03 — Attention first</title>
+<style>
+  :root {
+    --bg:#0c1014; --panel:#111820; --surface:#0a3749; --text:#99d1ce;
+    --muted:#99d1ce; --dim:#99d1ce; --accent:#33859e;
+    --green:#2aa889; --yellow:#edb443; --red:#c23127; --rule:#195466;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font:12px/1.42 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    padding:24px 28px 32px; width:1080px;
+  }
+  h1 { margin:0 0 4px; font-size:14px; font-weight:700; }
+  h1 .n { color:var(--accent); }
+  .brief { margin:0 0 20px; color:var(--muted); max-width:104ch; }
+  .label { margin-bottom:6px; color:var(--dim); font-size:11px; }
+  .row { display:flex; gap:26px; align-items:flex-start; }
+  .device { border:1px solid var(--rule); background:var(--bg); padding:10px; }
+  .screen { width:40ch; }
+  .ln { display:flex; min-height:1.42em; white-space:pre; }
+  .ln > .l { flex:0 0 auto; }
+  .ln > .r { margin-left:auto; flex:0 0 auto; }
+  .band { display:flex; min-height:4.26em; background:var(--panel); }
+  .band-left { flex:1 1 auto; min-width:0; }
+  .toggle { flex:0 0 8ch; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .sidebar { padding:0 1ch; }
+  .item { min-height:2.84em; }
+  .sel { background:var(--surface); }
+  .sec { color:var(--muted); font-weight:700; }
+  .cnt, .pm { color:var(--muted); }
+  .pd { color:var(--dim); }
+  .ac { color:var(--accent); }
+  .ok { color:var(--green); }
+  .wr { color:var(--yellow); }
+  .er { color:var(--red); }
+  .b { font-weight:700; }
+  .gap { min-height:1.42em; }
+  [role="button"]:focus-visible { outline:1px solid var(--accent); outline-offset:-1px; }
+  .cols { display:flex; align-items:flex-start; }
+  .rail { width:32ch; background:var(--panel); border-right:1px solid var(--rule); }
+  .term { width:46ch; padding-left:1ch; }
+  .notes { margin-top:18px; color:var(--dim); font-size:11px; max-width:100ch; }
+  .notes b { color:var(--muted); font-weight:400; }
+  .fix { color:var(--green); }
+  .sub { margin:22px 0 6px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1><span class="n">03</span> — Attention first</h1>
+<p class="brief">
+  The two panels keep their two-row items, but their order follows the core:
+  when an agent needs you, <b>agents</b> moves above <b>spaces</b>; otherwise
+  spaces leads. The needs-you item is the selected band on entry. Nothing else
+  changes, so the rows stay predictable while the priority changes.
+</p>
+
+<div class="row">
+  <section aria-label="Phone, sheet collapsed">
+    <div class="label">phone · collapsed · 40 × 20</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Open the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="er">▲</span> web-dashboard · 2 tabs</span></div>
+          <div class="ln pm"><span class="l">~/src/web-dashboard</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · <span class="er">▲ needs 1</span></span></div>
+        </div>
+        <div class="toggle">switch</div>
+      </div>
+      <div class="ln"><span class="l">❯ pi · claude</span></div>
+      <div class="ln pm"><span class="l">  <span class="wr">◐</span> waiting on review</span></div>
+      <div class="ln"><span class="l">    <span class="er">▲ blocked 2m</span></span></div>
+      <div class="ln"></div>
+      <div class="ln"><span class="l">❯ </span></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+    </div></div>
+  </section>
+
+  <section aria-label="Phone, sheet open, agents first">
+    <div class="label">phone · sheet open · 40 × 20</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Close the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="er">▲</span> web-dashboard · 2 tabs</span></div>
+          <div class="ln pm"><span class="l">~/src/web-dashboard</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · <span class="er">▲ needs 1</span></span></div>
+        </div>
+        <div class="toggle">x</div>
+      </div>
+      <div class="sidebar">
+        <div class="ln sec"><span class="l">▾ agents</span><span class="r cnt">3</span></div>
+        <div class="item sel" role="button" tabindex="0" aria-label="Go to agent web-dashboard, needs you">
+          <div class="ln"><span class="l">  <span class="er">▲</span> <span class="b">web-dashboard</span></span></div>
+          <div class="ln er"><span class="l">  needs you · claude</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Go to agent herdr-tui, working">
+          <div class="ln"><span class="l">  <span class="wr">◐</span> herdr-tui</span></div>
+          <div class="ln pm"><span class="l">  working · pi</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Go to agent explore, idle">
+          <div class="ln"><span class="l">  <span class="ok">○</span> explore</span></div>
+          <div class="ln pm"><span class="l">  idle · opencode</span></div>
+        </div>
+        <div class="gap"></div>
+        <div class="ln sec"><span class="l">▾ spaces</span><span class="r cnt">3</span></div>
+        <div class="item" role="button" tabindex="0" aria-label="Select space web-dashboard">
+          <div class="ln"><span class="l">  ▾ web-dashboard</span><span class="r cnt">2 tabs</span></div>
+          <div class="ln pm"><span class="l">  feat/usage-charts</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Attach tab usage">
+          <div class="ln"><span class="l">    <span class="er">▲</span> usage</span></div>
+          <div class="ln pm"><span class="l">    needs you · claude</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Attach tab shell">
+          <div class="ln"><span class="l">    <span class="ok">○</span> shell</span></div>
+          <div class="ln pm"><span class="l">    idle · bash</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Expand space herdr-tui">
+          <div class="ln"><span class="l">  ▸ herdr-tui</span><span class="r cnt">2</span></div>
+          <div class="ln pm"><span class="l">  master · ~/src/herdr/herdr-app-tui</span></div>
+        </div>
+        <div class="ln sel actions"><span class="l"><span class="b">settings</span>  keys  new tab  close</span></div>
+      </div>
+    </div></div>
+  </section>
+</div>
+
+<div class="sub">desktop · rail on the left, always visible · 32 + 46 columns × 24 rows</div>
+<div class="device"><div class="cols">
+  <div class="rail"><div class="sidebar">
+    <div class="ln sec"><span class="l">▾ agents</span><span class="r cnt">3</span></div>
+    <div class="item sel" role="button" tabindex="0" aria-label="Go to agent web-dashboard, needs you">
+      <div class="ln"><span class="l"><span class="er">▲</span> <span class="b">web-dashboard</span></span></div>
+      <div class="ln er"><span class="l">needs you · claude</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Go to agent herdr-tui, working">
+      <div class="ln"><span class="l"><span class="wr">◐</span> herdr-tui</span></div>
+      <div class="ln pm"><span class="l">working · pi</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Go to agent explore, idle">
+      <div class="ln"><span class="l"><span class="ok">○</span> explore</span></div>
+      <div class="ln pm"><span class="l">idle · opencode</span></div>
+    </div>
+    <div class="gap"></div>
+    <div class="ln sec"><span class="l">▾ spaces</span><span class="r cnt">3</span></div>
+    <div class="item" role="button" tabindex="0" aria-label="Select space web-dashboard">
+      <div class="ln"><span class="l">▾ web-dashboard</span><span class="r cnt">2</span></div>
+      <div class="ln pm"><span class="l">feat/usage-charts</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Attach tab usage">
+      <div class="ln"><span class="l">  <span class="er">▲</span> usage</span></div>
+      <div class="ln pm"><span class="l">  needs you</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Attach tab shell">
+      <div class="ln"><span class="l">  <span class="ok">○</span> shell</span></div>
+      <div class="ln pm"><span class="l">  idle</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Expand space herdr-tui">
+      <div class="ln"><span class="l">▸ herdr-tui</span><span class="r cnt">2</span></div>
+      <div class="ln pm"><span class="l">~/…/herdr-app-tui</span></div>
+    </div>
+    <div class="ln sel actions"><span class="l"><span class="b">set</span>  keys  new  close</span></div>
+  </div></div>
+  <div class="term">
+    <div class="ln"><span class="l">❯ pi · claude</span></div>
+    <div class="ln pm"><span class="l">  <span class="er">▲</span> waiting on review</span></div>
+    <div class="ln"><span class="l">    <span class="er">▲ blocked 2m</span></span></div>
+    <div class="ln"></div>
+    <div class="ln"><span class="l">❯ </span></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  </div>
+</div></div>
+
+<div class="notes">
+  <b>Tradeoff:</b> the needs-you answer is first without scrolling, but the
+  panels change position, which can break muscle memory. The band above already
+  shows the attention glyph, so the reordering repeats a known signal rather
+  than a new one.
+  <br><br>
+  <b>Fixes:</b> <span class="fix">P1</span> both panels keep the two-row item
+  rule; <span class="fix">P2</span> only the panel order and the initial
+  selection change; <span class="fix">P3</span> attention is still glyph plus
+  word on row two; <span class="fix">P4</span> one blank row separates panels
+  and the selected band covers both rows of its item.
+  <br><br>
+  <b>Data source:</b> order is derived from the same `App::counts` attention
+  grouping used by the phone band. No new state is persisted.
+  <br><br>
+  <b>Palette:</b> Gotham Default tokens from `design/system.md` only. No
+  animation; reduced-motion needs no exception.
+</div>
+</main>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>04 — Item blocks and overflow</title>
+<style>
+  :root {
+    --bg:#0c1014; --panel:#111820; --surface:#0a3749; --text:#99d1ce;
+    --muted:#99d1ce; --dim:#99d1ce; --accent:#33859e;
+    --green:#2aa889; --yellow:#edb443; --red:#c23127; --rule:#195466;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font:12px/1.42 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    padding:24px 28px 32px; width:1080px;
+  }
+  h1 { margin:0 0 4px; font-size:14px; font-weight:700; }
+  h1 .n { color:var(--accent); }
+  .brief { margin:0 0 20px; color:var(--muted); max-width:104ch; }
+  .label { margin-bottom:6px; color:var(--dim); font-size:11px; }
+  .row { display:flex; gap:26px; align-items:flex-start; }
+  .device { border:1px solid var(--rule); background:var(--bg); padding:10px; }
+  .screen { width:40ch; }
+  .ln { display:flex; min-height:1.42em; white-space:pre; }
+  .ln > .l { flex:0 0 auto; }
+  .ln > .r { margin-left:auto; flex:0 0 auto; }
+  .band { display:flex; min-height:4.26em; background:var(--panel); }
+  .band-left { flex:1 1 auto; min-width:0; }
+  .toggle { flex:0 0 8ch; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .sidebar { padding:0 1ch; background:var(--bg); }
+  .item { min-height:2.84em; background:var(--panel); }
+  .item.child { margin-left:2ch; }
+  .sel { background:var(--surface); }
+  .sec { color:var(--muted); font-weight:700; }
+  .cnt, .pm { color:var(--muted); }
+  .pd { color:var(--dim); }
+  .ac { color:var(--accent); }
+  .ok { color:var(--green); }
+  .wr { color:var(--yellow); }
+  .er { color:var(--red); }
+  .b { font-weight:700; }
+  .gap { min-height:1.42em; }
+  [role="button"]:focus-visible { outline:1px solid var(--accent); outline-offset:-1px; }
+  .cols { display:flex; align-items:flex-start; }
+  .rail { width:32ch; background:var(--bg); border-right:1px solid var(--rule); }
+  .term { width:46ch; padding-left:1ch; }
+  .notes { margin-top:18px; color:var(--dim); font-size:11px; max-width:100ch; }
+  .notes b { color:var(--muted); font-weight:400; }
+  .fix { color:var(--green); }
+  .sub { margin:22px 0 6px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1><span class="n">04</span> — Item blocks and overflow</h1>
+<p class="brief">
+  One answer to both complaints: the two rows read as one item because they
+  share a continuous band, and a tab reads as a child because its band starts
+  two cells to the right of its parent — hierarchy is a step, not a drawn line.
+  Overflow is never a mystery:
+  long details truncate with `…`, and the list clips only between whole blocks
+  with explicit counts above and below.
+</p>
+
+<div class="row">
+  <section aria-label="Phone, sheet collapsed">
+    <div class="label">phone · collapsed · 40 × 20</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Open the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">●</span> herdr-tui · 2 tabs</span></div>
+          <div class="ln pm"><span class="l">/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">switch</div>
+      </div>
+      <div class="ln"><span class="l">❯ pi · claude</span></div>
+      <div class="ln pm"><span class="l">  <span class="wr">◐</span> cargo test --all-targets</span></div>
+      <div class="ln"><span class="l">    <span class="ok">test result: ok. 216 passed</span></span></div>
+      <div class="ln"></div>
+      <div class="ln"><span class="l">❯ </span></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+    </div></div>
+  </section>
+
+  <section aria-label="Phone, sheet open, item blocks">
+    <div class="label">phone · sheet open · 40 × 20</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Close the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">●</span> herdr-tui · 2 tabs</span></div>
+          <div class="ln pm"><span class="l">/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">x</div>
+      </div>
+      <div class="sidebar">
+        <div class="ln sec"><span class="l">▾ spaces</span><span class="r cnt">3</span></div>
+        <div class="ln pd"><span class="l">  ↑ 1 more space</span></div>
+        <div class="item sel" role="button" tabindex="0" aria-label="Selected space herdr-tui">
+          <div class="ln"><span class="l">  <span class="b">▾ herdr-tui</span></span><span class="r cnt">2 tabs</span></div>
+          <div class="ln pm"><span class="l">    master · ~/src/herdr-tui</span></div>
+        </div>
+        <div class="item child" role="button" tabindex="0" aria-label="Tab claude, child of herdr-tui">
+          <div class="ln"><span class="l">  <span class="wr">◐</span> claude</span></div>
+          <div class="ln pm"><span class="l">    working · pi · 2 panes</span></div>
+        </div>
+        <div class="item child" role="button" tabindex="0" aria-label="Tab bun, child of herdr-tui">
+          <div class="ln"><span class="l">  <span class="ok">○</span> bun</span></div>
+          <div class="ln pm"><span class="l">    idle · bash</span></div>
+        </div>
+        <div class="ln pd"><span class="l">  ↓ 1 more space</span></div>
+        <div class="gap"></div>
+        <div class="ln sec"><span class="l">▾ agents</span><span class="r cnt">2</span></div>
+        <div class="item" role="button" tabindex="0" aria-label="Agent herdr-tui, working">
+          <div class="ln"><span class="l">  <span class="wr">◐</span> herdr-tui</span></div>
+          <div class="ln pm"><span class="l">      working · pi</span></div>
+        </div>
+        <div class="ln pd"><span class="l">  ↓ 1 more agent</span></div>
+        <div class="ln sel actions"><span class="l"><span class="b">settings</span>  keys  new tab  close</span></div>
+      </div>
+    </div></div>
+  </section>
+</div>
+
+<div class="sub">desktop · rail on the left, always visible · 32 + 46 columns × 24 rows</div>
+<div class="device"><div class="cols">
+  <div class="rail"><div class="sidebar">
+    <div class="ln sec"><span class="l">▾ spaces</span><span class="r cnt">3</span></div>
+    <div class="ln pd"><span class="l">↑ 1 more space</span></div>
+    <div class="item sel" role="button" tabindex="0" aria-label="Selected space herdr-tui">
+      <div class="ln"><span class="l"><span class="b">▾ herdr-tui</span></span><span class="r cnt">2</span></div>
+      <div class="ln pm"><span class="l">    master · ~/…/herdr-tui</span></div>
+    </div>
+    <div class="item child" role="button" tabindex="0" aria-label="Tab claude, child of herdr-tui">
+      <div class="ln"><span class="l">  <span class="wr">◐</span> claude</span></div>
+      <div class="ln pm"><span class="l">    working · pi</span></div>
+    </div>
+    <div class="item child" role="button" tabindex="0" aria-label="Tab bun, child of herdr-tui">
+      <div class="ln"><span class="l">  <span class="ok">○</span> bun</span></div>
+      <div class="ln pm"><span class="l">    idle</span></div>
+    </div>
+    <div class="ln pd"><span class="l">↓ 1 more space</span></div>
+    <div class="gap"></div>
+    <div class="ln sec"><span class="l">▾ agents</span><span class="r cnt">2</span></div>
+    <div class="item" role="button" tabindex="0" aria-label="Agent herdr-tui, working">
+      <div class="ln"><span class="l"><span class="wr">◐</span> herdr-tui</span></div>
+      <div class="ln pm"><span class="l">    working · pi</span></div>
+    </div>
+    <div class="ln pd"><span class="l">↓ 1 more agent</span></div>
+    <div class="ln sel actions"><span class="l"><span class="b">set</span>  keys  new  close</span></div>
+  </div></div>
+  <div class="term">
+    <div class="ln"><span class="l">❯ pi · claude</span></div>
+    <div class="ln pm"><span class="l">  <span class="wr">◐</span> cargo test --all-targets</span></div>
+    <div class="ln"><span class="l">    <span class="ok">test result: ok. 216 passed; 0 failed</span></span></div>
+    <div class="ln"></div>
+    <div class="ln"><span class="l">❯ </span></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  </div>
+</div></div>
+
+<div class="sub">overflow rules · one line per case</div>
+<div class="device"><div class="screen">
+  <div class="ln"><span class="l">branch  feat/usage-charts · ~/…/web-dashboard</span></div>
+  <div class="ln"><span class="l">path    …/src/herdr/herdr-app-tui</span></div>
+  <div class="ln"><span class="l">agent   working · pi · 2 panes</span></div>
+  <div class="ln pd"><span class="l">↑ 2 more   ·   ↓ 5 more</span></div>
+</div></div>
+
+<div class="notes">
+  <b>Tradeoff:</b> the band and the guide spend one column and one visual rule
+  on structure, but the item boundary and the parent/child link stop being a
+  guess. Scroll indicators cost one row at each clipped edge.
+  <br><br>
+  <b>Fixes:</b> <span class="fix">P1</span> the two rows share one `panel` band,
+  so they read as one item; the selected band turns `surface` and keeps the
+  bold name; <span class="fix">P2</span> a child band starts two cells to the
+  right of its parent, so indentation alone states the link — no connector
+  lines and no accent on hierarchy;
+  <span class="fix">P3</span> horizontal overflow truncates with `…`: a path
+  keeps its tail, a branch keeps its head, and an agent line keeps state and
+  app before pane count; <span class="fix">P4</span> vertical overflow clips
+  only between blocks, with `↑ N more` / `↓ N more` on `dim`; a tap or key
+  moves a whole block and keeps the selected block fully visible with one
+  block of context; <span class="fix">P5</span> keyboard focus keeps its own
+  accent outline, separate from the selected band.
+  <br><br>
+  <b>Data source:</b> counts and attention come from the core; `state · app`
+  comes from OSC 7501. No placeholder fields.
+  <br><br>
+  <b>Palette:</b> Gotham Default tokens from `design/system.md` only. No
+  animation; reduced-motion needs no exception.
+</div>
+</main>
+</body>
+</html>

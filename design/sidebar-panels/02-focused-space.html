@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>02 — Focused space</title>
+<style>
+  :root {
+    --bg:#0c1014; --panel:#111820; --surface:#0a3749; --text:#99d1ce;
+    --muted:#99d1ce; --dim:#99d1ce; --accent:#33859e;
+    --green:#2aa889; --yellow:#edb443; --red:#c23127; --rule:#195466;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font:12px/1.42 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    padding:24px 28px 32px; width:1080px;
+  }
+  h1 { margin:0 0 4px; font-size:14px; font-weight:700; }
+  h1 .n { color:var(--accent); }
+  .brief { margin:0 0 20px; color:var(--muted); max-width:104ch; }
+  .label { margin-bottom:6px; color:var(--dim); font-size:11px; }
+  .row { display:flex; gap:26px; align-items:flex-start; }
+  .device { border:1px solid var(--rule); background:var(--bg); padding:10px; }
+  .screen { width:40ch; }
+  .ln { display:flex; min-height:1.42em; white-space:pre; }
+  .ln > .l { flex:0 0 auto; }
+  .ln > .r { margin-left:auto; flex:0 0 auto; }
+  .band { display:flex; min-height:4.26em; background:var(--panel); }
+  .band-left { flex:1 1 auto; min-width:0; }
+  .toggle { flex:0 0 8ch; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .sidebar { padding:0 1ch; }
+  .item { min-height:2.84em; }
+  .sel { background:var(--surface); }
+  .sec { color:var(--muted); font-weight:700; }
+  .cnt, .pm { color:var(--muted); }
+  .pd { color:var(--dim); }
+  .ac { color:var(--accent); }
+  .ok { color:var(--green); }
+  .wr { color:var(--yellow); }
+  .er { color:var(--red); }
+  .b { font-weight:700; }
+  .gap { min-height:1.42em; }
+  [role="button"]:focus-visible { outline:1px solid var(--accent); outline-offset:-1px; }
+  .cols { display:flex; align-items:flex-start; }
+  .rail { width:32ch; background:var(--panel); border-right:1px solid var(--rule); }
+  .term { width:46ch; padding-left:1ch; }
+  .notes { margin-top:18px; color:var(--dim); font-size:11px; max-width:100ch; }
+  .notes b { color:var(--muted); font-weight:400; }
+  .fix { color:var(--green); }
+  .sub { margin:22px 0 6px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1><span class="n">02</span> — Focused space</h1>
+<p class="brief">
+  Same two-row items, but only the selected space opens its tabs. The other
+  spaces stay as compact two-row nodes with their path and tab count. The freed
+  rows go to the agents panel, where the second line carries state, app and
+  time-in-state in one aligned column. More air per target, fewer items on
+  screen at once.
+</p>
+
+<div class="row">
+  <section aria-label="Phone, sheet collapsed">
+    <div class="label">phone · collapsed · 40 × 20</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Open the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">●</span> herdr-tui · 3 tabs</span></div>
+          <div class="ln pm"><span class="l">/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">switch</div>
+      </div>
+      <div class="ln"><span class="l">❯ pi · claude</span></div>
+      <div class="ln pm"><span class="l">  <span class="wr">◐</span> cargo test --all-targets</span></div>
+      <div class="ln"><span class="l">    <span class="ok">test result: ok. 216 passed</span></span></div>
+      <div class="ln"></div>
+      <div class="ln"><span class="l">❯ </span></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+    </div></div>
+  </section>
+
+  <section aria-label="Phone, sheet open">
+    <div class="label">phone · sheet open · 40 × 20</div>
+    <div class="device"><div class="screen">
+      <div class="band" role="button" tabindex="0" aria-label="Close the sidebar">
+        <div class="band-left">
+          <div class="ln hdr"><span class="l"><span class="ac">●</span> herdr-tui · 3 tabs</span></div>
+          <div class="ln pm"><span class="l">/src/herdr/herdr-app-tui</span></div>
+          <div class="ln"><span class="l">○ idle 1 · ◐ work 1 · ▲ needs 1</span></div>
+        </div>
+        <div class="toggle">x</div>
+      </div>
+      <div class="sidebar">
+        <div class="ln sec"><span class="l">▾ spaces</span><span class="r cnt">3</span></div>
+        <div class="item sel" role="button" tabindex="0" aria-label="Selected space herdr-tui">
+          <div class="ln"><span class="l">  <span class="b">▾ herdr-tui</span></span><span class="r cnt">2 tabs</span></div>
+          <div class="ln pm"><span class="l">      master</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Attach tab claude">
+          <div class="ln"><span class="l">    <span class="wr">◐</span> claude</span></div>
+          <div class="ln pm"><span class="l">        working · pi · 2 panes</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Attach tab bun">
+          <div class="ln"><span class="l">    <span class="ok">○</span> bun</span></div>
+          <div class="ln pm"><span class="l">        idle · bash</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Expand space web-dashboard">
+          <div class="ln"><span class="l">  ▸ web-dashboard</span><span class="r cnt">1 tab</span></div>
+          <div class="ln pm"><span class="l">      feat/usage-charts · ~/src/web-dashboard</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Expand space data-pipeline">
+          <div class="ln"><span class="l">  ▸ data-pipeline</span><span class="r cnt">1 tab</span></div>
+          <div class="ln pm"><span class="l">      backfill/events-v2 · ~/src/data-pipeline</span></div>
+        </div>
+        <div class="gap"></div>
+        <div class="ln sec"><span class="l">▾ agents</span><span class="r cnt">2</span></div>
+        <div class="item" role="button" tabindex="0" aria-label="Go to agent herdr-tui, working, four minutes">
+          <div class="ln"><span class="l">  <span class="wr">◐</span> herdr-tui</span><span class="r wr">4m</span></div>
+          <div class="ln pm"><span class="l">      working · pi</span></div>
+        </div>
+        <div class="item" role="button" tabindex="0" aria-label="Go to agent explore, idle, two hours">
+          <div class="ln"><span class="l">  <span class="ok">○</span> explore</span><span class="r pm">2h</span></div>
+          <div class="ln pm"><span class="l">      idle · opencode</span></div>
+        </div>
+        <div class="ln sel actions"><span class="l"><span class="b">settings</span>  keys  new tab  close</span></div>
+      </div>
+    </div></div>
+  </section>
+</div>
+
+<div class="sub">desktop · rail on the left, always visible · 32 + 46 columns × 24 rows</div>
+<div class="device"><div class="cols">
+  <div class="rail"><div class="sidebar">
+    <div class="ln sec"><span class="l">▾ spaces</span><span class="r cnt">3</span></div>
+    <div class="item sel" role="button" tabindex="0" aria-label="Selected space herdr-tui">
+      <div class="ln"><span class="l"><span class="b">▾ herdr-tui</span></span><span class="r cnt">2</span></div>
+      <div class="ln pm"><span class="l">    master</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Attach tab claude">
+      <div class="ln"><span class="l">  <span class="wr">◐</span> claude</span></div>
+      <div class="ln pm"><span class="l">      working · pi</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Attach tab bun">
+      <div class="ln"><span class="l">  <span class="ok">○</span> bun</span></div>
+      <div class="ln pm"><span class="l">      idle</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Expand space web-dashboard">
+      <div class="ln"><span class="l">▸ web-dashboard</span><span class="r cnt">1</span></div>
+      <div class="ln pm"><span class="l">    ~/…/web-dashboard</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Expand space data-pipeline">
+      <div class="ln"><span class="l">▸ data-pipeline</span><span class="r cnt">1</span></div>
+      <div class="ln pm"><span class="l">    ~/…/data-pipeline</span></div>
+    </div>
+    <div class="gap"></div>
+    <div class="ln sec"><span class="l">▾ agents</span><span class="r cnt">2</span></div>
+    <div class="item" role="button" tabindex="0" aria-label="Go to agent herdr-tui, working, four minutes">
+      <div class="ln"><span class="l"><span class="wr">◐</span> herdr-tui</span><span class="r wr">4m</span></div>
+      <div class="ln pm"><span class="l">    working · pi</span></div>
+    </div>
+    <div class="item" role="button" tabindex="0" aria-label="Go to agent explore, idle, two hours">
+      <div class="ln"><span class="l"><span class="ok">○</span> explore</span><span class="r pm">2h</span></div>
+      <div class="ln pm"><span class="l">    idle · opencode</span></div>
+    </div>
+    <div class="ln sel actions"><span class="l"><span class="b">set</span>  keys  new  close</span></div>
+  </div></div>
+  <div class="term">
+    <div class="ln"><span class="l">❯ pi · claude</span></div>
+    <div class="ln pm"><span class="l">  <span class="wr">◐</span> cargo test --all-targets</span></div>
+    <div class="ln"><span class="l">    <span class="ok">test result: ok. 216 passed; 0 failed</span></span></div>
+    <div class="ln"></div>
+    <div class="ln"><span class="l">❯ </span></div>
+    <div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  </div>
+</div></div>
+
+<div class="notes">
+  <b>Tradeoff:</b> the two-row rule stays, but a collapsed space hides its tabs
+  until tapped. Fewer rows in the sheet; one extra tap to reach a tab in another
+  space.
+  <br><br>
+  <b>Fixes:</b> <span class="fix">P1</span> every item still owns exactly two
+  rows; <span class="fix">P2</span> the expanded space is the only parent that
+  renders tab rows; <span class="fix">P3</span> collapsed spaces keep their
+  path and tab count on row two, so the space's identity never collapses to a
+  single line; <span class="fix">P4</span> agents gain an aligned time column on
+  the same second row, without a third row; <span class="fix">P5</span> the
+  selection band still covers both rows and focus stays a separate outline.
+  <br><br>
+  <b>Data source:</b> time-in-state is derived from `Agent.since` in
+  `src/model.rs:69-79`; it is not invented when the core reports `0`.
+  <br><br>
+  <b>Palette:</b> Gotham Default tokens from `design/system.md` only. No
+  animation; reduced-motion needs no exception.
+</div>
+</main>
+</body>
+</html>

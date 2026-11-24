@@ -1,0 +1,34 @@
+{
+  "title": "Sidebar panels — two-row items",
+  "brief": "Two sidebar panels for herdr-app-tui: spaces with their tabs nested inside, and agents below. Every space, tab and agent owns at least two rows — name on the first, detail on the second — so the sidebar reads like herdr today and gives a finger a real target.",
+  "artboards": [
+    {
+      "file": "01-nested-panels.html",
+      "title": "Nested panels",
+      "tradeoff": "Closest to the herdr sidebar and the explicit two-row rule; a long sheet when many spaces are expanded.",
+      "width": 1080,
+      "height": 1100
+    },
+    {
+      "file": "02-focused-space.html",
+      "title": "Focused space",
+      "tradeoff": "Only the selected space shows tabs, so every target has more air; one extra tap to reach another space's tabs.",
+      "width": 1080,
+      "height": 1100
+    },
+    {
+      "file": "03-attention-first.html",
+      "title": "Attention first",
+      "tradeoff": "Agents move above spaces when one needs you, so nothing important scrolls off; the panel order can break muscle memory.",
+      "width": 1080,
+      "height": 1100
+    },
+    {
+      "file": "04-item-blocks.html",
+      "title": "Item blocks and overflow",
+      "tradeoff": "Continuous bands and a two-cell step make each two-row item and its tabs unmistakable without connector lines; overflow clips only between whole blocks, at the cost of one row per clipped edge.",
+      "width": 1080,
+      "height": 1100
+    }
+  ]
+}
