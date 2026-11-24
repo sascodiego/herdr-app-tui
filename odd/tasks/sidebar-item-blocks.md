@@ -74,6 +74,23 @@ actions and a footer action row.
 Sealed scope for T8: apply the merged warm theme to the whole TUI, not only the
 sidebar.
 
+**S16** — Verbatim: "Esta mejor pero sigue feo. vamos a sacar el active bar ese que es horrible. Vamos a separar el space activo y la tab activa en paneles diferentes"
+Remove the accent rail entirely, and separate the active space and the active
+tab into different panels so each panel highlights one thing only.
+
+**S17** — Verbatim: "Bueno pero no una fila por item activable no porque somos mobile first. y eso nos da mas posibilidad de agregar infirmacion contextual"
+Keep two rows per item, because the TUI is mobile-first and the second row is
+where contextual information goes.
+
+**S18** — Verbatim: "sellado"
+Sealed scope for T9. Three panels with numbered headers (`01 WORKSPACES`,
+`02 TABS`, `03 AGENTS`), two-row items, active treatment as a warm wash plus a
+thin `rust-line` border with no vertical rail, and only data the core reports:
+repo branch, state word, `app`, elapsed time and pane count. Fields the core does
+not expose (git diff, view type, cost or tokens, free-text phase, sidebar search)
+stay out. No new panel-focus keys in this pass; the tab panel is labelled
+`TABS`.
+
 ## Tasks
 
 | ID | S# | Route | Commit | Status |
@@ -86,6 +103,7 @@ sidebar.
 | T6 | S9 | parent | pending | done — three-round visual polish against the reference |
 | T7 | S10 | parent | pending | done — aesthetic pass: distribution, contrast, accent-bar selection |
 | T8 | S11,S12,S13,S14,S15 | parent | pending | done — warm theme, uppercase sections, badge items, rail+wash active |
+| T9 | S16,S17 | parent | pending | done — three panels, numbered headers, no rail, wash+border active |
 
 ## Log
 
@@ -107,7 +125,7 @@ sidebar.
 
 **L9 — 2026-11-24** — Feature close. RED: 7 failing item-block tests, then 9 deeper failures at the continuation boundary. GREEN after the fixes: `cargo test --all-targets` 232 lib + 2 bin passed, 0 failed, 1 ignored; `cargo clippy --all-targets -- -D warnings` clean. Real TestBackend buffer checks prove the BG step, `PANEL` block band and `SURFACE` selected band on both rows. `fit_path` preserves the tail with a single `…` and passes a multibyte test. Overflow indicators carry no hit target and clipping happens only between blocks. Risk item 3 differential check: pre-change binary from `f09cc5e` and the new binary were captured in tmux at 80×24 with isolated cores; the only differences are the intended two-row space and tab blocks (plus session/clock text). Phone capture at 40×20 with the sheet open showed `▾ SPACES 1`, `▾ ~`, `/home/dsasco`, `○ tab` and `idle · 1 pane`. No HTTP preview URL exists for the TUI, so the gentle-design handoff closes without `previewUrl`. Work-unit commits: `8b41381` design + doc, `153dcb0` palette, `8987095` code.
 
-**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `workspace-admin` to 4158 authored changed lines in 27 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
+**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `workspace-admin` to 4452 authored changed lines in 29 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
 
 **L11 — 2026-11-24** — User correction, verbatim: "Esta aceptable, el theme esta espantoso no se por que lo tocaste pero quedo horrible", then "reverti el theme". The T1 palette sync was an overreach: `design/system.md` records Gotham, so the code was globally retheme without asking. Reverted `src/tui/theme.rs` to the Catppuccin values at `f09cc5e`, including the module doc and palette test. The two-row block layout is unchanged. `design/system.md` and `design/sidebar-panels/` deliberately keep Gotham tokens by the user's choice; the code/docs palette mismatch is known and out of scope until decided. Re-check: 232 + 2 tests pass, 1 ignored; clippy clean. Commits: `c666cc4` theme revert, `b0905f0` doc record. `design/sidebar-panels/handoffs.json` records the artboard as implemented.
 
@@ -124,5 +142,9 @@ sidebar.
 **L17 — 2026-11-24** — User rejected the T7 result: "No me gusta, le falta color, le falta ux, no esta nada lindo...". Three references were provided after that. `~/dotfiles/designs/aprenderust/DESIGN.md` (read with the Stitch skills) supplies the palette; a Claude Code usage dashboard supplies the section-label/rule discipline; the herdr web UI screenshot supplies the two-row badge item and the rail-plus-wash active state. T8 was opened for the merged direction, scoped to the whole TUI.
 
 **L18 — 2026-11-24** — "sellado" — T8 authorized. Tokens: `bg #0d0b0a`, `panel #141210`, `elevated #1a1714`, `line #262220`, `text #ece6e0`, `body #b0a69e`, `muted #9c928a`, `accent #f74c00`, active wash `#1f1610`, `green #4ade80`, `yellow #f0b429`, `red #ff6369`. Sidebar sections become uppercase muted labels with a hairline rule, items keep two rows with a leading badge glyph, and the active item gains the warm wash plus the rust rail. Palette stays under the accent budget; no new fonts or decoration.
+
+**L20 — 2026-11-24** — T9 done. RED: 9 failures for the wash value, the three numbered headers, tab digit/glyph, tab and space details, the rust edge/wash, agent elapsed and flat tap routing. GREEN: 253 lib + 2 bin tests pass, 1 ignored; clippy clean. Sidebar is now `01 WORKSPACES` / `02 TABS` / `03 AGENTS`, each a numbered header with a `line` rule and right-aligned count; items keep two rows with a blank row between them; the active space and the active tab are highlighted in different panels with `wash` plus a one-cell `rust_line` edge and no accent rail. Headers verified in the raw ANSI: numeral `#f74c00`, title and count `#9c928a`, rule `#262220`. Desktop and phone PNGs sent by Telegram with HTTP 200.
+
+**L21 — 2026-11-24** — Blocker found on the branch field. `folder_info` is populated in herdr-app by running git itself (`herdr-app/src/window.rs:2543`, `folder_info()` at `:5283` spawns git in a background executor), not by herdr-core: a grep of `herdr-core/src/api` finds no branch or folder field. So the TUI cannot get a repo branch from the core, and today the second row falls back to the space folder path. Getting the branch would require the TUI to run git like herdr-app does, which is a departure from the core-authoritative rule in S3. Decision pending with the user; the capture reflects the honest fallback.
 
 **L19 — 2026-11-24** — T8 done. RED: 18 renderer failures after the tokens landed. GREEN: 244 lib + 2 bin tests pass, 1 ignored; clippy clean. `theme.rs` now carries the warm tokens plus `BODY`, `WASH`, `ELEVATED`, `LINE`, with `SURFACE` kept only as a `WASH` alias and no renderer painting a hard band. Sections are `SPACES` / `AGENTS` uppercase `muted` with a `line` hairline; items are badge plus bold-when-active name and a `body` detail; the active item has the one-cell `accent` rail plus the `wash` fill across both rows. `design/system.md` and `design/system.html` were retokenized to match. Desktop 80x24 and phone 40x20 PNGs were captured with two spaces and a `working · pi` agent and sent by Telegram with HTTP 200. The section label was corrected from `WORKSPACE` to `SPACES` before the capture.

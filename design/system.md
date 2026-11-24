@@ -25,13 +25,16 @@ warm stone, never blue-gray.
 | `bg` | `#0d0b0a` | Terminal canvas and pane background |
 | `panel` | `#141210` | Rail surface, one step up from canvas |
 | `elevated` | `#1a1714` | Phone sheet and header band, two steps up |
-| `line` | `#262220` | Hairline separators, the rail rule, section rules |
+| `line` | `#262220` | Hairline separators, the rail rule, panel rules |
 | `text` | `#ece6e0` | Primary text: item names, values, emphasis |
 | `body` | `#b0a69e` | Second-line detail: paths, state words, metadata |
 | `muted` | `#9c928a` | Section labels, counts, caption text |
 | `dim` | `#6f665f` | Discreet text: overflow indicators, actions at rest |
-| `accent` | `#f74c00` | The active marker only: rail and active name |
-| `wash` | `#1f1610` | Active item fill, a warm near-invisible tint |
+| `accent` | `#f74c00` | Panel numerals and focus markers |
+| `accent-bright` | `#ff6a1f` | The active item's focus indicator and digit |
+| `wash` | `#2a160c` | Active item fill across both rows |
+| `rust-line` | `#5c2810` | The active item's one-cell edge |
+| `panel-border` | `#332e2a` | A focused panel's rule |
 | `green` | `#4ade80` | Agent state `idle`, connected |
 | `yellow` | `#f0b429` | Agent state `working`, warning |
 | `red` | `#ff6369` | Agent state `blocked`, error, disconnected |
@@ -50,12 +53,13 @@ A terminal has one type size. Roles come from weight and color:
 
 | Role | Rendering |
 | --- | --- |
-| Section label | `muted`, normal, uppercase, followed by a `─` rule in `line` |
+| Panel header | `NN` numeral in `accent`, title in `muted` uppercase, count right-aligned, then a `─` rule in `line` |
 | Item name | `text`, bold when the item is active, otherwise normal |
 | Item detail | `body`, normal, on the item's second row |
 | State word | the state colour, always paired with its glyph |
-| Active item | `text` bold name on `wash`, with a one-cell `accent` rail |
+| Active item | `text` bold name on `wash`, with a one-cell `rust-line` edge |
 | Overflow note | `dim`, normal |
+| Panel numeral | `accent` (`01`, `02`, `03`) |
 | Action row | `muted`, normal, separated by two spaces |
 
 Hierarchy comes from weight, the uppercase label, the hairline rule and the
@@ -81,8 +85,9 @@ One geometric family, used everywhere. Never mix with emoji.
 
 Agent and tab state is always glyph plus word (`◐ working`), never color alone.
 
-**Selection is the `wash` fill plus the `accent` rail plus a bold `text`
-name — never a glyph.**
+**Selection is the `wash` fill across both rows plus a one-cell `rust-line`
+edge plus a bold `text` name. There is no bright vertical rail and no marker
+glyph.**
 
 ## Spacing
 
@@ -90,8 +95,8 @@ The cell is the unit.
 
 - The sidebar has **one-cell gutters on top, bottom, left and right**. This is
   the minimum margin the grid allows; never let sidebar text touch an edge.
-- One blank row separates items inside a section; the rule under a section
-  label separates sections.
+- One blank row separates items inside a panel; the rule under a panel header
+  separates panels.
 - Nesting indent is 2, 4 or 6 columns, never more. Overflow detail goes on the
   item's own second row, indented deeper than its name.
 - Rails truncate with `…`; they never wrap.
@@ -102,24 +107,29 @@ The cell is the unit.
   row 2 is the current path, row 3 is the aggregate agent total grouped by
   state (`○ idle 1 · ◐ work 1 · ▲ needs 1`). A fixed 8ch toggle block on
   `elevated` spans all three rows and is always hard-right (`switch` collapsed,
-  `x` open). The band's aggregate is a summary; the `AGENTS` section below
+  `x` open). The band's aggregate is a summary; the `03 AGENTS` panel below
   stays a navigable list.
 - **Rail**: on desktop the panel is a **34-column**, always-visible rail on the
   **left**, one-cell gutters included, separated from the terminal by a single
   `line` rule. Its header stays compact and one row high.
-- **Section**: one uppercase `muted` label row followed by a `─` rule in `line`.
-  A section with zero items renders its label and nothing else.
+- **Panels**: three fixed panels, top to bottom: `01 WORKSPACES`, `02 TABS`,
+  `03 AGENTS`. Each is one header row (`NN` numeral in `accent`, uppercase
+  `muted` title, right-aligned count, then a `─` rule in `line`) followed by its
+  items. A panel with zero items renders its header and nothing else. The active
+  space and the active tab are highlighted in different panels, so a panel never
+  shows two competing selections.
 - **Item block**: a space, tab or agent owns two contiguous rows — a leading
   badge glyph plus the bold name on row one, the detail on row two at the same
   left edge. One blank row separates it from the next item. There is no box.
-- **Badge**: one glyph cell before the name. It carries the node type for a
-  space (`●`) and the state for a tab or agent, always with the word on row two.
-- **Active item**: a one-cell `accent` rail at the block's left edge across both
-  rows, a `wash` fill across the rest of both rows, and the name in bold `text`.
-- **Nesting step**: a child tab's two-row block starts two cells to the right of
-  its parent; its name keeps the 2-cell inset and its detail sits at 4. The
-  active rail sits at the block's own step. Hierarchy comes from that step, not
-  from connector lines or background bands.
+- **Badge**: one glyph cell before the name. In `WORKSPACES` it is the focus
+  indicator (`▸` active, `○` inactive). In `AGENTS` it is the state glyph,
+  always with the word on row two.
+- **Active item**: a `wash` fill across both rows, a one-cell `rust-line` edge
+  at the block's leftmost column, and the name in bold `text`. No bright rail.
+  In `WORKSPACES` the active row's focus indicator is `▸` in `accent-bright`;
+  in `TABS` it is the `Alt+N` digit in `accent-bright`.
+- **Panels are peers**: tabs are not nested inside a space item; `TABS` is its
+  own panel for the active space. No nesting indent, no connector lines.
 - **AGENTS**: a navigable list of the agents herdr-core detects per workspace,
   ordered by attention (`needs you` before `working` before `idle`). Never
   replace it with a count table.
