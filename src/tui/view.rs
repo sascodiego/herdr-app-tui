@@ -72,7 +72,7 @@ impl ScreenState {
 /// it, the panel is a rail that is always visible on the left.
 pub const WIDE_AT: u16 = 60;
 /// The rail's width when the screen is wide.
-pub const RAIL_WIDTH: u16 = 26;
+pub const RAIL_WIDTH: u16 = 34;
 /// Rows in the mobile information band.
 pub const BAND_ROWS: u16 = 3;
 /// Width of the fixed toggle block at the right of the band.
@@ -315,10 +315,9 @@ fn draw_rule(area: Rect, frame: &mut Frame) {
     frame.render_widget(rule, area);
 }
 
-/// The background band painted under one panel line. Chrome sits on BG;
-/// an item block paints PANEL, or SURFACE when it is the current item.
-/// Every nesting level steps two cells further in: that empty step is the
-/// hierarchy, never a drawn connector.
+/// The marker painted at the left edge of one panel line. Every row sits on
+/// the canvas; a selected two-row block gets a one-cell accent bar at its own
+/// step. That step is the hierarchy, never a drawn connector or a background.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Band {
     None,
@@ -326,11 +325,10 @@ enum Band {
 }
 
 impl Band {
-    fn color(self) -> Option<ratatui::style::Color> {
+    fn bar(self) -> Option<u16> {
         match self {
-            Band::None => None,
-            Band::Item { selected: true, .. } => Some(theme::SURFACE),
-            Band::Item { selected: false, .. } => Some(theme::PANEL),
+            Band::Item { selected: true, .. } => Some(self.step()),
+            _ => None,
         }
     }
 
@@ -383,10 +381,23 @@ impl PanelBlock {
     }
 }
 
+/// Append an item with one blank row before it when it follows another item.
+/// The blank belongs to the block it separates, so clipping never leaves a
+/// half-gap. It has no hit target and no band.
+fn spaced_item(blocks: &mut Vec<PanelBlock>, mut block: PanelBlock) {
+    if blocks.last().is_some_and(|previous| previous.item) {
+        block.lines.insert(0, Line::from(""));
+        block.rows.insert(0, None);
+        block.spaces.insert(0, None);
+        block.bands.insert(0, Band::None);
+    }
+    blocks.push(block);
+}
+
 /// The panel: counted sections, item blocks and actions at the foot.
 fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
-    // BG is the canvas: only item bands cover it, so a gap between blocks is
-    // visible without drawing a box or a connector.
+    // BG is the canvas: whitespace separates the blocks, so no box, band or
+    // connector is drawn behind them.
     frame.buffer_mut().set_style(area, Style::default().bg(theme::BG));
     let inner = panel_inner(area);
     if inner.width == 0 || inner.height == 0 {
@@ -397,21 +408,18 @@ fn draw_panel(app: &App, area: Rect, frame: &mut Frame, wide: bool) {
     let visible = view.lines.iter().skip(view.offset).take(take).cloned().collect::<Vec<_>>();
     frame.render_widget(Paragraph::new(visible).style(Style::default().fg(theme::TEXT)), inner);
 
-    // Paint after the text: Buffer::set_style patches only the fields a Style
-    // sets, so a background here never erases the glyphs or their foreground.
+    // Paint after the text: a one-cell background patches only the marker,
+    // never the glyphs or the canvas behind the rest of the item.
     let bands = view.bands.into_iter().skip(view.offset).take(take);
     let buffer = frame.buffer_mut();
     for (line, band) in bands.enumerate() {
-        let Some(color) = band.color() else { continue };
+        let Some(step) = band.bar() else { continue };
         let y = inner.y + line as u16;
         if y >= inner.y.saturating_add(inner.height) {
             break;
         }
-        let step = band.step().min(inner.width);
-        buffer.set_style(
-            Rect::new(inner.x + step, y, inner.width.saturating_sub(step), 1),
-            Style::default().bg(color),
-        );
+        let x = inner.x + step.min(inner.width.saturating_sub(1));
+        buffer[(x, y)].set_bg(theme::ACCENT);
     }
 }
 
@@ -635,18 +643,22 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
 
     let home = crate::mods::home().display().to_string();
     blocks.push(PanelBlock::chrome(section("spaces", width)));
+    let spaces_at = blocks.len() - 1;
     let mut nested = false;
     for space in &app.model.spaces {
         let name = app.model.space_name(space, &home);
         let active = app.model.active.as_deref() == Some(space.id.as_str());
-        blocks.push(PanelBlock::item(
-            space_line(&name, active, width),
-            space_detail(&space.folder, space.tabs.len(), width),
-            None,
-            Some(space.id.clone()),
-            active,
-            0,
-        ));
+        spaced_item(
+            &mut blocks,
+            PanelBlock::item(
+                space_line(&name, space_dot(app, space, active), width),
+                space_detail(&space.folder, space.tabs.len(), width),
+                None,
+                Some(space.id.clone()),
+                active,
+                0,
+            ),
+        );
         if active {
             // Only the chosen space expands. Its tabs are child blocks of
             // this space, and their own terminals step one level further in.
@@ -662,13 +674,23 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
 
     let agents = app.agents();
     if !agents.is_empty() {
+        if blocks[spaces_at + 1..].iter().any(|block| block.item) {
+            blocks.push(PanelBlock::chrome(divider_line(width)));
+        }
         blocks.push(PanelBlock::chrome(section("agents", width)));
         for agent in agents {
             let target = app.rows.iter().position(|row| {
                 row.address.as_deref() == Some(agent.address.as_str())
                     || row.address.as_deref() == agent.parent.as_deref()
             });
-            blocks.push(PanelBlock::item(agent_line(agent, width), agent_detail(agent, width), target, None, false, 0));
+            spaced_item(&mut blocks, PanelBlock::item(
+                agent_line(agent, width),
+                agent_detail(agent, width),
+                target,
+                None,
+                false,
+                0,
+            ));
         }
     }
 
@@ -690,8 +712,8 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
 fn append_tab_blocks(blocks: &mut Vec<PanelBlock>, app: &App, width: u16) {
     for (index, row) in app.rows().iter().enumerate() {
         let selected = index == app.cursor;
-        blocks.push(PanelBlock::item(
-            row_line(row, selected, width),
+        spaced_item(&mut *blocks, PanelBlock::item(
+            row_line(row, width),
             row_detail(app, row, width),
             Some(index),
             None,
@@ -700,7 +722,7 @@ fn append_tab_blocks(blocks: &mut Vec<PanelBlock>, app: &App, width: u16) {
         ));
         if let Some(address) = &row.address {
             for child in app.children_of(address) {
-                blocks.push(PanelBlock::item(
+                spaced_item(&mut *blocks, PanelBlock::item(
                     child_line_top(child, width),
                     child_line_detail(child, width),
                     Some(index),
@@ -770,30 +792,84 @@ fn header_line(app: &App, width: u16) -> Line<'static> {
 fn section(label: &str, width: u16) -> Line<'static> {
     Line::from(Span::styled(
         fit(label, width as usize),
-        Style::default().fg(theme::MUTED).add_modifier(Modifier::BOLD),
+        Style::default().fg(theme::DIM).add_modifier(Modifier::BOLD),
     ))
+}
+
+/// One tenuous rule between the two sections, with no target and no band.
+fn divider_line(width: u16) -> Line<'static> {
+    Line::from(Span::styled(
+        "─".repeat(width as usize),
+        Style::default().fg(theme::DIM),
+    ))
+}
+
+/// The active space is accented; an inactive one takes the most urgent state
+/// among the agents inside its tabs. The state stays paired with its word on
+/// the agent block, so the dot never has to carry the meaning alone.
+fn space_dot(app: &App, space: &crate::model::Space, active: bool) -> ratatui::style::Color {
+    if active {
+        return theme::ACCENT;
+    }
+    let (mut needs_you, mut working, mut idle) = (false, false, false);
+    for tab in &space.tabs {
+        for pane in tab.root.panes() {
+            let Some(address) = pane.terminal() else { continue };
+            let Some(terminal) = app.terminals.iter().find(|terminal| terminal.address == address) else { continue };
+            if !terminal.is_agent {
+                continue;
+            }
+            if terminal.state.needs_you() {
+                needs_you = true;
+            } else if terminal.state == State::Working {
+                working = true;
+            } else if terminal.state == State::Idle {
+                idle = true;
+            }
+        }
+    }
+    if needs_you {
+        theme::RED
+    } else if working {
+        theme::YELLOW
+    } else if idle {
+        theme::GREEN
+    } else {
+        theme::MUTED
+    }
+}
+
+/// The name is always bold TEXT: selection is the bar, not the weight.
+fn name_line(prefix: &str, glyph: char, state: State, name: &str, width: u16) -> Line<'static> {
+    let name_width = (width as usize).saturating_sub(prefix.chars().count() + 2);
+    Line::from(vec![
+        Span::raw(prefix.to_string()),
+        Span::styled(glyph.to_string(), Style::default().fg(state.color())),
+        Span::raw(" "),
+        Span::styled(
+            fit(name, name_width),
+            Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
+        ),
+    ])
 }
 
 /// One workspace: a coloured dot, then its name. The tab count moved to the
 /// detail row, next to the folder it belongs to.
-fn space_line(name: &str, active: bool, width: u16) -> Line<'static> {
-    let dot = if active { theme::ACCENT } else { theme::MUTED };
-    let label = Style::default().fg(theme::TEXT);
-    let label = if active { label.add_modifier(Modifier::BOLD) } else { label };
+fn space_line(name: &str, dot: ratatui::style::Color, width: u16) -> Line<'static> {
     Line::from(vec![
         Span::raw("  "),
         Span::styled("●", Style::default().fg(dot)),
         Span::raw(" "),
-        Span::styled(fit(name, width.saturating_sub(4) as usize), label),
+        Span::styled(
+            fit(name, width.saturating_sub(4) as usize),
+            Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
+        ),
     ])
 }
 
 /// The first row of a tab block: state glyph plus name, nothing else.
-fn row_line(row: &super::app::Row, selected: bool, width: u16) -> Line<'static> {
-    let left = format!("  {} {}", row.state.glyph(), row.name);
-    let label = Style::default().fg(theme::TEXT);
-    let label = if selected { label.add_modifier(Modifier::BOLD) } else { label };
-    Line::from(Span::styled(fit(&left, width as usize), label))
+fn row_line(row: &super::app::Row, width: u16) -> Line<'static> {
+    name_line("  ", row.state.glyph(), row.state, &row.name, width)
 }
 
 /// The pane count of a document tab, when the workspace is available.
@@ -857,8 +933,7 @@ fn fit_path(path: &str, width: usize) -> String {
 
 /// Child tab name: two cells deeper than its parent, state glyph included.
 fn child_line_top(terminal: &super::app::Terminal, width: u16) -> Line<'static> {
-    let left = format!("    {} {}", terminal.state.glyph(), terminal.name);
-    Line::from(Span::styled(fit(&left, width as usize), Style::default().fg(theme::TEXT)))
+    name_line("    ", terminal.state.glyph(), terminal.state, &terminal.name, width)
 }
 
 /// Child tab detail: two cells deeper than the child name, `state · app`.
@@ -871,10 +946,10 @@ fn child_line_detail(terminal: &super::app::Terminal, width: u16) -> Line<'stati
     detail_line(&parts.join(" · "), 6, width)
 }
 
-/// One detected agent's name row: glyph plus name, state kept for its detail.
+/// One detected agent's name row: state dot plus bold name; the word is on
+/// the detail row, so the state never rests on colour alone.
 fn agent_line(agent: &super::app::Terminal, width: u16) -> Line<'static> {
-    let left = format!("  {} {}", agent.state.glyph(), agent.name);
-    Line::from(Span::styled(fit(&left, width as usize), Style::default().fg(agent.state.color())))
+    name_line("  ", agent.state.glyph(), agent.state, &agent.name, width)
 }
 
 /// Agent detail row: `state · app`, aligned two cells deeper than its name.
@@ -892,7 +967,7 @@ fn detail_line(text: &str, indent: usize, width: u16) -> Line<'static> {
     let available = (width as usize).saturating_sub(indent);
     Line::from(Span::styled(
         format!("{}{}", " ".repeat(indent), fit(text, available)),
-        Style::default().fg(theme::MUTED),
+        Style::default().fg(theme::TEXT),
     ))
 }
 
@@ -946,6 +1021,30 @@ mod tests {
         app.set_terminals(&json!({
             "hidden_finished": 0, "machines": [],
             "terminals": [{ "address": "t9", "name": "pi", "status": { "state": "working" } }]
+        }));
+        app.toggle_panel();
+        app
+    }
+
+    /// Two spaces: `alpha` is active, `beta` holds one agent with the given state.
+    fn attention_app(state: &str) -> App {
+        let mut app = App::new("default", "local");
+        app.set_workspace(&json!({
+            "version": 7,
+            "value": { "spaces": [
+                { "id": "s1", "name": "alpha", "folder": "/a", "tabs": [
+                    { "id": "tb1", "name": "active-tab", "root": { "id": "tb1", "type": "row", "children": [] } }
+                ] },
+                { "id": "s2", "name": "beta", "folder": "/b", "tabs": [
+                    { "id": "tb2", "name": "beta-tab", "root": { "id": "tb2", "type": "row", "children": [
+                        { "id": "p1", "type": "block", "content": { "terminal": "t1" } }
+                    ] } }
+                ] }
+            ] }
+        }));
+        app.set_terminals(&json!({
+            "hidden_finished": 0, "machines": [],
+            "terminals": [{ "address": "t1", "name": "watcher", "status": { "state": state } }]
         }));
         app.toggle_panel();
         app
@@ -1422,8 +1521,8 @@ mod tests {
         let child_glyph = child.chars().position(|c| c == '○').expect("child glyph");
         assert_eq!(child_glyph - parent_glyph, 2, "hierarchy is a two-cell step: {parent:?} / {child:?}");
 
-        // The step is empty canvas: only the band from its own step onward
-        // is PANEL. A terminal is one level deeper than its tab.
+        // The step is empty canvas: no full-row band paints behind an item,
+        // and a selected block marks only one cell at its own step.
         let z = zones(Rect::new(0, 0, 40, 20), true);
         let inner = panel_inner(z.panel.expect("sheet"));
         let bg = backgrounds(&app, 40, 20);
@@ -1440,14 +1539,12 @@ mod tests {
             .expect("the terminal's band");
         assert_eq!(view.bands[child_line].step() - view.bands[parent_line].step(), 2);
         for (line, band) in view.bands.iter().enumerate().take(view.len) {
-            let step = band.step();
-            let Some(color) = band.color() else { continue };
+            let Band::Item { selected, step, .. } = *band else { continue };
             let y = (inner.y + line as u16) as usize;
-            for x in inner.x..inner.x + step {
-                assert_eq!(bg[y][x as usize], theme::BG, "step cell is BG: line {line}");
-            }
-            for x in inner.x + step..inner.x + inner.width {
-                assert_eq!(bg[y][x as usize], color, "band is painted: line {line}");
+            let bar = inner.x + step;
+            for x in inner.x..inner.x + inner.width {
+                let expected = if selected && x == bar { theme::ACCENT } else { theme::BG };
+                assert_eq!(bg[y][x as usize], expected, "line {line}, cell {x}");
             }
         }
     }
@@ -1472,35 +1569,31 @@ mod tests {
         }
     }
 
-    /// T1: each item has a PANEL band on its two rows.
+    /// S10: items are separated by whitespace and a one-cell bar, never by a
+    /// full-row background.
     #[test]
-    fn each_item_has_a_panel_band() {
+    fn no_item_paints_a_full_row_background() {
         let app = app(true);
         let z = zones(Rect::new(0, 0, 40, 22), true);
         let inner = panel_inner(z.panel.expect("the phone sheet"));
         let bg = backgrounds(&app, 40, 22);
         let view = panel_view(&app, inner.width, false, inner.height);
-        let mut bands = 0;
-        for (line, band) in view.bands.iter().enumerate().take(view.len) {
-            let Band::Item { selected, step, .. } = *band else { continue };
-            bands += 1;
-            let y = (inner.y + line as u16) as usize;
-            let from = inner.x + step;
-            let color = if selected { theme::SURFACE } else { theme::PANEL };
-            for x in from..inner.x + inner.width {
-                assert_eq!(bg[y][x as usize], color, "band line {line}");
+        assert!(view.bands.iter().any(|band| matches!(band, Band::Item { .. })), "there are items");
+        for y in inner.y..inner.y + inner.height {
+            for x in inner.x..inner.x + inner.width {
+                let color = bg[y as usize][x as usize];
+                assert!(color == theme::BG || color == theme::ACCENT, "background {color:?} at ({x},{y})");
             }
         }
-        assert!(bands >= 12, "spaces, tabs and agents own two banded rows each: {bands}");
-        // Chrome sits on BG, not on a band.
+        // Chrome sits on the canvas too.
         let header = view.bands.iter().position(|band| *band == Band::None).expect("chrome");
         let y = (inner.y + header as u16) as usize;
         assert_eq!(bg[y][inner.x as usize], theme::BG);
     }
 
-    /// T1: the selected item's two rows have a SURFACE band.
+    /// S10: the active marker is a one-cell bar at the block's own step.
     #[test]
-    fn the_selected_item_has_a_surface_band_on_both_rows() {
+    fn the_selected_item_has_an_accent_bar_on_both_rows() {
         let mut app = app(true);
         app.cursor = 0;
         let z = zones(Rect::new(0, 0, 40, 22), true);
@@ -1515,15 +1608,16 @@ mod tests {
             .collect();
         assert_eq!(selected.len(), 2, "one two-row item is selected: {selected:?}");
         let step = view.bands[selected[0]].step();
-        let from = inner.x + step;
+        let bar = inner.x + step;
         for line in selected {
             assert_eq!(view.rows[line], Some(0), "the selected item is the current tab");
             let y = (inner.y + line as u16) as usize;
-            for x in inner.x..from {
-                assert_eq!(bg[y][x as usize], theme::BG, "the child step is empty canvas");
-            }
-            for x in from..inner.x + inner.width {
-                assert_eq!(bg[y][x as usize], theme::SURFACE, "row {line}");
+            assert_eq!(bg[y][bar as usize], theme::ACCENT, "bar at the block's step");
+            for x in inner.x..inner.x + inner.width {
+                if x == bar {
+                    continue;
+                }
+                assert_eq!(bg[y][x as usize], theme::BG, "clean BG behind the rest of the item");
             }
         }
     }
@@ -1666,6 +1760,188 @@ mod tests {
         let agents = rows.iter().position(|row| row.trim() == "agents").expect("agents section");
         let agent = rows[agents + 1..].iter().position(|row| row.contains("◐ claude")).expect("agent row") + agents + 1;
         assert!(rows[agent + 1].contains("working · pi"), "agent detail: {:?}", rows[agent + 1]);
+    }
+
+    // ---- S10 aesthetic pass ----
+
+    #[test]
+    fn the_desktop_rail_is_34_columns_with_one_gutter_and_one_rule() {
+        assert_eq!(RAIL_WIDTH, 34);
+        let rows = screen(&app(true), 100, 24);
+        assert_eq!(rows[1].chars().next(), Some(' '), "one gutter cell");
+        assert_ne!(rows[1].chars().nth(1), Some(' '), "content starts at column 1");
+        for y in [1, 12, 23] {
+            assert_eq!(rows[y].chars().nth(RAIL_WIDTH as usize), Some('│'), "the single rule");
+            assert_ne!(rows[y].chars().nth(RAIL_WIDTH as usize + 1), Some('│'), "only one rule");
+        }
+    }
+
+    #[test]
+    fn one_blank_row_separates_item_blocks_without_a_target_or_band() {
+        let app = spaces_app();
+        let flat = flatten(&panel_blocks(&app, 38, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let alpha = texts.iter().position(|line| line.contains("alpha")).expect("the active space");
+        let one = texts.iter().position(|line| line.contains("one")).expect("its tab");
+        let beta = texts.iter().position(|line| line.contains("beta")).expect("the next space");
+        let agents = texts.iter().position(|line| line.trim() == "agents").expect("the agents section");
+        assert_eq!(one, alpha + 3, "one blank row between a space and its tab: {texts:?}");
+        assert_eq!(beta, one + 3, "one blank row between two items: {texts:?}");
+        assert_eq!(agents, beta + 3, "divider then section, no trailing blank: {texts:?}");
+        for gap in [alpha + 2, one + 2] {
+            assert!(texts[gap].trim().is_empty(), "the separator is blank: {:?}", texts[gap]);
+            assert_eq!(flat.rows[gap], None, "no hit target on a blank row");
+            assert_eq!(flat.spaces[gap], None, "no space target on a blank row");
+            assert_eq!(flat.bands[gap], Band::None, "no band on a blank row");
+        }
+        // The two rows of an item stay contiguous.
+        assert!(texts[alpha + 1].contains('/'), "the space detail follows its name");
+        assert!(!texts[one + 1].trim().is_empty(), "the tab detail follows its name: {texts:?}");
+
+        let z = zones(Rect::new(0, 0, 40, 24), true);
+        let panel = z.panel.expect("the sheet");
+        let inner = panel_inner(panel);
+        let bg = backgrounds(&app, 40, 24);
+        for gap in [alpha + 2, one + 2] {
+            let y = inner.y + gap as u16;
+            assert_eq!(panel_row_at(&app, panel, inner.x + 2, y, false), None, "no tab hit");
+            assert_eq!(panel_space_at(&app, panel, inner.x + 2, y, false), None, "no space hit");
+            for x in inner.x..inner.x + inner.width {
+                assert_eq!(bg[y as usize][x as usize], theme::BG, "clean BG on the blank row");
+            }
+        }
+    }
+
+    #[test]
+    fn a_dim_divider_sits_between_the_spaces_and_agents_sections() {
+        let app = spaces_app();
+        let flat = flatten(&panel_blocks(&app, 38, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let divider = texts
+            .iter()
+            .position(|line| !line.is_empty() && line.chars().all(|c| c == '─'))
+            .unwrap_or_else(|| panic!("a divider row: {texts:?}"));
+        let spaces = texts.iter().position(|line| line.trim() == "spaces").expect("spaces");
+        let agents = texts.iter().position(|line| line.trim() == "agents").expect("agents");
+        assert!(spaces < divider && divider < agents, "between the sections: {texts:?}");
+        let line = &flat.lines[divider];
+        assert_eq!(line.spans.len(), 1, "one plain rule");
+        assert_eq!(line.spans[0].style.fg, Some(theme::DIM), "tenuous colour");
+        assert!(!line.spans[0].style.add_modifier.contains(Modifier::BOLD));
+        assert_eq!(rendered(line).chars().count(), 38, "one rule across the panel");
+        assert_eq!(flat.rows[divider], None, "no hit target on the divider");
+        assert_eq!(flat.spaces[divider], None);
+        assert_eq!(flat.bands[divider], Band::None, "no band on the divider");
+        let z = zones(Rect::new(0, 0, 40, 24), true);
+        let panel = z.panel.expect("the sheet");
+        let inner = panel_inner(panel);
+        let y = inner.y + divider as u16;
+        assert_eq!(panel_row_at(&app, panel, inner.x + 2, y, false), None);
+        assert_eq!(panel_space_at(&app, panel, inner.x + 2, y, false), None);
+    }
+
+    #[test]
+    fn names_are_bold_text_details_are_plain_text_and_sections_are_bold_dim() {
+        let app = spaces_app();
+        let flat = flatten(&panel_blocks(&app, 38, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let name_style = |name: &str| {
+            let at = texts.iter().position(|line| line.contains(name)).expect(name);
+            flat.lines[at]
+                .spans
+                .iter()
+                .find(|span| span.content.as_ref() == name)
+                .unwrap_or_else(|| panic!("a span for {name}: {:?}", flat.lines[at]))
+                .style
+        };
+        for name in ["alpha", "beta", "one", "pi"] {
+            let style = name_style(name);
+            assert_eq!(style.fg, Some(theme::TEXT), "{name} is TEXT");
+            assert!(style.add_modifier.contains(Modifier::BOLD), "{name} is bold");
+        }
+        for label in ["spaces", "agents"] {
+            let at = texts.iter().position(|line| line.trim() == label).expect(label);
+            let style = flat.lines[at].spans[0].style;
+            assert_eq!(style.fg, Some(theme::DIM), "{label} is DIM");
+            assert!(style.add_modifier.contains(Modifier::BOLD), "{label} is bold");
+        }
+        for name in ["alpha", "one", "beta", "pi"] {
+            let at = texts.iter().position(|line| line.contains(name)).expect(name);
+            let style = flat.lines[at + 1].spans[0].style;
+            assert_eq!(style.fg, Some(theme::TEXT), "the {name} detail is TEXT");
+            assert!(!style.add_modifier.contains(Modifier::BOLD), "the {name} detail is not bold");
+        }
+    }
+
+    #[test]
+    fn state_dots_keep_their_token_and_the_word_stays_with_them() {
+        let app = app(true);
+        let flat = flatten(&panel_blocks(&app, 38, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let state_dot = |at: usize| {
+            flat.lines[at]
+                .spans
+                .iter()
+                .find(|span| matches!(span.content.as_ref(), "○" | "◐" | "▲"))
+                .and_then(|span| span.style.fg)
+                .expect("a state dot")
+        };
+        for (name, glyph, color, word) in [
+            ("pi 1", "○", State::Idle.color(), "idle"),
+            ("pi 2", "▲", State::NeedsYou.color(), "needs you"),
+            ("pi 3", "◐", State::Working.color(), "working"),
+        ] {
+            let at = texts.iter().position(|line| line.contains(name)).expect(name);
+            assert!(texts[at].contains(glyph), "{name} keeps its glyph");
+            assert_eq!(state_dot(at), color, "{name} dot keeps its state token");
+            assert!(texts[at + 1].contains(word), "{name} detail keeps its word");
+        }
+    }
+
+    #[test]
+    fn the_active_space_marker_is_a_bar_at_the_canvas_edge() {
+        let app = spaces_app();
+        let z = zones(Rect::new(0, 0, 40, 24), true);
+        let inner = panel_inner(z.panel.expect("the sheet"));
+        let bg = backgrounds(&app, 40, 24);
+        let view = panel_view(&app, inner.width, false, inner.height);
+        let texts = view.lines.iter().map(rendered).collect::<Vec<_>>();
+        let alpha = texts.iter().position(|line| line.contains("alpha")).expect("the active space");
+        for line in [alpha, alpha + 1] {
+            assert_eq!(view.bands[line].step(), 0, "a top-level block sits at the edge");
+            let y = (inner.y + line as u16) as usize;
+            assert_eq!(bg[y][inner.x as usize], theme::ACCENT, "bar on row {line}");
+            for x in inner.x + 1..inner.x + inner.width {
+                assert_eq!(bg[y][x as usize], theme::BG, "clean canvas behind the space");
+            }
+        }
+    }
+
+    #[test]
+    fn an_inactive_space_dot_carries_its_agents_attention() {
+        let dot = |app: &App, name: &str| {
+            let flat = flatten(&panel_blocks(app, 38, false));
+            let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+            let at = texts.iter().position(|line| line.contains(name)).expect(name);
+            flat.lines[at]
+                .spans
+                .iter()
+                .find(|span| span.content.as_ref() == "●")
+                .and_then(|span| span.style.fg)
+                .expect("a coloured dot")
+        };
+        for (state, color) in [
+            ("blocked", theme::RED),
+            ("working", theme::YELLOW),
+            ("idle", theme::GREEN),
+        ] {
+            let app = attention_app(state);
+            assert_eq!(dot(&app, "alpha"), theme::ACCENT, "the active space stays ACCENT");
+            assert_eq!(dot(&app, "beta"), color, "{state} attention");
+        }
+        let mut quiet = attention_app("idle");
+        quiet.terminals.clear();
+        assert_eq!(dot(&quiet, "beta"), theme::MUTED, "no agents, no colour");
     }
 
     #[test]
