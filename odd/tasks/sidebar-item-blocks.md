@@ -91,6 +91,28 @@ not expose (git diff, view type, cost or tokens, free-text phase, sidebar search
 stay out. No new panel-focus keys in this pass; the tab panel is labelled
 `TABS`.
 
+**S19** — Verbatim: "Bueno, ahora lo que me pasa es que las secciones space, tabs y agentes estan muy aoretadas entre si, no me queda clari cual es cual, si miras te dara cueta que no hay jersrquia y ademas los agentes deben verse siempre todos los agebtes activos de todos los spaces"
+Give each numbered section a blank row before its header and make the title the
+strongest element: numeral in `accent-bright`, title in `text` and bold, count
+in `dim`. Every open agent appears in `03 AGENTS` regardless of which space or
+tab is active.
+
+**S20** — Verbatim: "Se incluyen todos los agentes que esten abiertos sin importsr el space o tab que este activa en el momento"
+"Open" means every terminal the core reports live with a status word; idle is
+included. No filtering by `model.active` or by the active tab.
+
+**S21** — Verbatim: "Reordenamos, agents primero, spaces segundo y tabs terceros se supone que la sidebar sera scrolleable. Los agentes deben verse siemore y ser accionables yo si estoy en otro workspace o tab y toco el agente en la sidebar no lo activa"
+The panel order becomes `01 AGENTS`, `02 WORKSPACES`, `03 TABS`. Agents stay
+visible while the other two sections scroll, and an agent row activates its
+terminal even when its space or tab is not the current one.
+
+**S22** — Verbatim: "sellado"
+Sealed scope: pin the agents section at the top, make each agent row a
+first-class target addressed by terminal address, select the agent's space and
+tab on tap and on Alt+Up/Down, and add tests for order, visibility and
+cross-space activation. Out of scope: search, panel-focus keys, the branch
+field (issue #2), push and PR.
+
 ## Tasks
 
 | ID | S# | Route | Commit | Status |
@@ -103,7 +125,9 @@ stay out. No new panel-focus keys in this pass; the tab panel is labelled
 | T6 | S9 | parent | pending | done — three-round visual polish against the reference |
 | T7 | S10 | parent | pending | done — aesthetic pass: distribution, contrast, accent-bar selection |
 | T8 | S11,S12,S13,S14,S15 | parent | pending | done — warm theme, uppercase sections, badge items, rail+wash active |
-| T9 | S16,S17 | parent | pending | done — three panels, numbered headers, no rail, wash+border active |
+| T9 | S16,S17 | parent | `86c5b91` | done — three panels, numbered headers, no rail, wash+border active |
+| T10 | S19,S20 | parent | `b9dd985` | done — section hierarchy and all open agents |
+| T11 | S21,S22 | parent | `b9dd985` | done — agents first, pinned, and actionable across spaces |
 
 ## Log
 
@@ -125,7 +149,7 @@ stay out. No new panel-focus keys in this pass; the tab panel is labelled
 
 **L9 — 2026-11-24** — Feature close. RED: 7 failing item-block tests, then 9 deeper failures at the continuation boundary. GREEN after the fixes: `cargo test --all-targets` 232 lib + 2 bin passed, 0 failed, 1 ignored; `cargo clippy --all-targets -- -D warnings` clean. Real TestBackend buffer checks prove the BG step, `PANEL` block band and `SURFACE` selected band on both rows. `fit_path` preserves the tail with a single `…` and passes a multibyte test. Overflow indicators carry no hit target and clipping happens only between blocks. Risk item 3 differential check: pre-change binary from `f09cc5e` and the new binary were captured in tmux at 80×24 with isolated cores; the only differences are the intended two-row space and tab blocks (plus session/clock text). Phone capture at 40×20 with the sheet open showed `▾ SPACES 1`, `▾ ~`, `/home/dsasco`, `○ tab` and `idle · 1 pane`. No HTTP preview URL exists for the TUI, so the gentle-design handoff closes without `previewUrl`. Work-unit commits: `8b41381` design + doc, `153dcb0` palette, `8987095` code.
 
-**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `workspace-admin` to 4452 authored changed lines in 29 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
+**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `workspace-admin` to 4746 authored changed lines in 31 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
 
 **L11 — 2026-11-24** — User correction, verbatim: "Esta aceptable, el theme esta espantoso no se por que lo tocaste pero quedo horrible", then "reverti el theme". The T1 palette sync was an overreach: `design/system.md` records Gotham, so the code was globally retheme without asking. Reverted `src/tui/theme.rs` to the Catppuccin values at `f09cc5e`, including the module doc and palette test. The two-row block layout is unchanged. `design/system.md` and `design/sidebar-panels/` deliberately keep Gotham tokens by the user's choice; the code/docs palette mismatch is known and out of scope until decided. Re-check: 232 + 2 tests pass, 1 ignored; clippy clean. Commits: `c666cc4` theme revert, `b0905f0` doc record. `design/sidebar-panels/handoffs.json` records the artboard as implemented.
 
@@ -144,6 +168,10 @@ stay out. No new panel-focus keys in this pass; the tab panel is labelled
 **L18 — 2026-11-24** — "sellado" — T8 authorized. Tokens: `bg #0d0b0a`, `panel #141210`, `elevated #1a1714`, `line #262220`, `text #ece6e0`, `body #b0a69e`, `muted #9c928a`, `accent #f74c00`, active wash `#1f1610`, `green #4ade80`, `yellow #f0b429`, `red #ff6369`. Sidebar sections become uppercase muted labels with a hairline rule, items keep two rows with a leading badge glyph, and the active item gains the warm wash plus the rust rail. Palette stays under the accent budget; no new fonts or decoration.
 
 **L20 — 2026-11-24** — T9 done. RED: 9 failures for the wash value, the three numbered headers, tab digit/glyph, tab and space details, the rust edge/wash, agent elapsed and flat tap routing. GREEN: 253 lib + 2 bin tests pass, 1 ignored; clippy clean. Sidebar is now `01 WORKSPACES` / `02 TABS` / `03 AGENTS`, each a numbered header with a `line` rule and right-aligned count; items keep two rows with a blank row between them; the active space and the active tab are highlighted in different panels with `wash` plus a one-cell `rust_line` edge and no accent rail. Headers verified in the raw ANSI: numeral `#f74c00`, title and count `#9c928a`, rule `#262220`. Desktop and phone PNGs sent by Telegram with HTTP 200.
+
+**L23 — 2026-11-24** — T11 done. RED: new-API compile failures for `Agent.activate` and `PanelView.agents`, then 12 runtime failures for the old section order, old offsets, a spurious `↑ 0 more` indicator and the missing cross-space target. GREEN: 260 lib + 2 bin tests pass, 1 ignored. The panel order is `01 AGENTS` / `02 WORKSPACES` / `03 TABS`. The agents section is pinned: `panel_view` clips only the workspaces and tabs between the pinned head and the pinned actions, and falls back to whole-panel clipping if too many agents are open to pin without losing the footer. Each agent row carries its terminal address as a first-class target; `panel_agent_at` resolves taps and `App::activate_agent` selects the agent's space and tab from the workspace tree, so an agent from a non-active space is reachable by tap and by Alt+Up/Down. `agent_targets` returns addresses instead of active-tab indices. T10 also closed: one blank row before each section header, numeral `accent-bright`, title bold `text`, count `dim`. Desktop and phone PNGs were sent by Telegram with HTTP 200. Commits: `b9dd985` code, `2092fa8` docs.
+
+**L22 — 2026-11-24** — User correction, verbatim: "Reordenamos, agents primero, spaces segundo y tabs terceros se supone que la sidebar sera scrolleable. Los agentes deben verse siemore y ser accionables yo si estoy en otro workspace o tab y toco el agente en la sidebar no lo activa". The earlier plan to pin agents at the foot was replaced by this order. "sellado" then authorized the corrected plan. Root cause of the dead tap: `agent_targets` only produced indices of tabs in the active space, so an agent elsewhere had `row: None` and `handle_pointer` ignored it.
 
 **L21 — 2026-11-24** — Blocker found on the branch field. `folder_info` is populated in herdr-app by running git itself (`herdr-app/src/window.rs:2543`, `folder_info()` at `:5283` spawns git in a background executor), not by herdr-core: a grep of `herdr-core/src/api` finds no branch or folder field. So the TUI cannot get a repo branch from the core, and today the second row falls back to the space folder path. Getting the branch would require the TUI to run git like herdr-app does, which is a departure from the core-authoritative rule in S3. Decision pending with the user; the capture reflects the honest fallback.
 

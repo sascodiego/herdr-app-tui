@@ -143,33 +143,34 @@
         <div class="toggle">x</div>
       </div>
       <div class="sidebar">
-        <div class="ln"><span class="ac">01</span> <span class="head">WORKSPACES</span><span class="m">             (3)</span></div>
+        <div class="ln"><span class="ac">01</span> <span class="head">AGENTS</span><span class="m">                 (2)</span></div>
+        <div class="ln rule">──────────────────────────────────────</div>
+        <div class="ln">  <span class="bad">▲</span> <span class="b">codex-review</span></div>
+        <div class="ln bd"><span class="ln">    <span class="bad">needs you</span> · codex</span></div>
+        <div class="ln">  <span class="wip">◐</span> <span class="b">claude-code</span></div>
+        <div class="ln bd"><span class="ln">    <span class="wip">working</span> · pi · 42s</span></div>
+        <div class="ln"> </div>
+        <div class="ln"><span class="ac">02</span> <span class="head">WORKSPACES</span><span class="m">             (3)</span></div>
         <div class="ln rule">──────────────────────────────────────</div>
         <div class="ln sel"><span class="ln"><span class="acb">▸</span> <span class="b">pulls.review</span></span></div>
         <div class="ln sel"><span class="ln bd">  feat/daemon · 2 tabs</span></div>
         <div class="ln"><span class="ln">  ○ <span class="b">pi-stuff</span></span></div>
         <div class="ln bd"><span class="ln">    main · 1 tab</span></div>
         <div class="ln"> </div>
-        <div class="ln"><span class="ac">02</span> <span class="head">TABS</span><span class="m">                   (4)</span></div>
+        <div class="ln"><span class="ac">03</span> <span class="head">TABS</span><span class="m">                   (4)</span></div>
         <div class="ln rule">──────────────────────────────────────</div>
         <div class="ln">  <span class="m">1</span> <span class="b">Review daemon PR</span></div>
         <div class="ln"><span class="ln bd">    <span class="wip">◐</span> working · pi · 2 panes</span></div>
         <div class="ln">  <span class="m">2</span> <span class="b">cargo test --watch</span></div>
         <div class="ln bd"><span class="ln">    <span class="ok">○</span> idle · bash</span></div>
-        <div class="ln"> </div>
-        <div class="ln"><span class="ac">03</span> <span class="head">AGENTS</span><span class="m">                 (2)</span></div>
-        <div class="ln rule">──────────────────────────────────────</div>
-        <div class="ln">  <span class="wip">◐</span> <span class="b">claude-code</span></div>
-        <div class="ln bd"><span class="ln">    <span class="wip">working</span> · pi · 42s</span></div>
-        <div class="ln">  <span class="bad">▲</span> <span class="b">codex-review</span></div>
-        <div class="ln bd"><span class="ln">    <span class="bad">needs you</span> · codex</span></div>
         <div class="ln"><span class="ln bd">settled 3  ·  new tab  ·  close</span></div>
       </div>
     </div>
     <div class="note">The desktop rail keeps this geometry at 34 columns with a compact one-row header, on the left.</div>
   </div>
   <div class="col">
-    <div class="note ok">✓ Three fixed panels: 01 WORKSPACES, 02 TABS, 03 AGENTS, each with a numbered header and a rule.</div>
+    <div class="note ok">✓ Three fixed panels: 01 AGENTS (pinned), 02 WORKSPACES, 03 TABS, each with a numbered header and a rule.</div>
+    <div class="note ok">✓ Every open agent stays listed and actionable, whichever space or tab is active.</div>
     <div class="note ok">✓ Every item owns two contiguous rows: indicator plus name, then contextual detail.</div>
     <div class="note ok">✓ The active item is a wash fill plus a one-cell rust-line edge. No bright rail.</div>
     <div class="note ok">✓ The active space and the active tab are highlighted in different panels.</div>

@@ -107,17 +107,18 @@ The cell is the unit.
   row 2 is the current path, row 3 is the aggregate agent total grouped by
   state (`○ idle 1 · ◐ work 1 · ▲ needs 1`). A fixed 8ch toggle block on
   `elevated` spans all three rows and is always hard-right (`switch` collapsed,
-  `x` open). The band's aggregate is a summary; the `03 AGENTS` panel below
+  `x` open). The band's aggregate is a summary; the `01 AGENTS` panel below
   stays a navigable list.
 - **Rail**: on desktop the panel is a **34-column**, always-visible rail on the
   **left**, one-cell gutters included, separated from the terminal by a single
   `line` rule. Its header stays compact and one row high.
-- **Panels**: three fixed panels, top to bottom: `01 WORKSPACES`, `02 TABS`,
-  `03 AGENTS`. Each is one header row (`NN` numeral in `accent`, uppercase
-  `muted` title, right-aligned count, then a `─` rule in `line`) followed by its
-  items. A panel with zero items renders its header and nothing else. The active
-  space and the active tab are highlighted in different panels, so a panel never
-  shows two competing selections.
+- **Panels**: three fixed panels, top to bottom: `01 AGENTS`, `02 WORKSPACES`,
+  `03 TABS`. Each starts after one blank row with a header row (`NN` numeral in
+  `accent-bright`, uppercase `text` title in bold, right-aligned count in `dim`,
+  then a `─` rule in `line`) followed by its items. A panel with zero items
+  renders its header and nothing else. The active space and the active tab are
+  highlighted in different panels, so a panel never shows two competing
+  selections.
 - **Item block**: a space, tab or agent owns two contiguous rows — a leading
   badge glyph plus the bold name on row one, the detail on row two at the same
   left edge. One blank row separates it from the next item. There is no box.
@@ -130,9 +131,11 @@ The cell is the unit.
   in `TABS` it is the `Alt+N` digit in `accent-bright`.
 - **Panels are peers**: tabs are not nested inside a space item; `TABS` is its
   own panel for the active space. No nesting indent, no connector lines.
-- **AGENTS**: a navigable list of the agents herdr-core detects per workspace,
-  ordered by attention (`needs you` before `working` before `idle`). Never
-  replace it with a count table.
+- **AGENTS**: pinned at the top, so the list stays visible while the other two
+  panels scroll. It shows every open agent herdr-core reports, from every space
+  and tab, ordered by attention (`needs you` before `working` before `idle`).
+  Tapping an agent selects its space and tab even when neither was active; the
+  same walk works with `Alt+↑/↓`. Never replace it with a count table.
 - **Overflow**: horizontal detail truncates with `…`; a path keeps its tail
   (`…/herdr-app-tui`) and a branch keeps its head. Vertical overflow clips only
   between whole blocks: `↑ N more` / `↓ N more` lines in `dim` mark the clipped
