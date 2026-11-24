@@ -3,12 +3,12 @@
   "chosen": "04-item-blocks.html",
   "handoffs": {
     "04-item-blocks.html": {
-      "status": "in_progress",
+      "status": "implemented",
       "queued": false,
       "sentAt": "2026-11-24T02:58:20.589Z",
       "startedAt": "2026-11-24T02:58:41.636Z",
-      "implementedAt": null,
-      "note": "Accepted the handoff; mapping the Rust TUI panel code and test surfaces before the first write."
+      "implementedAt": "2026-11-24T03:46:37.685Z",
+      "note": "Implemented in the Ratatui TUI: two-row item blocks, two-cell child step without connectors, tail-preserving path ellipsis and block-wise overflow indicators. No loopback app URL exists; PTY captures at 80x24 and 40x20 were used as visual proof."
     }
   }
 }
