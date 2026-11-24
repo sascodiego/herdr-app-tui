@@ -1444,6 +1444,20 @@ impl Vt {
         self.get_bool(GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING)
     }
 
+    /// One wheel notch for the program, encoded with its own mouse protocol.
+    /// Buttons 64/65 are the xterm wheel-up/down convention. Empty when the
+    /// program never asked for mouse reports.
+    pub fn wheel_bytes(&mut self, up: bool, col: u16, row: u16) -> Vec<u8> {
+        if !self.mouse_tracking() {
+            return Vec::new();
+        }
+        // The FFI encoder only accepts its named buttons (left, right, …),
+        // not the xterm wheel numbers, so write the SGR wheel report here.
+        // Programs that track the mouse almost always enable 1006.
+        let button = if up { 64 } else { 65 };
+        format!("\x1b[<{button};{};{}M", col.saturating_add(1), row.saturating_add(1)).into_bytes()
+    }
+
     pub fn alt_screen(&self) -> bool {
         let mut screen: GhosttyTerminalScreen = GHOSTTY_TERMINAL_SCREEN_PRIMARY;
         unsafe { ghostty_terminal_get(self.term, GHOSTTY_TERMINAL_DATA_ACTIVE_SCREEN, &mut screen as *mut _ as *mut c_void) };
@@ -2382,6 +2396,18 @@ mod tests {
         vt.select(Select::Drag, 39, 0, SelectPoint { x, y: 5.0, cell_w: cw, height: 40.0 });
         vt.select(Select::Release, 39, 0, SelectPoint { x, y: 5.0, cell_w: cw, height: 40.0 });
         assert_eq!(vt.selection_text().as_deref(), Some(&line[..39]));
+    }
+
+    #[test]
+    fn wheel_bytes_follow_the_program_mouse_protocol() {
+        let mut vt = Vt::new(80, 24);
+        assert!(vt.wheel_bytes(true, 1, 1).is_empty(), "no tracking, no wheel");
+        vt.write(b"\x1b[?1002h\x1b[?1006h");
+        assert!(vt.mouse_tracking(), "the program asked for mouse reports");
+        let up = vt.wheel_bytes(true, 1, 1);
+        let down = vt.wheel_bytes(false, 1, 1);
+        assert!(up.starts_with(b"\x1b[<64;"), "wheel up: {up:?}");
+        assert!(down.starts_with(b"\x1b[<65;"), "wheel down: {down:?}");
     }
 
     #[test]

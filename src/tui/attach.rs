@@ -42,6 +42,19 @@ impl Session {
         self.attached.channel
     }
 
+    /// Forward one wheel notch to the program when it tracks the mouse.
+    /// Returns false when there is no tracking, so the caller can keep herdr's
+    /// own copy-mode scrollback for that case.
+    pub fn wheel(&mut self, core: &Arc<hc::Core>, up: bool, col: u16, row: u16) -> bool {
+        let bytes = self.vt.wheel_bytes(up, col, row);
+        if bytes.is_empty() {
+            return false;
+        }
+        // Wheel input is a person acting, not a terminal-engine reply.
+        core.input(self.attached.channel, &bytes);
+        true
+    }
+
     /// Drain everything the core has sent. Returns true if anything arrived.
     pub fn drain(&mut self, core: &Arc<hc::Core>) -> anyhow::Result<bool> {
         let mut consumed = 0usize;

@@ -63,12 +63,15 @@ was built from, so you can confirm which code is running.
 
 | Key | What it does |
 |---|---|
-| `tab` | Open or close the panel |
+| `ctrl+o` then `o` | Open or close the panel; `tab` stays with the agent |
 | `j` `k` / arrows | Move the highlight; the highlighted tab attaches automatically |
 | `enter` | Attach to the highlighted tab and give it the keyboard |
 | `esc` | Close the panel; quit when nothing is attached |
 | `ctrl+q` / `ctrl+\` | Quit (also sends no key to the agent) |
-| `pageup` / `pagedown`, `alt+↑` / `alt+↓` | Scroll the frozen history; `q` or `esc` resumes the live pane |
+| `ctrl+o` then `c` / `w` / `r` / `x` | New tab / new space / rename tab / close tab; `R` and `X` target the space |
+| `alt+1`…`alt+9`, `alt+0` | Select tab 1…9, or tab 10 |
+| `alt+↑` / `alt+↓` | Move through the detected agent list |
+| `pageup` / `pagedown` | Scroll the frozen history; `q` or `esc` resumes the live pane |
 
 Touch and pointer gestures work by zone:
 
@@ -79,6 +82,23 @@ Touch and pointer gestures work by zone:
 | Wheel or vertical drag in the terminal | Enter copy mode and scroll the history |
 | Wheel or vertical drag in the panel | Move the highlight |
 | Tap the terminal | Resume the live pane |
+
+`ctrl+o` is a reserved tmux-style prefix. It opens a floating binding panel and
+the next key runs the action: `o` toggle sidebar, `c` new tab, `w` new space,
+`r` rename tab, `R` rename space, `x` close tab, `X` close space. `esc` cancels before the
+action key. There is no typed command palette: `:` remains an ordinary character
+and reaches the agent. The same create, rename and close actions are tappable in
+the sidebar footer. Rename opens a pre-filled one-line prompt: Enter commits,
+Esc cancels. Close asks for `y` or `n`.
+
+Spaces and tabs are written to the shared `herdr-app` document through
+`doc.get`/`doc.set` with the core's version check; a conflict re-reads and
+replays the change once. Terminals are created with `terminal.run` and closed
+with `terminal.kill` through the core, including their child tree while sparing
+kept sub-agents. Agents themselves are detected by herdr-core and are not
+managed here: only terminals with an OSC 7501 status report appear in `AGENTS`
+or its totals. A plain shell is still shown as a tab, but it is not an agent.
+Terminals are never removed directly by the TUI.
 
 Copy mode scrolls libghostty's own scrollback, so colors, bold and background
 attributes are preserved; no plain-text dump is used.
@@ -98,8 +118,11 @@ sent to the program inside the terminal.
 On a phone the top band has three rows: workspace and tab count, current path,
 and the agent total grouped by state. A fixed-width toggle block spans all
 three rows on the right. The band also names the pane state: `preview`,
-`attached` or `scrolled`. The sidebar has a one-cell gutter on every side, and
-the `AGENTS` section is a navigable list ordered by who needs attention.
+`attached` or `scrolled`. The sidebar has a one-cell gutter on every side. It
+starts with `SPACES`, one row per workspace with its tab count; tapping a row
+selects that space in memory, like herdr's local view state. `TABS` then lists
+the active space, and `AGENTS` stays a global navigable list ordered by who
+needs attention.
 
 The panel lists the tabs of the active space in the shared `herdr-app`
 document — the same data the desktop app reads — and uses `terminal.list` only

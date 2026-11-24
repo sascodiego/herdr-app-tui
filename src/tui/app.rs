@@ -17,6 +17,10 @@ pub struct Terminal {
     pub address: String,
     pub name: String,
     pub state: State,
+    /// The app name from OSC 7501, when reported.
+    pub app: Option<String>,
+    /// Whether the program reported a 7501 status word: herdr's agent signal.
+    pub is_agent: bool,
     /// The terminal that started it, when there is one: it nests under that row.
     pub parent: Option<String>,
     /// The tail of its output, for the preview under the list.
@@ -29,17 +33,24 @@ impl Terminal {
         let text = |key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
         let address = text("address").or_else(|| text("id")).unwrap_or_else(|| "?".to_string());
         let name = text("name").unwrap_or_else(|| address.clone());
-        let word = value
-            .get("status")
-            .and_then(|status| status.get("state"))
-            .or_else(|| value.get("state"))
-            .and_then(Value::as_str);
+        let report_word = value.get("status").and_then(|status| {
+            status
+                .get("state")
+                .and_then(Value::as_str)
+                .or_else(|| status.as_str())
+        });
+        let word = report_word.or_else(|| value.get("state").and_then(Value::as_str));
+        let app = value.get("status").and_then(|status| {
+            status.get("app").and_then(Value::as_str).map(str::to_string)
+        });
         Terminal {
             state: State::from_word(word),
+            is_agent: report_word.is_some(),
             parent: text("parent"),
             preview: Vec::new(),
             address,
             name,
+            app,
         }
     }
 }
@@ -63,6 +74,14 @@ pub enum Focus {
     Terminal,
     /// The panel is open and the arrows move through its rows.
     Panel,
+}
+
+/// A one-line text capture inside the panel. The agent never sees these keys.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Prompt {
+    RenameSpace { id: String, buffer: String },
+    RenameTab { id: String, buffer: String },
+    ConfirmClose { label: String, command: super::workspace::Command },
 }
 
 /// Everything the view draws.
@@ -95,6 +114,12 @@ pub struct App {
     pub screen: Option<ScreenState>,
     /// Whether the screen shows libghostty's scrollback instead of following.
     pub copy: bool,
+    /// The active text capture, when the panel owns the keyboard.
+    pub prompt: Option<Prompt>,
+    /// Last computed core pane size, used when creating a terminal.
+    pub pane: (u16, u16),
+    /// Whether the next key is a workspace prefix command.
+    pub prefix: bool,
 }
 
 impl App {
@@ -117,6 +142,17 @@ impl App {
             rows: Vec::new(),
             screen: None,
             copy: false,
+            prompt: None,
+            pane: (40, 11),
+            prefix: false,
+        }
+    }
+
+    /// The editable line of the active prompt, if any.
+    pub fn prompt_buffer(&mut self) -> Option<&mut String> {
+        match self.prompt.as_mut() {
+            Some(Prompt::RenameSpace { buffer, .. }) | Some(Prompt::RenameTab { buffer, .. }) => Some(buffer),
+            Some(Prompt::ConfirmClose { .. }) | None => None,
         }
     }
 
@@ -171,7 +207,7 @@ impl App {
     /// Rebuild the panel's rows from the active space's tabs. With no
     /// workspace yet, fall back to the core's top-level terminals so a fresh
     /// core is still usable.
-    fn rebuild_rows(&mut self) {
+    pub fn rebuild_rows(&mut self) {
         let from_document = self.doc_available;
         let tabs: Vec<(String, String, Option<String>)> = match self.model.active_space() {
             Some(space) if from_document => space
@@ -265,6 +301,34 @@ impl App {
         self.terminals.iter().filter(|terminal| terminal.parent.as_deref() == Some(address)).collect()
     }
 
+    /// Select an open agent's tab, whichever space it lives in. The shared
+    /// document has no active flag, so `select_tab` also selects its space.
+    pub fn activate_agent(&mut self, address: &str) -> bool {
+        let parent = self
+            .terminals
+            .iter()
+            .find(|terminal| terminal.address == address)
+            .and_then(|terminal| terminal.parent.as_deref());
+        let mut target = None;
+        'spaces: for space in &self.model.spaces {
+            for tab in &space.tabs {
+                let panes = tab.root.terminals();
+                let inside = |address: &str| panes.iter().any(|node| node.terminal() == Some(address));
+                if inside(address) || parent.is_some_and(inside) {
+                    target = Some(tab.id.clone());
+                    break 'spaces;
+                }
+            }
+        }
+        let Some(id) = target else { return false };
+        if !self.model.select_tab(&id) {
+            return false;
+        }
+        self.rebuild_rows();
+        self.cursor = self.rows.iter().position(|row| row.id == id).unwrap_or(0);
+        true
+    }
+
     /// The workspace named in the band: the highlighted tab, or the session.
     pub fn workspace(&self) -> &str {
         self.selected().map_or(self.session.as_str(), |row| row.name.as_str())
@@ -306,9 +370,23 @@ impl App {
         }
     }
 
+    /// The detected agents, ordered by attention. A plain shell has a tab state
+    /// but no status report, so it is not an agent.
+    pub fn agents(&self) -> Vec<&Terminal> {
+        let mut agents: Vec<&Terminal> = self.terminals.iter().filter(|terminal| terminal.is_agent).collect();
+        agents.sort_by(|a, b| {
+            a.state
+                .priority()
+                .cmp(&b.state.priority())
+                .then_with(|| a.name.cmp(&b.name))
+        });
+        agents
+    }
+
     /// `(working, needs you, idle)` for the agents rollup.
     pub fn counts(&self) -> (usize, usize, usize) {
-        let count = |state: State| self.terminals.iter().filter(|terminal| terminal.state == state).count();
+        let agents = self.agents();
+        let count = |state: State| agents.iter().filter(|agent| agent.state == state).count();
         (count(State::Working), count(State::NeedsYou) + count(State::Failed), count(State::Idle))
     }
 
@@ -347,6 +425,24 @@ mod tests {
         }));
         assert_eq!((terminal.address.as_str(), terminal.name.as_str()), ("t7", "pi"));
         assert_eq!(terminal.state, State::Working);
+    }
+
+    #[test]
+    fn a_terminal_reads_the_app_from_its_status() {
+        let terminal = Terminal::from_value(&json!({
+            "address": "t7",
+            "name": "pi",
+            "status": { "state": "working", "app": "pi" }
+        }));
+        assert_eq!(terminal.app.as_deref(), Some("pi"));
+    }
+
+    #[test]
+    fn a_terminal_without_an_app_stays_tolerant() {
+        let terminal = Terminal::from_value(&json!({
+            "address": "t8", "name": "bash", "status": { "state": "idle" }
+        }));
+        assert_eq!(terminal.app, None);
     }
 
     #[test]
@@ -401,6 +497,21 @@ mod tests {
     #[test]
     fn the_rollup_counts_working_needs_you_and_idle() {
         assert_eq!(app().counts(), (1, 1, 2), "t3 working, t2 blocked, t1 and t4 idle");
+    }
+
+    #[test]
+    fn a_plain_shell_is_not_an_agent() {
+        let mut app = App::new("default", "local");
+        app.set_terminals(&list(json!([
+            { "address": "t1", "name": "bash", "state": "live" },
+            { "address": "t2", "name": "pi", "status": { "state": "idle" } }
+        ])));
+        assert_eq!(app.terminals[0].state, State::Idle, "the shell still has a tab state");
+        assert!(!app.terminals[0].is_agent, "a shell without a status report is not an agent");
+        assert!(app.terminals[1].is_agent, "a status word is herdr's agent signal");
+        let agents: Vec<&str> = app.agents().iter().map(|agent| agent.address.as_str()).collect();
+        assert_eq!(agents, ["t2"]);
+        assert_eq!(app.counts(), (0, 0, 1), "the shell's idle tab is not an agent rollup");
     }
 
     #[test]

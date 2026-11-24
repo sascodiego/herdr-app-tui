@@ -25,13 +25,17 @@ Options:
       --send TEXT         Text to send with --attach
 
 Keys:
-  tab          open or close the panel
+  ctrl+o o     open or close the panel; tab stays with the agent
   enter        attach to the highlighted tab
   j / k        move the highlight
   pageup / pagedown, alt+up / alt+down   scroll; q or esc resumes
+  ctrl+o        workspace prefix: o panel, c new tab, w space, r rename, x close
+  alt+1..9      select tab; alt+up/down walk agents
+  pageup / pagedown   scroll the frozen history
   ctrl+q / ctrl+\\   quit
 
-While attached, q, r, esc and ctrl+c belong to the agent.
+While attached, q, r, esc and ctrl+c belong to the agent; ctrl+o and the quit
+keys are reserved. Esc cancels the prefix.
 Touch: tap the header or a row; drag or wheel to scroll.
 
 See herdr.dev — the runtime your coding agents live on.
@@ -98,6 +102,8 @@ mod tests {
     #[test]
     fn the_help_lists_the_current_quit_and_scroll_keys() {
         assert!(HELP.contains("ctrl+q / ctrl+\\"));
+        assert!(HELP.contains("ctrl+o"));
+        assert!(HELP.contains("ctrl+o o"));
         assert!(HELP.contains("pageup / pagedown"));
         assert!(!HELP.contains("r            refresh now"));
     }

@@ -21,6 +21,13 @@ pub enum Action {
     Up,
     Down,
     Refresh,
+    /// Enter the tmux-style workspace prefix mode.
+    Prefix,
+    /// Select a tab by its visible index.
+    SelectTab(usize),
+    /// Move through the detected agent list.
+    AgentUp,
+    AgentDown,
     Ignore,
 }
 
@@ -52,11 +59,17 @@ pub fn action(key: KeyEvent) -> Action {
         (KeyCode::Char('\\'), KeyModifiers::CONTROL)
         | (KeyCode::Char('4'), KeyModifiers::CONTROL)
         | (KeyCode::Char('q'), KeyModifiers::CONTROL) => Action::Quit,
-        (KeyCode::Tab, _) => Action::TogglePanel,
+        (KeyCode::Char('o'), KeyModifiers::CONTROL) => Action::Prefix,
         (KeyCode::Esc, _) => Action::ClosePanel,
         (KeyCode::Enter, _) => Action::Attach,
-        (KeyCode::PageUp, _) | (KeyCode::Up, KeyModifiers::ALT) => Action::ScrollUp,
-        (KeyCode::PageDown, _) | (KeyCode::Down, KeyModifiers::ALT) => Action::ScrollDown,
+        (KeyCode::PageUp, _) => Action::ScrollUp,
+        (KeyCode::PageDown, _) => Action::ScrollDown,
+        (KeyCode::Up, KeyModifiers::ALT) => Action::AgentUp,
+        (KeyCode::Down, KeyModifiers::ALT) => Action::AgentDown,
+        (KeyCode::Char(character), KeyModifiers::ALT) if character.is_ascii_digit() => {
+            let digit = character.to_digit(10).unwrap_or(1) as usize;
+            Action::SelectTab(if digit == 0 { 9 } else { digit - 1 })
+        }
         (KeyCode::Up, _) | (KeyCode::Char('k'), KeyModifiers::NONE) => Action::Up,
         (KeyCode::Down, _) | (KeyCode::Char('j'), KeyModifiers::NONE) => Action::Down,
         (KeyCode::Char('r'), KeyModifiers::NONE) => Action::Refresh,
@@ -73,8 +86,8 @@ mod tests {
     }
 
     #[test]
-    fn tab_opens_the_panel_and_escape_closes_it() {
-        assert_eq!(action(key(KeyCode::Tab)), Action::TogglePanel);
+    fn tab_belongs_to_the_agent_and_escape_closes_the_panel() {
+        assert_eq!(action(key(KeyCode::Tab)), Action::Ignore);
         assert_eq!(action(key(KeyCode::Esc)), Action::ClosePanel);
     }
 
@@ -98,11 +111,11 @@ mod tests {
     }
 
     #[test]
-    fn page_keys_and_alt_arrows_scroll_without_touching_the_agent() {
+    fn page_keys_scroll_and_alt_arrows_walk_agents() {
         assert_eq!(action(key(KeyCode::PageUp)), Action::ScrollUp);
         assert_eq!(action(key(KeyCode::PageDown)), Action::ScrollDown);
-        assert_eq!(action(KeyEvent::new(KeyCode::Up, KeyModifiers::ALT)), Action::ScrollUp);
-        assert_eq!(action(KeyEvent::new(KeyCode::Down, KeyModifiers::ALT)), Action::ScrollDown);
+        assert_eq!(action(KeyEvent::new(KeyCode::Up, KeyModifiers::ALT)), Action::AgentUp);
+        assert_eq!(action(KeyEvent::new(KeyCode::Down, KeyModifiers::ALT)), Action::AgentDown);
         // A bare arrow still belongs to the panel or the agent.
         assert_eq!(action(key(KeyCode::Up)), Action::Up);
     }
@@ -116,6 +129,21 @@ mod tests {
         assert_eq!(pointer(MouseEventKind::Drag(MouseButton::Left)), Some(Pointer::Drag));
         assert_eq!(pointer(MouseEventKind::Down(MouseButton::Right)), None);
         assert_eq!(pointer(MouseEventKind::Moved), None);
+    }
+
+    #[test]
+    fn ctrl_o_is_the_workspace_prefix() {
+        assert_eq!(action(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL)), Action::Prefix);
+        assert_ne!(action(key(KeyCode::Char(':'))), Action::Prefix);
+    }
+
+    #[test]
+    fn alt_numbers_select_tabs_and_alt_arrows_walk_agents() {
+        assert_eq!(action(KeyEvent::new(KeyCode::Char('3'), KeyModifiers::ALT)), Action::SelectTab(2));
+        assert_eq!(action(KeyEvent::new(KeyCode::Char('0'), KeyModifiers::ALT)), Action::SelectTab(9));
+        assert_eq!(action(KeyEvent::new(KeyCode::Up, KeyModifiers::ALT)), Action::AgentUp);
+        assert_eq!(action(KeyEvent::new(KeyCode::Down, KeyModifiers::ALT)), Action::AgentDown);
+        assert_eq!(action(key(KeyCode::PageUp)), Action::ScrollUp);
     }
 
     #[test]
