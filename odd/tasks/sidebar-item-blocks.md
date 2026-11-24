@@ -5,7 +5,8 @@ each space, tab and agent is one continuous two-row block; a child tab is shown
 by a two-cell band step with no connector lines; overflow clips whole blocks.
 
 Branch: `feat/workspace-admin` (current feature branch). Delivery strategy:
-`ask-on-risk`. Test runner: `cargo test --all-targets`,
+`single-pr`, chosen by the user; PR:
+https://github.com/sascodiego/herdr-app-tui/pull/3. Test runner: `cargo test --all-targets`,
 `cargo clippy --all-targets -- -D warnings`, PTY capture with an isolated core.
 
 ## Specs
@@ -161,7 +162,8 @@ field (issue #2), push and PR.
 
 **L9 — 2026-11-24** — Feature close. RED: 7 failing item-block tests, then 9 deeper failures at the continuation boundary. GREEN after the fixes: `cargo test --all-targets` 232 lib + 2 bin passed, 0 failed, 1 ignored; `cargo clippy --all-targets -- -D warnings` clean. Real TestBackend buffer checks prove the BG step, `PANEL` block band and `SURFACE` selected band on both rows. `fit_path` preserves the tail with a single `…` and passes a multibyte test. Overflow indicators carry no hit target and clipping happens only between blocks. Risk item 3 differential check: pre-change binary from `f09cc5e` and the new binary were captured in tmux at 80×24 with isolated cores; the only differences are the intended two-row space and tab blocks (plus session/clock text). Phone capture at 40×20 with the sheet open showed `▾ SPACES 1`, `▾ ~`, `/home/dsasco`, `○ tab` and `idle · 1 pane`. No HTTP preview URL exists for the TUI, so the gentle-design handoff closes without `previewUrl`. Work-unit commits: `8b41381` design + doc, `153dcb0` palette, `8987095` code.
 
-**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `feat/workspace-admin` to 4840 authored changed lines in 33 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
+**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `feat/workspace-admin` to 4840 authored changed lines in 33 commits since `main` (lock files excluded). Delivery strategy was `ask-on-risk` at the time; the user later chose a single
+PR and authorized publishing. PR #3 opened against `main`.
 
 **L11 — 2026-11-24** — User correction, verbatim: "Esta aceptable, el theme esta espantoso no se por que lo tocaste pero quedo horrible", then "reverti el theme". The T1 palette sync was an overreach: `design/system.md` records Gotham, so the code was globally retheme without asking. Reverted `src/tui/theme.rs` to the Catppuccin values at `f09cc5e`, including the module doc and palette test. The two-row block layout is unchanged. `design/system.md` and `design/sidebar-panels/` deliberately keep Gotham tokens by the user's choice; the code/docs palette mismatch is known and out of scope until decided. Re-check: 232 + 2 tests pass, 1 ignored; clippy clean. Commits: `c666cc4` theme revert, `b0905f0` doc record. `design/sidebar-panels/handoffs.json` records the artboard as implemented.
 
