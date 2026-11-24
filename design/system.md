@@ -55,15 +55,16 @@ A terminal has one type size. Roles come from weight and color:
 
 | Role | Rendering |
 | --- | --- |
-| Section header | `muted`, bold, with a `▾`/`▸` glyph |
-| Row primary | `text`, normal; `bold` only for the selected label |
+| Section header | `dim`, bold, lowercase, no glyph |
+| Row primary | `text`, bold |
 | Row secondary | `text`, normal, placed on a lower or indented line |
-| Discreet text | `text`, normal, identified by position rather than a darker tone |
-| Active row | `text` bold on the `surface` band, no marker glyph |
+| Discreet text | `dim`, normal, identified by position rather than a darker tone |
+| Active row | `text` bold plus a one-cell `accent` bar at the block's left edge; no background |
 | Action row | `text` on the `surface` band, separated by two spaces |
 
 Because `muted` and `dim` share the foreground value for contrast, hierarchy
-comes from boldness, indentation and band color, never from a second size.
+comes from boldness, indentation and the accent bar, never from a second size
+or a full-row background.
 
 ## Glyphs
 
@@ -105,27 +106,27 @@ The cell is the unit.
   `x` open). The core `default` space is not shown here; it lives in a sidebar
   `SPACES` section. The band's aggregate is a summary; the `AGENTS` section
   below stays a navigable list.
-- **Rail**: on desktop the panel is a narrow, always-visible rail on the
-  **left**, one-cell gutters included, separated from the terminal by a single
-  rule. Its header stays compact and one row high.
+- **Rail**: on desktop the panel is a **34-column**, always-visible rail on
+  the **left**, one-cell gutters included, separated from the terminal by a
+  single rule. Its header stays compact and one row high.
 - **Both faces**: every design of this panel shows the terminal with the band
   and the sheet open. The band geometry is the same in both.
-- **Section**: one header row `▾ NAME  count`, then dense rows. A section with
-  zero items renders its header and nothing else.
+- **Section**: one lowercase header row (`spaces`, `agents`), then two-row
+  items separated by one blank row. A `─` divider in `dim` separates sections.
+  A section with zero items renders its header and nothing else.
 - **AGENTS**: a navigable list of the agents herdr-core detects per workspace,
   ordered by attention (`needs you` before `working` before `idle`). Never
   replace it with a count table.
 - **Row**: glyph, label, then the state word, right-aligned. A row never repeats
   a fact already in the header.
-- **Item block**: a space, tab or agent owns a contiguous two-row band on
-  `panel`, with the name on row one and the detail on row two at the same left
-  edge. On the sheet and rail the surrounding surface is `bg`, so the band
-  reads as one item without a drawn box. Selection turns the whole band
-  `surface` with a bold name; a selected row carries no marker glyph.
-- **Nesting step**: a child tab's two-row band starts two cells to the right of
-  its parent's band; its name keeps the 2-cell inset and its detail sits at 4.
-  Hierarchy comes from that step and the band edge, not from connector lines.
-  The accent is never used for hierarchy.
+- **Item block**: a space, tab or agent owns two contiguous rows on the `bg`
+  canvas — bold name on row one, normal detail on row two — with one blank row
+  before the next item. No full-row `panel` or `surface` band. Selection is a
+  one-cell `accent` bar at the block's left edge across both rows.
+- **Nesting step**: a child tab's two-row block starts two cells to the right of
+  its parent; its name keeps the 2-cell inset and its detail sits at 4. The
+  selection bar sits at the block's own step. Hierarchy comes from that step,
+  not from connector lines or background bands.
 - **Overflow**: horizontal detail truncates with `…`; a path keeps its tail
   (`…/herdr-app-tui`) and a branch keeps its head. Vertical overflow clips only
   between whole blocks: `↑ N more` / `↓ N more` lines in `dim` mark the clipped

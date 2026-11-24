@@ -47,6 +47,12 @@ in a separate `TABS` section; section labels are lowercase `spaces` / `agents`;
 the space row uses a colour dot plus name with branch/path as its detail; the
 selected band covers both rows. Keep two rows per item and no connector lines.
 
+**S10** — Verbatim: "Tambien la distribucion y la calidad de los colores, el contraste y si ves nuestro sidebar esta feo con esos fondos en los active quedan feos", then "prefiero la barra de acento. Con eso sellado"
+Aesthetic pass only, with structure frozen: wider desktop rail, one blank row
+between items, tenuous divider between sections, bold names and readable detail
+contrast using existing tokens, state-coloured dots, and a one-cell accent bar
+as the active marker instead of the full `SURFACE` background band.
+
 ## Tasks
 
 | ID | S# | Route | Commit | Status |
@@ -57,6 +63,7 @@ selected band covers both rows. Keep two rows per item and no connector lines.
 | T4 | S1,S2,S5 | parent | `8987095` | done — hit-testing, scroll and input over both rows |
 | T5 | S6,S7,S8 | parent | `8b41381` | done — docs, differential check, PTY capture, clippy, handoff close |
 | T6 | S9 | parent | pending | done — three-round visual polish against the reference |
+| T7 | S10 | parent | pending | done — aesthetic pass: distribution, contrast, accent-bar selection |
 
 ## Log
 
@@ -78,7 +85,7 @@ selected band covers both rows. Keep two rows per item and no connector lines.
 
 **L9 — 2026-11-24** — Feature close. RED: 7 failing item-block tests, then 9 deeper failures at the continuation boundary. GREEN after the fixes: `cargo test --all-targets` 232 lib + 2 bin passed, 0 failed, 1 ignored; `cargo clippy --all-targets -- -D warnings` clean. Real TestBackend buffer checks prove the BG step, `PANEL` block band and `SURFACE` selected band on both rows. `fit_path` preserves the tail with a single `…` and passes a multibyte test. Overflow indicators carry no hit target and clipping happens only between blocks. Risk item 3 differential check: pre-change binary from `f09cc5e` and the new binary were captured in tmux at 80×24 with isolated cores; the only differences are the intended two-row space and tab blocks (plus session/clock text). Phone capture at 40×20 with the sheet open showed `▾ SPACES 1`, `▾ ~`, `/home/dsasco`, `○ tab` and `idle · 1 pane`. No HTTP preview URL exists for the TUI, so the gentle-design handoff closes without `previewUrl`. Work-unit commits: `8b41381` design + doc, `153dcb0` palette, `8987095` code.
 
-**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `workspace-admin` to 3412 authored changed lines in 23 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
+**L10 — 2026-11-24** — Work-unit slice boundary: the closing commits bring `workspace-admin` to 3720 authored changed lines in 25 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
 
 **L11 — 2026-11-24** — User correction, verbatim: "Esta aceptable, el theme esta espantoso no se por que lo tocaste pero quedo horrible", then "reverti el theme". The T1 palette sync was an overreach: `design/system.md` records Gotham, so the code was globally retheme without asking. Reverted `src/tui/theme.rs` to the Catppuccin values at `f09cc5e`, including the module doc and palette test. The two-row block layout is unchanged. `design/system.md` and `design/sidebar-panels/` deliberately keep Gotham tokens by the user's choice; the code/docs palette mismatch is known and out of scope until decided. Re-check: 232 + 2 tests pass, 1 ignored; clippy clean. Commits: `c666cc4` theme revert, `b0905f0` doc record. `design/sidebar-panels/handoffs.json` records the artboard as implemented.
 
@@ -87,3 +94,7 @@ selected band covers both rows. Keep two rows per item and no connector lines.
 **L13 — 2026-11-24** — "sellado" — scope for T6: three rounds, capture after each, no palette or shortcut changes. Round 1 nests tabs under the active space and removes the `TABS` section; round 2 matches the reference's lowercase section labels and dot/detail space row; round 3 tunes vertical rhythm and compares the final PNG.
 
 **L14 — 2026-11-24** — T6 done. RED: 9 failures for the old `▾ SPACES`/`▾ TABS` strings, separate tab section, dot/detail format and selected-band step. GREEN: 234 lib + 2 bin tests pass, 1 ignored; clippy clean. Rounds 1-2 removed the separate `TABS` section, nested the active space's tabs as two-row child blocks, lowercased `spaces`/`agents`, replaced the disclosure glyph with a dot, and moved the tab count into the space detail. Round 3 compared tmux-to-PNG captures at 80x24 and 40x20 with a second space and a fake OSC 7501 agent: `spaces` with two two-row items, the selected space's tab nested below it, and `agents` with `working · pi`. Kept the two-row rule, the two-cell step, no connector lines and the existing Catppuccin palette. No further geometry change was needed.
+
+**L15 — 2026-11-24** — User correction, verbatim: "Esta feo, no es la estructura la que tenias que modificar es la estetica", then "Tambien la distribucion y la calidad de los colores, el contraste y si ves nuestro sidebar esta feo con esos fondos en los active quedan feos". Opened T7 under S10. Proposed five aesthetic-only changes and asked which active marker to use; user answered "prefiero la barra de acento. Con eso sellado". Structure and shortcuts are frozen; no global palette change.
+
+**L16 — 2026-11-24** — T7 done. RED: 8 failures for the 26-column rail, missing blank rows and divider, full-row `SURFACE` background, non-bold inactive names and a muted inactive-space dot. GREEN: 241 lib + 2 bin tests pass, 1 ignored; clippy clean. The rail is now 34 columns, items are separated by one blank row, a `dim` divider separates `spaces` from `agents`, names are bold `TEXT`, details are normal `TEXT`, headers are bold `DIM`, and the active item uses a one-cell `ACCENT` bar instead of any full-row background. `design/system.md` was updated to match. Final desktop and phone PNGs were captured with two spaces and a `working · pi` agent and sent by Telegram with HTTP 200.
