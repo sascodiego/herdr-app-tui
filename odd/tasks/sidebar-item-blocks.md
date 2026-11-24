@@ -45,11 +45,11 @@ the current feature branch. Push, PR and merge remain user decisions.
 
 | ID | S# | Route | Commit | Status |
 | --- | --- | --- | --- | --- |
-| T1 | S1,S3,S4 | parent | pending | pending — two-row blocks and aligned detail |
-| T2 | S2,S5 | parent | pending | pending — stepped child band, no connectors, tabs nested |
-| T3 | S1 | parent | pending | pending — tail-preserving ellipsis and block-wise clipping |
-| T4 | S1,S2,S5 | parent | pending | pending — hit-testing, scroll and input over both rows |
-| T5 | S6,S7,S8 | parent | pending | pending — docs, differential check, PTY capture, clippy, handoff close |
+| T1 | S1,S3,S4 | parent | `153dcb0`, `8987095` | done — two-row blocks, aligned detail and Gotham tokens |
+| T2 | S2,S5 | parent | `8987095` | done — stepped child band, no connectors, tabs nested |
+| T3 | S1 | parent | `8987095` | done — tail-preserving ellipsis and block-wise clipping |
+| T4 | S1,S2,S5 | parent | `8987095` | done — hit-testing, scroll and input over both rows |
+| T5 | S6,S7,S8 | parent | `8b41381` | done — docs, differential check, PTY capture, clippy, handoff close |
 
 ## Log
 
@@ -67,4 +67,8 @@ the current feature branch. Push, PR and merge remain user decisions.
 
 **L7** — Implementation discovery: `src/tui/theme.rs` still held the old Catppuccin palette while `design/system.md` records Gotham Default. Since the handoff names `design/system.md` as the token source, token values and the theme test are synced inside T1. Risk item 3 still applies: the panel render and hit-testing helpers are shared, so the T5 differential check compares them against `main`.
 
-**L8** — Context backstop: T1-T4 were delegated to one writer with surfaces `src/tui/view.rs`, `src/tui/app.rs`, `src/tui/mod.rs`; the token sync was delegated to a second writer with surface `src/tui/theme.rs`. Both launched together in one turn with disjoint surfaces.
+**L8** — Context backstop: T1-T4 were delegated to one writer with surfaces `src/tui/view.rs`, `src/tui/app.rs`, `src/tui/mod.rs`; the token sync was delegated to a second writer with surface `src/tui/theme.rs`. Both launched together in one turn with disjoint surfaces. The panel worker stopped without a final report; its partial diff was diagnosed inline (`bands` unused, overflow only tested, children keyed as spaces) and the same worker continued with a narrower scope.
+
+**L9 — 2026-11-24** — Feature close. RED: 7 failing item-block tests, then 9 deeper failures at the continuation boundary. GREEN after the fixes: `cargo test --all-targets` 232 lib + 2 bin passed, 0 failed, 1 ignored; `cargo clippy --all-targets -- -D warnings` clean. Real TestBackend buffer checks prove the BG step, `PANEL` block band and `SURFACE` selected band on both rows. `fit_path` preserves the tail with a single `…` and passes a multibyte test. Overflow indicators carry no hit target and clipping happens only between blocks. Risk item 3 differential check: pre-change binary from `f09cc5e` and the new binary were captured in tmux at 80×24 with isolated cores; the only differences are the intended two-row space and tab blocks (plus session/clock text). Phone capture at 40×20 with the sheet open showed `▾ SPACES 1`, `▾ ~`, `/home/dsasco`, `○ tab` and `idle · 1 pane`. No HTTP preview URL exists for the TUI, so the gentle-design handoff closes without `previewUrl`. Work-unit commits: `8b41381` design + doc, `153dcb0` palette, `8987095` code.
+
+**L10 — 2026-11-24** — Work-unit slice boundary: `4ecac54` brings `workspace-admin` to 3299 authored changed lines in 19 commits since `main` (lock files excluded). Delivery strategy remains `ask-on-risk`; publishing is a user decision.
