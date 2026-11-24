@@ -301,6 +301,34 @@ impl App {
         self.terminals.iter().filter(|terminal| terminal.parent.as_deref() == Some(address)).collect()
     }
 
+    /// Select an open agent's tab, whichever space it lives in. The shared
+    /// document has no active flag, so `select_tab` also selects its space.
+    pub fn activate_agent(&mut self, address: &str) -> bool {
+        let parent = self
+            .terminals
+            .iter()
+            .find(|terminal| terminal.address == address)
+            .and_then(|terminal| terminal.parent.as_deref());
+        let mut target = None;
+        'spaces: for space in &self.model.spaces {
+            for tab in &space.tabs {
+                let panes = tab.root.terminals();
+                let inside = |address: &str| panes.iter().any(|node| node.terminal() == Some(address));
+                if inside(address) || parent.is_some_and(inside) {
+                    target = Some(tab.id.clone());
+                    break 'spaces;
+                }
+            }
+        }
+        let Some(id) = target else { return false };
+        if !self.model.select_tab(&id) {
+            return false;
+        }
+        self.rebuild_rows();
+        self.cursor = self.rows.iter().position(|row| row.id == id).unwrap_or(0);
+        true
+    }
+
     /// The workspace named in the band: the highlighted tab, or the session.
     pub fn workspace(&self) -> &str {
         self.selected().map_or(self.session.as_str(), |row| row.name.as_str())

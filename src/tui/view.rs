@@ -148,17 +148,9 @@ pub fn render(app: &App, frame: &mut Frame) {
     }
 }
 
-/// Tab indices reachable from the detected agent list, in attention order.
-pub fn agent_targets(app: &App) -> Vec<usize> {
-    app.agents()
-        .iter()
-        .filter_map(|agent| {
-            app.rows.iter().position(|row| {
-                row.address.as_deref() == Some(agent.address.as_str())
-                    || row.address.as_deref() == agent.parent.as_deref()
-            })
-        })
-        .collect()
+/// Open agent addresses in attention order, whatever space they live in.
+pub fn agent_targets(app: &App) -> Vec<String> {
+    app.agents().iter().map(|agent| agent.address.clone()).collect()
 }
 
 /// A temporary overlay while a workspace prefix command is pending.
@@ -223,6 +215,23 @@ pub fn panel_space_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Opti
     let spaces = &view.spaces;
     let offset = view.offset;
     spaces.get((local as usize).saturating_add(offset)).cloned().flatten()
+}
+
+/// Which agent's terminal is drawn at this screen coordinate.
+pub fn panel_agent_at(app: &App, area: Rect, x: u16, y: u16, wide: bool) -> Option<String> {
+    let inner = panel_inner(area);
+    if x < inner.x
+        || x >= inner.x.saturating_add(inner.width)
+        || y < inner.y
+        || y >= inner.y.saturating_add(inner.height)
+    {
+        return None;
+    }
+    let local = y - inner.y;
+    let view = panel_view(app, inner.width, wide, inner.height);
+    let agents = &view.agents;
+    let offset = view.offset;
+    agents.get((local as usize).saturating_add(offset)).cloned().flatten()
 }
 
 /// The three-row phone band: workspace and tabs, path, agent totals, toggle.
@@ -331,6 +340,7 @@ struct PanelBlock {
     lines: Vec<Line<'static>>,
     rows: Vec<Option<usize>>,
     spaces: Vec<Option<String>>,
+    agents: Vec<Option<String>>,
     bands: Vec<Band>,
     item: bool,
 }
@@ -341,6 +351,7 @@ impl PanelBlock {
             lines: vec![line],
             rows: vec![None],
             spaces: vec![None],
+            agents: vec![None],
             bands: vec![Band::None],
             item: false,
         }
@@ -351,6 +362,7 @@ impl PanelBlock {
         detail: Line<'static>,
         row: Option<usize>,
         space: Option<String>,
+        agent: Option<String>,
         selected: bool,
     ) -> PanelBlock {
         let band = Band::Item { selected };
@@ -358,6 +370,7 @@ impl PanelBlock {
             lines: vec![top, detail],
             rows: vec![row, row],
             spaces: vec![space.clone(), space],
+            agents: vec![agent.clone(), agent],
             bands: vec![band, band],
             item: true,
         }
@@ -372,6 +385,7 @@ fn spaced_item(blocks: &mut Vec<PanelBlock>, mut block: PanelBlock) {
         block.lines.insert(0, Line::from(""));
         block.rows.insert(0, None);
         block.spaces.insert(0, None);
+        block.agents.insert(0, None);
         block.bands.insert(0, Band::None);
     }
     blocks.push(block);
@@ -413,6 +427,7 @@ struct PanelView {
     lines: Vec<Line<'static>>,
     rows: Vec<Option<usize>>,
     spaces: Vec<Option<String>>,
+    agents: Vec<Option<String>>,
     bands: Vec<Band>,
     offset: usize,
     /// Exact number of lines the viewport paints, indicators included.
@@ -427,6 +442,7 @@ fn flatten(blocks: &[PanelBlock]) -> Flattened {
         flat.lines.extend(block.lines.iter().cloned());
         flat.rows.extend(block.rows.iter().copied());
         flat.spaces.extend(block.spaces.iter().cloned());
+        flat.agents.extend(block.agents.iter().cloned());
         flat.bands.extend(block.bands.iter().copied());
         flat.ranges.push(start..flat.lines.len());
     }
@@ -438,6 +454,7 @@ struct Flattened {
     lines: Vec<Line<'static>>,
     rows: Vec<Option<usize>>,
     spaces: Vec<Option<String>>,
+    agents: Vec<Option<String>>,
     bands: Vec<Band>,
     ranges: Vec<std::ops::Range<usize>>,
 }
@@ -447,6 +464,7 @@ impl Flattened {
         self.lines.push(line);
         self.rows.push(None);
         self.spaces.push(None);
+        self.agents.push(None);
         self.bands.push(Band::None);
     }
 }
@@ -466,40 +484,31 @@ fn append_blocks(target: &mut Flattened, source: &Flattened, from: usize, to: us
     target.lines.extend(source.lines[start..end].iter().cloned());
     target.rows.extend(source.rows[start..end].iter().copied());
     target.spaces.extend(source.spaces[start..end].iter().cloned());
+    target.agents.extend(source.agents[start..end].iter().cloned());
     target.bands.extend(source.bands[start..end].iter().copied());
 }
 
-/// All panel lines that fit, plus an offset that is always zero: the returned
-/// arrays are the viewport itself. Clipping happens only at block edges, and
-/// each clipped edge becomes one dim `↑ N more` / `↓ N more` line. The blank
-/// row and the action row stay pinned at the foot.
-fn panel_view(app: &App, width: u16, wide: bool, height: u16) -> PanelView {
-    let blocks = panel_blocks(app, width, wide);
-    let flat = flatten(&blocks);
-    let height = height as usize;
-    if height == 0 || flat.lines.len() <= height {
-        let len = flat.lines.len();
-        return PanelView { lines: flat.lines, rows: flat.rows, spaces: flat.spaces, bands: flat.bands, offset: 0, len };
+/// Clip one run of blocks to `height`, keeping the selected block and adding
+/// one indicator at each clipped edge. Blocks are never split.
+fn clip_blocks(blocks: &[PanelBlock], height: usize, cursor: usize) -> Flattened {
+    let flat = flatten(blocks);
+    if blocks.is_empty() || height == 0 || flat.lines.len() <= height {
+        return flat;
     }
-
-    // The last two blocks are the separator and the actions: chrome that must
-    // stay on screen even when the list above it is clipped.
-    let foot = blocks.len().saturating_sub(2);
-    let foot_lines = blocks[foot..].iter().map(|block| block.lines.len()).sum::<usize>();
-    let room = height.saturating_sub(foot_lines).min(flat.ranges[foot].start);
-    let selected = blocks[..foot]
+    let foot = blocks.len();
+    let selected = blocks
         .iter()
-        .position(|block| block.rows.contains(&Some(app.cursor)))
-        .or_else(|| blocks[..foot].iter().position(|block| block.item))
+        .position(|block| block.rows.contains(&Some(cursor)))
+        .or_else(|| blocks.iter().position(|block| block.item))
         .unwrap_or(0);
 
     let mut lo = selected;
     let mut hi = selected;
     let mut used = flat.ranges[selected].end - flat.ranges[selected].start;
     loop {
-        let spare = room.saturating_sub(usize::from(lo > 0) + usize::from(hi + 1 < foot));
+        let spare = height.saturating_sub(usize::from(lo > 0) + usize::from(hi + 1 < foot));
         let above = lo.checked_sub(1).map(|at| flat.ranges[at].end - flat.ranges[at].start);
-        let below = blocks.get(hi + 1).filter(|_| hi + 1 < foot).map(|block| block.lines.len());
+        let below = blocks.get(hi + 1).map(|block| block.lines.len());
         if let Some(size) = above
             && used + size <= spare
         {
@@ -517,35 +526,77 @@ fn panel_view(app: &App, width: u16, wide: bool, height: u16) -> PanelView {
         break;
     }
 
-    // Clipping a lone section header is not worth an indicator: keep those
-    // chrome lines on screen instead of claiming "0 more".
     if lo > 0 && !blocks[..lo].iter().any(|block| block.item) {
         let extra = flat.ranges[lo - 1].end - flat.ranges[0].start;
-        if used + extra <= room.saturating_sub(usize::from(hi + 1 < foot)) {
-            used += extra;
+        if used + extra <= height.saturating_sub(usize::from(hi + 1 < foot)) {
             lo = 0;
         }
     }
-    if hi + 1 < foot && !blocks[hi + 1..foot].iter().any(|block| block.item) {
+    if hi + 1 < foot && !blocks[hi + 1..].iter().any(|block| block.item) {
         let extra = flat.ranges[foot - 1].end - flat.ranges[hi + 1].start;
-        if used + extra <= room.saturating_sub(usize::from(lo > 0)) {
+        if used + extra <= height.saturating_sub(usize::from(lo > 0)) {
             hi = foot - 1;
         }
     }
 
     let above = blocks[..lo].iter().filter(|block| block.item).count();
-    let below = blocks[hi + 1..foot].iter().filter(|block| block.item).count();
+    let below = blocks[hi + 1..].iter().filter(|block| block.item).count();
     let mut view = Flattened::default();
-    if lo > 0 {
+    // A lone section header is not worth claiming "0 more".
+    if above > 0 {
         view.push_indicator(more_line(true, above));
     }
     append_blocks(&mut view, &flat, lo, hi + 1);
-    if hi + 1 < foot {
+    if below > 0 {
         view.push_indicator(more_line(false, below));
     }
-    append_blocks(&mut view, &flat, foot, blocks.len());
+    view
+}
+
+fn extend_flat(target: &mut Flattened, source: Flattened) {
+    target.lines.extend(source.lines);
+    target.rows.extend(source.rows);
+    target.spaces.extend(source.spaces);
+    target.agents.extend(source.agents);
+    target.bands.extend(source.bands);
+}
+
+/// All panel lines that fit, plus an offset that is always zero: the returned
+/// arrays are the viewport itself. Agents and the actions stay pinned; only
+/// the workspaces and tabs between them scroll, with an indicator per edge.
+fn panel_view(app: &App, width: u16, wide: bool, height: u16) -> PanelView {
+    let blocks = panel_blocks(app, width, wide);
+    let flat = flatten(&blocks);
+    let height = height as usize;
+    if height == 0 || flat.lines.len() <= height {
+        let len = flat.lines.len();
+        return PanelView { lines: flat.lines, rows: flat.rows, spaces: flat.spaces, agents: flat.agents, bands: flat.bands, offset: 0, len };
+    }
+
+    let foot = blocks.len().saturating_sub(2);
+    let head = blocks
+        .iter()
+        .position(|block| block.lines.iter().any(|line| rendered(line).trim_start().starts_with("02 WORKSPACES ")))
+        .unwrap_or(foot.min(blocks.len()));
+    if head >= foot {
+        let len = flat.lines.len();
+        return PanelView { lines: flat.lines, rows: flat.rows, spaces: flat.spaces, agents: flat.agents, bands: flat.bands, offset: 0, len };
+    }
+    let head_lines = blocks[..head].iter().map(|block| block.lines.len()).sum::<usize>();
+    let foot_lines = blocks[foot..].iter().map(|block| block.lines.len()).sum::<usize>();
+    // Too many open agents to pin and still paint the actions: fall back to
+    // clipping the whole panel rather than losing the footer off-screen.
+    if head_lines + foot_lines >= height {
+        let view = clip_blocks(&blocks, height, app.cursor);
+        let len = view.lines.len();
+        return PanelView { lines: view.lines, rows: view.rows, spaces: view.spaces, agents: view.agents, bands: view.bands, offset: 0, len };
+    }
+    let room = height.saturating_sub(head_lines + foot_lines);
+    let mut view = flatten(&blocks[..head]);
+    extend_flat(&mut view, clip_blocks(&blocks[head..foot], room, app.cursor));
+    extend_flat(&mut view, flatten(&blocks[foot..]));
     let len = view.lines.len();
-    PanelView { lines: view.lines, rows: view.rows, spaces: view.spaces, bands: view.bands, offset: 0, len }
+    PanelView { lines: view.lines, rows: view.rows, spaces: view.spaces, agents: view.agents, bands: view.bands, offset: 0, len }
 }
 
 /// The terminal area: the attached screen when there is one, the preview otherwise.
@@ -627,33 +678,8 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
         ))));
     }
 
-    blocks.push(PanelBlock::chrome(section("01", "WORKSPACES", app.model.spaces.len(), width)));
-    let home = crate::mods::home().display().to_string();
-    for space in &app.model.spaces {
-        let name = app.model.space_name(space, &home);
-        let active = app.model.active.as_deref() == Some(space.id.as_str());
-        spaced_item(&mut blocks, PanelBlock::item(
-            space_line(&name, width, active),
-            space_detail(app, space, width),
-            None,
-            Some(space.id.clone()),
-            active,
-        ));
-    }
-
-    blocks.push(PanelBlock::chrome(section("02", "TABS", app.rows().len(), width)));
-    for (index, row) in app.rows().iter().enumerate() {
-        let selected = index == app.cursor;
-        spaced_item(&mut blocks, PanelBlock::item(
-            row_line(row, width, index, selected),
-            row_detail(app, row, width),
-            Some(index),
-            None,
-            selected,
-        ));
-    }
-
-    blocks.push(PanelBlock::chrome(section("03", "AGENTS", app.agents().len(), width)));
+    // Agents lead: they stay visible while the other two sections scroll.
+    blocks.push(section_block("01", "AGENTS", app.agents().len(), width));
     for agent in app.agents() {
         let target = app.rows.iter().position(|row| {
             row.address.as_deref() == Some(agent.address.as_str())
@@ -664,7 +690,36 @@ fn panel_blocks(app: &App, width: u16, wide: bool) -> Vec<PanelBlock> {
             agent_detail(app, agent, width),
             target,
             None,
+            Some(agent.address.clone()),
             false,
+        ));
+    }
+
+    blocks.push(section_block("02", "WORKSPACES", app.model.spaces.len(), width));
+    let home = crate::mods::home().display().to_string();
+    for space in &app.model.spaces {
+        let name = app.model.space_name(space, &home);
+        let active = app.model.active.as_deref() == Some(space.id.as_str());
+        spaced_item(&mut blocks, PanelBlock::item(
+            space_line(&name, width, active),
+            space_detail(app, space, width),
+            None,
+            Some(space.id.clone()),
+            None,
+            active,
+        ));
+    }
+
+    blocks.push(section_block("03", "TABS", app.rows().len(), width));
+    for (index, row) in app.rows().iter().enumerate() {
+        let selected = index == app.cursor;
+        spaced_item(&mut blocks, PanelBlock::item(
+            row_line(row, width, index, selected),
+            row_detail(app, row, width),
+            Some(index),
+            None,
+            None,
+            selected,
         ));
     }
 
@@ -737,19 +792,31 @@ fn header_line(app: &App, width: u16) -> Line<'static> {
 
 /// A numbered title, a hairline rule in `LINE` and a right-aligned count.
 /// The rule belongs to the header, so a panel needs no divider row.
+/// A section starts after one empty row, so its title leads a group instead
+/// of continuing the previous item. The gap has no target and no band.
+fn section_block(number: &str, title: &str, count: usize, width: u16) -> PanelBlock {
+    let mut block = PanelBlock::chrome(Line::from(""));
+    block.lines.push(section(number, title, count, width));
+    block.rows.push(None);
+    block.spaces.push(None);
+    block.agents.push(None);
+    block.bands.push(Band::None);
+    block
+}
+
 fn section(number: &str, title: &str, count: usize, width: u16) -> Line<'static> {
     let width = width as usize;
     let count = count.to_string();
     let prefix = format!("{number} {title} ");
     let rule = width.saturating_sub(prefix.chars().count() + count.chars().count() + 1);
     Line::from(vec![
-        Span::styled(number.to_string(), Style::default().fg(theme::ACCENT)),
+        Span::styled(number.to_string(), Style::default().fg(theme::ACCENT_BRIGHT)),
         Span::raw(" "),
-        Span::styled(title.to_string(), Style::default().fg(theme::MUTED)),
+        Span::styled(title.to_string(), Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD)),
         Span::raw(" "),
         Span::styled("─".repeat(rule), Style::default().fg(theme::LINE)),
         Span::raw(" "),
-        Span::styled(count, Style::default().fg(theme::MUTED)),
+        Span::styled(count, Style::default().fg(theme::DIM)),
     ])
 }
 
@@ -1105,7 +1172,7 @@ mod tests {
         let rows = screen(&app(true), 100, 24);
         assert!(rows[1].contains("default"), "{:?}", &rows[..3]);
         let rail = rows.iter().map(|row| row.chars().take(RAIL_WIDTH as usize).collect::<String>()).collect::<Vec<_>>();
-        assert!(rail.iter().any(|row| row.trim_start().starts_with("01 WORKSPACES ")), "rail panels start after the gutter: {rail:?}");
+        assert!(rail.iter().any(|row| row.trim_start().starts_with("02 WORKSPACES ")), "rail panels start after the gutter: {rail:?}");
         // The rule sits where the rail ends; the terminal area is to its right.
         assert!(rows.iter().any(|row| row.chars().nth(RAIL_WIDTH as usize) == Some('│')), "no rule after the rail");
     }
@@ -1115,7 +1182,7 @@ mod tests {
         let rows = screen(&app(false), 40, 22);
         assert!(rows[0].contains("pi 2"), "band row: {:?}", rows[0]);
         assert!(rows[1].contains("switch"), "the toggle is centred in the band: {:?}", rows[1]);
-        assert!(!rows.iter().any(|row| row.trim_start().starts_with("01 WORKSPACES ")), "the panel is closed: {rows:?}");
+        assert!(!rows.iter().any(|row| row.trim_start().starts_with("02 WORKSPACES ")), "the panel is closed: {rows:?}");
         assert!(!rows.iter().any(|row| row.contains("new space")), "no actions while closed: {rows:?}");
     }
 
@@ -1123,8 +1190,8 @@ mod tests {
     fn opening_the_panel_on_a_narrow_screen_covers_it_with_sections() {
         let rows = screen(&app(true), 40, 22);
         assert!(rows[1].trim_end().ends_with('x'), "the toggle turns into x: {:?}", rows[1]);
-        assert!(rows.iter().any(|row| row.trim_start().starts_with("01 WORKSPACES ")), "{rows:?}");
-        assert!(rows.iter().any(|row| row.trim_start().starts_with("03 AGENTS ")), "{rows:?}");
+        assert!(rows.iter().any(|row| row.trim_start().starts_with("1 ▲ pi 2")), "the tabs are reachable: {rows:?}");
+        assert!(rows.iter().any(|row| row.trim_start().starts_with("01 AGENTS ")), "{rows:?}");
         assert!(rows.iter().any(|row| row.contains("needs you")), "{rows:?}");
         assert!(rows.iter().any(|row| row.contains("new space")), "actions at the foot: {rows:?}");
     }
@@ -1219,8 +1286,9 @@ mod tests {
 
     #[test]
     fn the_agents_section_lists_navigable_agents() {
-        let rows = screen(&app(true), 40, 24);
-        let start = rows.iter().position(|row| row.trim_start().starts_with("03 AGENTS ")).expect("the agents section");
+        let flat = flatten(&panel_blocks(&app(true), 38, false));
+        let rows = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let start = rows.iter().position(|row| row.trim_start().starts_with("01 AGENTS ")).expect("the agents section");
         let section = &rows[start + 1..];
         let blocked = section.iter().position(|row| row.contains("▲ pi 2")).expect("blocked agent");
         assert!(section[blocked + 1].contains("needs you"), "{section:?}");
@@ -1242,14 +1310,15 @@ mod tests {
         }));
         app.toggle_panel();
         let rows = screen(&app, 40, 20);
-        let start = rows.iter().position(|row| row.trim_start().starts_with("03 AGENTS ")).expect("the agents section");
-        let section = &rows[start + 1..];
+        let start = rows.iter().position(|row| row.trim_start().starts_with("01 AGENTS ")).expect("the agents section");
+        let space_header = rows.iter().position(|row| row.trim_start().starts_with("02 WORKSPACES ")).expect("the workspaces header");
+        let section = &rows[start + 1..space_header];
         assert!(!section.iter().any(|row| row.contains("bash")), "no plain shell: {section:?}");
         let agent = section.iter().position(|row| row.contains("◐ pi")).expect("the real agent");
         assert!(section[agent + 1].contains("working"), "its state is on the detail row: {section:?}");
         let targets = agent_targets(&app);
-        assert_eq!(targets, vec![0], "Alt+Up/Down skips the shell");
-        assert_eq!(app.rows()[targets[0]].address.as_deref(), Some("t2"));
+        assert_eq!(targets, vec!["t2".to_string()], "Alt+Up/Down skips the shell");
+        assert_eq!(app.rows()[0].address.as_deref(), Some("t2"));
 
         let mut shell_only = App::new("default", "local");
         shell_only.set_terminals(&json!({
@@ -1258,9 +1327,11 @@ mod tests {
         }));
         shell_only.toggle_panel();
         let rows = screen(&shell_only, 40, 20);
-        let header = rows.iter().find(|row| row.trim_start().starts_with("03 AGENTS ")).expect("the agents panel is always shown");
+        let header = rows.iter().find(|row| row.trim_start().starts_with("01 AGENTS ")).expect("the agents panel is always shown");
         assert!(header.trim_end().ends_with('0'), "a shell is not an agent: {header:?}");
-        assert!(!rows[start + 1..].iter().any(|row| row.contains("bash")), "no agent row: {rows:?}");
+        let tabs = rows.iter().position(|row| row.trim_start().starts_with("03 TABS ")).expect("the tabs header");
+        let header_at = rows.iter().position(|row| row.trim_start().starts_with("01 AGENTS ")).expect("the agents header");
+        assert!(!rows[header_at + 1..tabs].iter().any(|row| row.contains("bash")), "no agent row: {rows:?}");
     }
 
     #[test]
@@ -1271,14 +1342,15 @@ mod tests {
         let (lines, rows, spaces) = panel_content(&app, inner.width, false);
         let texts = lines.iter().map(rendered).collect::<Vec<_>>();
 
-        let spaces_label = texts.iter().position(|line| line.trim_start().starts_with("01 WORKSPACES ")).expect("the workspaces panel");
-        let tabs_label = texts.iter().position(|line| line.trim_start().starts_with("02 TABS ")).expect("the tabs panel");
-        let agents_label = texts.iter().position(|line| line.trim_start().starts_with("03 AGENTS ")).expect("the agents panel");
+        let spaces_label = texts.iter().position(|line| line.trim_start().starts_with("02 WORKSPACES ")).expect("the workspaces panel");
+        let tabs_label = texts.iter().position(|line| line.trim_start().starts_with("03 TABS ")).expect("the tabs panel");
+        let agents_label = texts.iter().position(|line| line.trim_start().starts_with("01 AGENTS ")).expect("the agents panel");
         let alpha = texts.iter().position(|line| line.contains("alpha")).expect("the active space");
         let one = texts.iter().position(|line| line.contains("one")).expect("its tab");
         let beta = texts.iter().position(|line| line.contains("beta")).expect("the inactive space");
+        assert!(agents_label < spaces_label, "agents lead: {texts:?}");
         assert!(spaces_label < alpha && alpha < beta && beta < tabs_label, "both spaces precede the tabs panel: {texts:?}");
-        assert!(tabs_label < one && one < agents_label, "the active tab is in its own panel: {texts:?}");
+        assert!(tabs_label < one, "the active tab is in its own panel: {texts:?}");
         assert!(!texts.iter().any(|line| line.contains("two") || line.contains("three")), "the other space's tabs stay out: {texts:?}");
 
         assert_eq!(rows[one], Some(0), "the tab's first row maps to its index");
@@ -1308,7 +1380,7 @@ mod tests {
         let texts = lines.iter().map(rendered).collect::<Vec<_>>();
         assert!(!texts.iter().any(|line| line.contains("one")), "alpha's tab left the panel: {texts:?}");
         let beta = texts.iter().position(|line| line.contains("beta")).expect("the selected space");
-        let tabs_label = texts.iter().position(|line| line.trim_start().starts_with("02 TABS ")).expect("the tabs panel");
+        let tabs_label = texts.iter().position(|line| line.trim_start().starts_with("03 TABS ")).expect("the tabs panel");
         let two = texts.iter().position(|line| line.contains("two")).expect("its first tab");
         let three = texts.iter().position(|line| line.contains("three")).expect("its second tab");
         assert!(beta < tabs_label && tabs_label < two && two < three, "beta's tabs fill the tabs panel: {texts:?}");
@@ -1321,7 +1393,7 @@ mod tests {
         let app = spaces_app();
         let (lines, _, _) = panel_content(&app, 38, false);
         let texts = lines.iter().map(rendered).collect::<Vec<_>>();
-        for label in ["01 WORKSPACES ", "02 TABS ", "03 AGENTS "] {
+        for label in ["02 WORKSPACES ", "03 TABS ", "01 AGENTS "] {
             let at = texts
                 .iter()
                 .position(|line| line.trim_start().starts_with(label))
@@ -1379,10 +1451,8 @@ mod tests {
         let app = app(true);
         let panel = zones(Rect::new(0, 0, 40, 20), true).panel.expect("the phone sheet");
         let inner = panel_inner(panel);
-        let view = panel_view(&app, inner.width, false, inner.height);
-        let lines = &view.lines;
-        let row = lines.iter().position(|line| rendered(line) == "new space  new tab  rename  close").expect("the action row");
-        let y = inner.y + (row as u16).saturating_sub(view.offset as u16);
+        let rows = screen(&app, 40, 20);
+        let y = rows.iter().position(|row| row.trim_start().starts_with("new space  new tab")).expect("the action row") as u16;
         assert_eq!(panel_action_at(&app, panel, inner.x, y, false), Some(Command::NewSpace));
         assert_eq!(panel_action_at(&app, panel, inner.x + 28, y, false), Some(Command::CloseTab));
         assert_eq!(panel_action_at(&app, panel, inner.x, y + 1, false), None);
@@ -1583,6 +1653,7 @@ mod tests {
         let mut app = App::new("default", "local");
         app.set_terminals(&json!({ "terminals": terminals, "hidden_finished": 0, "machines": [] }));
         app.toggle_panel();
+        app.cursor = 5;
         let rows = screen(&app, 40, 10);
         let joined = rows.join("\n");
         assert!(joined.contains("↑"), "should show ↑ indicator: {joined}");
@@ -1698,12 +1769,13 @@ mod tests {
         }));
         app.toggle_panel();
         let rows = screen(&app, 40, 24);
-        let tab = rows.iter().position(|row| row.contains("◐ claude")).expect("tab name row");
+        let tabs = rows.iter().position(|row| row.trim_start().starts_with("03 TABS ")).expect("the tabs panel");
+        let tab = rows[tabs + 1..].iter().position(|row| row.contains("◐ claude")).expect("tab name row") + tabs + 1;
         let detail = &rows[tab + 1];
         assert!(detail.contains("working"), "{detail:?}");
         assert!(detail.contains("pi"), "{detail:?}");
         assert!(detail.contains("2 panes"), "pane count from the layout: {detail:?}");
-        let agents = rows.iter().position(|row| row.trim_start().starts_with("03 AGENTS ")).expect("agents section");
+        let agents = rows.iter().position(|row| row.trim_start().starts_with("01 AGENTS ")).expect("agents section");
         let agent = rows[agents + 1..].iter().position(|row| row.contains("◐ claude")).expect("agent row") + agents + 1;
         assert!(rows[agent + 1].contains("working · pi"), "agent detail: {:?}", rows[agent + 1]);
     }
@@ -1729,13 +1801,14 @@ mod tests {
         let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
         let alpha = texts.iter().position(|line| line.contains("alpha")).expect("the active space");
         let beta = texts.iter().position(|line| line.contains("beta")).expect("the next space");
-        let tabs = texts.iter().position(|line| line.trim_start().starts_with("02 TABS ")).expect("the tabs panel");
+        let spaces = texts.iter().position(|line| line.trim_start().starts_with("02 WORKSPACES ")).expect("the workspaces panel");
+        let tabs = texts.iter().position(|line| line.trim_start().starts_with("03 TABS ")).expect("the tabs panel");
         let one = texts.iter().position(|line| line.contains("one")).expect("its tab");
-        let agents = texts.iter().position(|line| line.trim_start().starts_with("03 AGENTS ")).expect("the agents section");
+        let agent = texts.iter().position(|line| line.contains("◐ pi")).expect("the agent");
         assert_eq!(beta, alpha + 3, "one blank row between two spaces: {texts:?}");
-        assert_eq!(tabs, beta + 2, "the next panel header replaces a divider row: {texts:?}");
+        assert_eq!(spaces, agent + 3, "a gap precedes the workspaces panel: {texts:?}");
+        assert_eq!(tabs, beta + 3, "a gap precedes the next panel header: {texts:?}");
         assert_eq!(one, tabs + 1, "the first tab follows its header: {texts:?}");
-        assert_eq!(agents, one + 2, "the agents panel follows the tab: {texts:?}");
         let gap = alpha + 2;
         assert!(texts[gap].trim().is_empty(), "the separator is blank: {:?}", texts[gap]);
         assert_eq!(flat.rows[gap], None, "no hit target on a blank row");
@@ -1758,6 +1831,147 @@ mod tests {
     }
 
     #[test]
+    fn every_open_agent_appears_regardless_of_the_active_space_or_tab() {
+        let mut app = App::new("default", "local");
+        app.set_workspace(&json!({
+            "version": 7,
+            "value": { "spaces": [
+                { "id": "s1", "name": "alpha", "folder": "/a", "tabs": [
+                    { "id": "tb1", "name": "active-tab", "root": { "id": "tb1", "type": "row", "children": [
+                        { "id": "p1", "type": "block", "content": { "terminal": "t1" } }
+                    ] } }
+                ] },
+                { "id": "s2", "name": "beta", "folder": "/b", "tabs": [
+                    { "id": "tb2", "name": "inactive-tab", "root": { "id": "tb2", "type": "row", "children": [
+                        { "id": "p2", "type": "block", "content": { "terminal": "t2" } }
+                    ] } }
+                ] }
+            ] }
+        }));
+        app.set_terminals(&json!({
+            "hidden_finished": 0, "machines": [],
+            "terminals": [
+                { "address": "t1", "name": "pi-one", "status": { "state": "working" } },
+                { "address": "t2", "name": "pi-two", "status": { "state": "blocked" } }
+            ]
+        }));
+        app.toggle_panel();
+        let flat = flatten(&panel_blocks(&app, 38, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let agents = texts.iter().position(|line| line.trim_start().starts_with("01 AGENTS ")).expect("the agents panel");
+        let one = texts.iter().position(|line| line.contains("pi-one")).expect("the active space's agent");
+        let two = texts.iter().position(|line| line.contains("pi-two")).expect("the inactive space's agent");
+        assert!(agents < one && agents < two, "both agents are in the agents panel: {texts:?}");
+        assert!(two < one, "the blocked agent is first, whatever its space: {texts:?}");
+        assert!(texts[agents].trim_end().ends_with('2'), "both agents are counted: {:?}", texts[agents]);
+        assert!(!texts[..agents].iter().any(|line| line.contains("pi-two")), "no agent row outside its panel: {texts:?}");
+    }
+
+    /// Four spaces, two agents: one in the active space, one in another.
+    fn many_spaces_app() -> App {
+        let mut app = App::new("default", "local");
+        let mut spaces = Vec::new();
+        for (id, name) in [("s1", "alpha"), ("s2", "beta"), ("s3", "gamma"), ("s4", "delta")] {
+            spaces.push(json!({
+                "id": id, "name": name, "folder": "/work", "tabs": [
+                    { "id": format!("tb-{id}"), "name": format!("{name}-tab"), "root": { "id": "root", "type": "row", "children": [
+                        { "id": "pane", "type": "block", "content": { "terminal": format!("t-{id}") } }
+                    ] } }
+                ]
+            }));
+        }
+        app.set_workspace(&json!({ "version": 7, "value": { "spaces": spaces } }));
+        app.set_terminals(&json!({
+            "hidden_finished": 0, "machines": [],
+            "terminals": [
+                { "address": "t-s1", "name": "pi-alpha", "status": { "state": "working" } },
+                { "address": "t-s2", "name": "pi-beta", "status": { "state": "blocked" } },
+                { "address": "t-s3", "name": "shell", "state": "live" },
+                { "address": "t-s4", "name": "shell", "state": "live" }
+            ]
+        }));
+        app.toggle_panel();
+        app
+    }
+
+    #[test]
+    fn agents_come_before_spaces_and_tabs() {
+        let app = many_spaces_app();
+        let flat = flatten(&panel_blocks(&app, 30, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let at = |label: &str| texts.iter().position(|line| line.trim_start().starts_with(label)).expect("a section header");
+        assert!(at("01 AGENTS ") < at("02 WORKSPACES "), "agents lead: {texts:?}");
+        assert!(at("02 WORKSPACES ") < at("03 TABS "), "tabs close the panel: {texts:?}");
+    }
+
+    #[test]
+    fn the_agents_section_stays_visible_when_the_panel_scrolls() {
+        let app = many_spaces_app();
+        let panel = zones(Rect::new(0, 0, 40, 20), true).panel.expect("the phone sheet");
+        let inner = panel_inner(panel);
+        let view = panel_view(&app, inner.width, false, inner.height);
+        let texts = view.lines.iter().map(rendered).collect::<Vec<_>>();
+        assert!(texts.iter().any(|line| line.trim_start().starts_with("01 AGENTS ")), "the header is pinned: {texts:?}");
+        assert!(texts.iter().any(|line| line.contains("pi-alpha")), "the first agent is pinned: {texts:?}");
+        assert!(texts.iter().any(|line| line.contains("pi-beta")), "the second agent is pinned: {texts:?}");
+        assert_eq!(view.agents.iter().flatten().count(), 4, "both agent rows carry their address");
+    }
+
+    #[test]
+    fn an_agent_row_hits_its_terminal_address() {
+        let app = many_spaces_app();
+        let panel = zones(Rect::new(0, 0, 40, 20), true).panel.expect("the phone sheet");
+        let inner = panel_inner(panel);
+        let view = panel_view(&app, inner.width, false, inner.height);
+        let texts = view.lines.iter().map(rendered).collect::<Vec<_>>();
+        let row = texts.iter().position(|line| line.contains("pi-beta")).expect("the other space's agent");
+        let y = inner.y + row as u16;
+        assert_eq!(panel_agent_at(&app, panel, inner.x + 2, y, false).as_deref(), Some("t-s2"));
+        assert_eq!(panel_space_at(&app, panel, inner.x + 2, y, false), None, "not a space target");
+    }
+
+    #[test]
+    fn activating_an_agent_selects_its_space_and_tab() {
+        let mut app = many_spaces_app();
+        assert_eq!(app.model.active.as_deref(), Some("s1"), "alpha starts active");
+        assert!(app.activate_agent("t-s2"), "an open agent is reachable");
+        assert_eq!(app.model.active.as_deref(), Some("s2"), "its space becomes active");
+        assert_eq!(app.selected().map(|row| row.name.as_str()), Some("beta-tab"), "its tab becomes selected");
+        assert!(!app.activate_agent("missing"), "an unknown address is not activated");
+    }
+
+    #[test]
+    fn a_blank_row_precedes_every_section_header() {
+        let app = spaces_app();
+        let flat = flatten(&panel_blocks(&app, 38, false));
+        let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
+        let headers: Vec<usize> = ["02 WORKSPACES ", "03 TABS ", "01 AGENTS "]
+            .iter()
+            .map(|label| texts.iter().position(|line| line.trim_start().starts_with(label)).expect("a section header"))
+            .collect();
+        for header in headers {
+            let gap = header - 1;
+            assert!(texts[gap].trim().is_empty(), "a blank row before the header: {texts:?}");
+            assert_eq!(flat.rows[gap], None, "no hit target on the gap");
+            assert_eq!(flat.spaces[gap], None, "no space target on the gap");
+            assert_eq!(flat.bands[gap], Band::None, "no band on the gap");
+        }
+        let beta = texts.iter().position(|line| line.contains("beta")).expect("the last space");
+        let tabs = texts.iter().position(|line| line.trim_start().starts_with("03 TABS ")).expect("the tabs header");
+        assert_eq!(tabs, beta + 3, "detail, gap, then the next section: {texts:?}");
+    }
+
+    #[test]
+    fn the_section_title_carries_more_weight_than_its_number() {
+        let line = section("01", "WORKSPACES", 2, 38);
+        let spans = &line.spans;
+        assert_eq!(spans[0].style.fg, Some(theme::ACCENT_BRIGHT), "the numeral keeps the accent");
+        assert_eq!(spans[2].style.fg, Some(theme::TEXT), "the title is body text, not muted");
+        assert!(spans[2].style.add_modifier.contains(Modifier::BOLD), "the title names the section");
+        assert_eq!(spans[6].style.fg, Some(theme::DIM), "the count recedes");
+    }
+
+    #[test]
     fn the_rail_rule_and_section_hairlines_use_line() {
         let mut terminal = Terminal::new(TestBackend::new(100, 24)).expect("test terminal");
         terminal.draw(|frame| render(&app(true), frame)).expect("draw");
@@ -1771,7 +1985,7 @@ mod tests {
         let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
         let section = texts
             .iter()
-            .position(|line| line.trim_start().starts_with("01 WORKSPACES "))
+            .position(|line| line.trim_start().starts_with("02 WORKSPACES "))
             .expect("the section label");
         let rule = flat.lines[section]
             .spans
@@ -1851,7 +2065,7 @@ mod tests {
         let inner = panel_inner(z.panel.expect("the sheet"));
         let flat = flatten(&panel_blocks(&sheet, inner.width, false));
         let texts = flat.lines.iter().map(rendered).collect::<Vec<_>>();
-        let section = texts.iter().position(|line| line.trim_start().starts_with("01 WORKSPACES ")).expect("a label");
+        let section = texts.iter().position(|line| line.trim_start().starts_with("02 WORKSPACES ")).expect("a label");
         let y = (inner.y + section as u16) as usize;
         assert_eq!(phone[y][inner.x as usize], theme::ELEVATED, "the sheet is ELEVATED");
 
@@ -1978,14 +2192,14 @@ mod tests {
                 .position(|line| line.starts_with(prefix.as_str()))
                 .unwrap_or_else(|| panic!("the {number} {title} header: {texts:?}"))
         };
-        let workspaces = header("01", "WORKSPACES");
-        let tabs = header("02", "TABS");
-        let agents = header("03", "AGENTS");
-        assert!(workspaces < tabs && tabs < agents, "panel order: {texts:?}");
+        let agents = header("01", "AGENTS");
+        let workspaces = header("02", "WORKSPACES");
+        let tabs = header("03", "TABS");
+        assert!(agents < workspaces && workspaces < tabs, "panel order: {texts:?}");
         for (at, number, title, count) in [
-            (workspaces, "01", "WORKSPACES", "2"),
-            (tabs, "02", "TABS", "1"),
-            (agents, "03", "AGENTS", "1"),
+            (agents, "01", "AGENTS", "1"),
+            (workspaces, "02", "WORKSPACES", "2"),
+            (tabs, "03", "TABS", "1"),
         ] {
             let line = &lines[at];
             assert_eq!(rendered(line).chars().count(), 38, "the header fills the row");
@@ -1996,8 +2210,9 @@ mod tests {
                     .find(|span| span.content.as_ref() == text)
                     .unwrap_or_else(|| panic!("a {text} span: {line:?}"))
             };
-            assert_eq!(span(number).style.fg, Some(theme::ACCENT), "the numeral is ACCENT");
-            assert_eq!(span(title).style.fg, Some(theme::MUTED), "the title is MUTED");
+            assert_eq!(span(number).style.fg, Some(theme::ACCENT_BRIGHT), "the numeral is ACCENT_BRIGHT");
+            assert_eq!(span(title).style.fg, Some(theme::TEXT), "the title is TEXT");
+            assert!(span(title).style.add_modifier.contains(Modifier::BOLD), "the title is bold");
             let rule = line
                 .spans
                 .iter()
@@ -2026,7 +2241,8 @@ mod tests {
         let plain = app(true);
         let (lines, _, _) = panel_content(&plain, 38, false);
         let texts = lines.iter().map(rendered).collect::<Vec<_>>();
-        let at = texts.iter().position(|line| line.contains("pi 3")).expect("an inactive tab");
+        let tabs = texts.iter().position(|line| line.trim_start().starts_with("03 TABS ")).expect("the tabs panel");
+        let at = texts[tabs + 1..].iter().position(|line| line.contains("pi 3")).expect("an inactive tab") + tabs + 1;
         assert!(texts[at].starts_with("2 "), "second tab takes Alt+2: {:?}", texts[at]);
         let digit = lines[at]
             .spans
@@ -2049,7 +2265,8 @@ mod tests {
         ten.toggle_panel();
         let (lines, _, _) = panel_content(&ten, 38, false);
         let texts = lines.iter().map(rendered).collect::<Vec<_>>();
-        let at = texts.iter().position(|line| line.contains("tab-10")).expect("the tenth tab");
+        let tabs = texts.iter().position(|line| line.trim_start().starts_with("03 TABS ")).expect("the tabs panel");
+        let at = texts[tabs + 1..].iter().position(|line| line.contains("tab-10")).expect("the tenth tab") + tabs + 1;
         assert!(texts[at].starts_with("0 "), "the tenth tab takes Alt+0: {:?}", texts[at]);
     }
 
@@ -2076,7 +2293,8 @@ mod tests {
         app.toggle_panel();
         let (lines, _, _) = panel_content(&app, 38, false);
         let texts = lines.iter().map(rendered).collect::<Vec<_>>();
-        let at = texts.iter().position(|line| line.contains("claude")).expect("the tab");
+        let tabs = texts.iter().position(|line| line.trim_start().starts_with("03 TABS ")).expect("the tabs panel");
+        let at = texts[tabs + 1..].iter().position(|line| line.contains("claude")).expect("the tab") + tabs + 1;
         assert_eq!(rendered(&lines[at + 1]).trim_start(), "working · pi · 2 panes");
         let word = lines[at + 1]
             .spans
@@ -2189,7 +2407,7 @@ mod tests {
         app.model.set_word("t1", Some("idle".to_string()), Some("pi".to_string()), true);
         let (lines, _, _) = panel_content(&app, 38, false);
         let texts = lines.iter().map(rendered).collect::<Vec<_>>();
-        let agents = texts.iter().position(|line| line.starts_with("03 AGENTS ")).expect("the agents panel");
+        let agents = texts.iter().position(|line| line.starts_with("01 AGENTS ")).expect("the agents panel");
         let find = |name: &str| {
             texts
                 .iter()

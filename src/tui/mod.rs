@@ -597,15 +597,17 @@ fn select_tab_index(app: &mut App, index: usize) {
 fn move_agent(app: &mut App, up: bool) {
     let targets = view::agent_targets(app);
     let Some(last) = targets.len().checked_sub(1) else { return };
-    let current = targets.iter().position(|index| *index == app.cursor);
+    let current = app
+        .selected()
+        .and_then(|row| row.address.as_deref())
+        .and_then(|address| targets.iter().position(|target| target == address));
     let next = match current {
         None if up => last,
         None => 0,
         Some(at) if up => at.saturating_sub(1),
         Some(at) => (at + 1).min(last),
     };
-    app.cursor = targets[next];
-    app.rebuild_rows();
+    app.activate_agent(&targets[next]);
 }
 
 fn handle_prompt_key(core: &std::sync::Arc<hc::Core>, app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
@@ -744,6 +746,14 @@ fn handle_pointer(
                         app.panel = !app.panel;
                     }
                     Some(Zone::Panel) => {
+                        if let Some(address) = z.panel.and_then(|p| view::panel_agent_at(app, p, x, y, z.wide)) {
+                            app.activate_agent(&address);
+                            if !z.wide {
+                                app.panel = false;
+                                resume_live(app, attached);
+                            }
+                            return Ok(());
+                        }
                         if let Some(space) = z.panel.and_then(|p| view::panel_space_at(app, p, x, y, z.wide)) {
                             select_space(app, &space);
                             return Ok(());
